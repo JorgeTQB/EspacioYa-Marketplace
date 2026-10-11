@@ -2,14 +2,21 @@
 
 > **Para personas y asistentes de IA.** Lee este documento completo antes de diseñar, programar o redactar algo del proyecto. Si vas a trabajar una historia, lee también su archivo en `docs/historias/` (índice en la sección 9).
 > Si una instrucción de un prompt contradice esta especificación, manda la especificación y hay que avisar al equipo.
-> Generado el 2026-10-10 desde el tablero del equipo (tablero-is2). En el repositorio vive como `AGENTS.md` (este archivo) y las historias en `docs/historias/HU-XX.md`.
+> Generado el 2026-10-10 desde el tablero del equipo (tablero-is2) y actualizado el 2026-10-11 con [`arquitectura-propuesta.md`](arquitectura-propuesta.md) y [`docs/requerimientos.md`](docs/requerimientos.md). En el repositorio vive como `AGENTS.md` (este archivo) y las historias en `docs/historias/HU-XX.md`.
+>
+> **Documentos de referencia:**
+> - [`arquitectura-propuesta.md`](arquitectura-propuesta.md): base de datos, restricciones, componentes, estilos, vista lógica y modelo de datos.
+> - [`docs/requerimientos.md`](docs/requerimientos.md): catálogo de RF, RNF y reglas de negocio, más la matriz de trazabilidad.
+>
+> Este archivo resume lo esencial de ambos documentos; el detalle está en cada uno.
 
 ## 1. Qué es el producto
 
 Marketplace web para alquilar espacios deportivos y para eventos (canchas, estadios, auditorios), con pago en línea.
 
 - **Roles del sistema:** Usuario (arrendatario), Arrendador y Administrador.
-- **Normativas:** PCI DSS (pagos con tarjeta, siempre vía pasarela certificada) y protección de datos personales.
+- **Normativas:** PCI DSS (pagos con tarjeta, siempre vía pasarela certificada) y protección de datos personales (en Perú, Ley 29733).
+- **Nombre del proyecto:** pendiente de confirmar. El `README.md` usa "EspacioYa".
 - **Alcance:** 2 releases, 8 sprints y 28 historias de usuario, todas dentro del alcance.
   - **Release 1 (MVP transaccional):** al terminar, funciona el ciclo publicar → buscar → reservar → pagar → cancelar con reembolso.
   - **Release 2 (confianza y operación):** MFA, cobro del arrendador, perfil y datos personales, filtros, reseñas, reclamos y moderación.
@@ -34,25 +41,55 @@ Marketplace web para alquilar espacios deportivos y para eventos (canchas, estad
 
 | Pieza | Decisión |
 | --- | --- |
-| Backend | **Spring Boot (Java)**, programación orientada a objetos |
-| Frontend | **Angular** |
-| Base de datos | **[POR DEFINIR]**: es una decisión de arquitectura pendiente. Cuando se elija, actualizar esta línea y justificarla en las secciones 6.4 y 6.10 del informe |
+| Backend | **Spring Boot (Java)**, programación orientada a objetos: Spring MVC (API REST), Spring Data JPA (persistencia) y Spring Security (autenticación, roles y MFA) |
+| Frontend | **React** (SPA que consume la API REST; no contiene reglas de negocio) |
+| Comunicación | API REST con JSON sobre HTTPS (TLS en toda la comunicación) |
+| Base de datos | **Relacional. [POR CONFIRMAR: PostgreSQL]**, con migraciones versionadas (Flyway) y Spring Data JPA. El análisis está en la sección 1 de `arquitectura-propuesta.md`. Cuando se confirme, actualizar esta línea y justificarla en las secciones 6.4 y 6.10 del informe |
 | Pagos | Pasarela certificada PCI DSS en **modo de prueba** (checkout de la pasarela + webhook con firma verificada) |
-| Diagramas | Herramienta CASE del curso (se entregan los archivos editables). La IA puede proponerlos en PlantUML |
+| Archivos | Almacenamiento privado fuera de la base de datos (documentos y fotos), servido con URL firmada de corta duración |
+| Notificaciones | Solo por correo, mediante un componente reutilizable |
+| Diagramas | Herramienta CASE del curso (se entregan los archivos editables). La IA puede proponerlos en PlantUML o Mermaid |
+
+**Estilos y enfoque arquitectónico** (detalle en la sección 3 de `arquitectura-propuesta.md`):
+
+| Tipo | Elección |
+| --- | --- |
+| Estilo | Arquitectura en capas (N-capas orientada al dominio): presentación → API → aplicación → dominio → persistencia, más una capa de infraestructura transversal |
+| Despliegue | Cliente-servidor de 3 niveles: navegador (React) → servidor de aplicación (Spring Boot) → base de datos |
+| Granularidad | **Monolito modular**, no microservicios |
+| Patrón arquitectónico | MVC en el backend (Spring MVC; la vista es la respuesta JSON) |
+| Enfoque | DDD ligero + OOA: cada épica es un módulo con su propio lenguaje; desarrollo basado en componentes con inyección de dependencias |
 
 **Reglas de arquitectura (obligatorias):**
 
-1. **Arquitectura en capas.** `Controller → Service → Repository`, con entidades en el núcleo.
+1. **Arquitectura en capas.** `Controller → Service → Domain/Repository`, con entidades y reglas en el dominio.
 2. **El núcleo del backend va separado de la API REST.** La lógica de negocio y el acceso a datos no dependen de la web: la API es un cliente más del núcleo.
 3. **Entity frente a DTO.** Las entidades nunca salen del backend: la API recibe y devuelve DTO, solo con los campos necesarios. Nunca se exponen contraseñas, documentos, datos bancarios ni datos de tarjeta.
-4. **Un paquete por módulo**, alineado con las épicas: `cuentas`, `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`. Cada uno tiene `controller`, `service`, `repository`, `entity` y `dto`.
-5. **POO, principios y patrones.**
+4. **Un paquete por módulo**, alineado con las épicas, dentro de `pe.edu.ulima.<proyecto>`. Cada módulo tiene `controller`, `dto`, `service`, `domain` y `repository`:
+
+   | Paquete | Historias |
+   | --- | --- |
+   | `cuentas` | HU-01 a HU-05, HU-17, HU-20, HU-22 |
+   | `espacios` | HU-07, HU-08, HU-21 |
+   | `busqueda` | HU-10, HU-11, HU-23, HU-24 |
+   | `reservas` | HU-12, HU-14, HU-15, HU-25 |
+   | `pagos` | HU-13, HU-16, HU-18, HU-19, HU-28 |
+   | `administracion` | HU-06, HU-09, HU-26, HU-27 |
+   | `comun` | Transversal: seguridad, auditoría, errores, correo, almacenamiento y configuración |
+
+5. **Reglas de dependencia.**
+   - Un controlador nunca llama directamente a un repositorio.
+   - Entre módulos solo se usa la interfaz del `service` del otro módulo (por ejemplo, `reservas` usa `PagoService`, no `PagoRepository`), y no hay dependencias circulares.
+   - El dominio no depende de Spring Web ni de la pasarela: las integraciones externas (pasarela, correo, almacenamiento) se usan detrás de interfaces propias (Adapter).
+   - Todos los módulos pueden usar `comun`, pero `comun` no depende de ningún módulo.
+6. **POO, principios y patrones.**
    - Aplicar SOLID, alta cohesión y bajo acoplamiento.
    - Patrones vistos en el curso: Factory Method, Abstract Factory, Singleton, Adapter, Facade, Decorator, Bridge, Strategy, Iterator, Command y DAO.
    - Usarlos solo donde resuelvan un problema real; la sección 10 indica cuáles se esperan en las historias documentadas.
    - DAO/Repository se usa en toda la persistencia. Los beans de Spring ya son *singleton*: no se programa un Singleton a mano.
    - Cada patrón se documenta en la sección 7.7 del informe, con dónde está y por qué.
-6. **Reglas de negocio y montos solo en el servidor.** El cliente nunca decide montos, roles ni estados.
+7. **Reglas de negocio y montos solo en el servidor.** El cliente nunca decide montos, roles ni estados.
+8. **Integridad en la base de datos.** Las reglas críticas también se garantizan con restricciones: bloque único por espacio, fecha y hora solo para bloques activos; `id_transaccion_pasarela` único; un reembolso por pago y origen; una reserva liquidada una sola vez; una reseña y un reclamo por reserva; correo único; llaves foráneas en todas las relaciones (sección 5.2 de `arquitectura-propuesta.md`).
 
 **Convenciones de código (propuesta inicial; el equipo puede ajustarlas):**
 
@@ -69,9 +106,10 @@ Cada historia trae sus propios controles STRIDE (sección 9). Además, en todo e
 - **(T) Manipulación:** las contraseñas se guardan con hash y sal (bcrypt o argon2). Todo lo que viene del cliente se valida en el servidor, y los montos se calculan solo ahí.
 - **(R) Repudio:** las acciones sensibles se registran en una auditoría con quién, qué, cuándo e IP. Hay un componente de auditoría reutilizable.
 - **(I) Divulgación:** se usa TLS y mensajes de error genéricos. Los datos sensibles van cifrados en reposo. Los documentos se sirven con URL firmada de corta duración.
-- **(D) Denegación de servicio:** hay rate limiting donde la historia lo indica (registro, login, búsqueda, pagos, reportes).
+- **(D) Denegación de servicio:** hay rate limiting donde la historia lo indica: registro, login, recuperación, búsqueda y ficha, reservas pendientes, pagos, códigos MFA, reclamos y reportes. Los límites concretos están en RNF-SEG-17 de `docs/requerimientos.md`.
 - **(E) Elevación de privilegios:** los roles se asignan y validan en el backend en cada solicitud, y la propiedad del recurso se valida antes de cada edición. Las cuentas de administrador solo se crean por script interno.
 - **PCI DSS:** la plataforma nunca recibe ni guarda datos de tarjeta. El estado del pago cambia solo por un webhook con firma verificada e idempotente.
+- **Componentes transversales** (paquete `comun`): auditoría, rate limiting, manejo global de errores, sesión y tokens, correo, almacenamiento con URL firmada y cifrado de campos sensibles. Se construyen una vez, en el primer sprint que los necesita (la mayoría en el Sprint 1), y se reutilizan (sección 8 de `docs/requerimientos.md`).
 
 ## 5. Estados del sistema
 
@@ -79,17 +117,22 @@ Cada historia trae sus propios controles STRIDE (sección 9). Además, en todo e
 
 | Estado | Qué habilita |
 | --- | --- |
+| Correo pendiente | Nada; espera la verificación del correo (HU-02 CA1). Aplica también al usuario recién registrado (HU-01) |
 | Correo verificado | Iniciar sesión, crear borradores de espacios, subir documentos |
 | Identidad en revisión | Nada adicional; espera la revisión del admin |
 | Identidad verificada | Publicar espacios visibles, recibir reservas pagadas y registrar cuenta bancaria |
 | Identidad rechazada | Volver a subir documentos |
 | Suspendida | Nada; no puede iniciar sesión y sus espacios se ocultan |
 
+En el modelo de datos, estos estados se reparten en tres campos: `usuario.correo_verificado`, `usuario.estado` (`ACTIVA`, `SUSPENDIDA`, `ELIMINADA`) y `perfil_arrendador.estado_identidad` (`NO_INICIADA`, `EN_REVISION`, `VERIFICADA`, `RECHAZADA`).
+
+**Espacio:** `borrador` → `publicado` (requiere identidad verificada) ⇄ `pausado`; `publicado` → `baja`; `oculto` cuando lo oculta la moderación (HU-27). Si el arrendador está suspendido, sus espacios no se muestran, pero conservan su estado.
+
 **Reserva:** `pendiente de pago` (retiene los bloques 15 minutos) → `confirmada` (pago aprobado) o `expirada` (sin pago a tiempo). Una reserva confirmada puede pasar a `cancelada`.
 
-**Transacción:** `pagada` → `reembolsada`, o `reembolso fallido` (el admin puede reintentarlo).
+**Transacción (pago):** `rechazado` cuando la pasarela no aprueba el pago (se puede reintentar mientras la reserva siga vigente). Un pago aprobado queda `pagada` y puede pasar a `reembolsada` o a `reembolso fallido` (el admin puede reintentarlo).
 
-**Liquidación:** se genera semanalmente → `pagada` (con número de operación), o `pendiente de cuenta` si el arrendador no registró una cuenta bancaria.
+**Liquidación:** el admin la genera semanalmente y queda `generada` → `pagada` (con número de operación). Queda en `pendiente de cuenta` si el arrendador no registró una cuenta bancaria.
 
 **Simplificaciones del backlog:**
 - La política de cancelación es fija: con 48 h o más se devuelve el 100 %; con menos, 0 %; si cancela el arrendador, se devuelve el 100 %.
@@ -119,7 +162,7 @@ No implementes nada de esta lista aunque parezca útil.
 
 ## 7. Plan de releases y sprints
 
-El backlog define 8 sprints. Para terminar a tiempo, el equipo trabaja **dos sprints por semana**:
+El backlog define 8 sprints. Para terminar a tiempo (5 semanas con 6 personas), el equipo trabaja **dos sprints por semana**:
 
 | Semana real | Release | Sprint | Objetivo | Historias |
 | --- | --- | --- | --- | --- |
@@ -142,7 +185,7 @@ La semana 12 es de estabilización (pruebas, defectos e informe), y la entrega e
    - revisa el pull request;
    - escribe pruebas unitarias (al menos una por criterio, incluido el de error) y ejecuta casos de caja negra;
    - guarda las capturas como `HU-XX-E01`, `HU-XX-E02`…;
-   - llena la fila de la historia en la matriz de trazabilidad.
+   - llena la fila de la historia en la matriz de trazabilidad (sección 7 de [`docs/requerimientos.md`](docs/requerimientos.md)).
 4. **Aceptar (el Product Owner):** en la review comprueba la historia contra sus criterios.
 
 **Definition of Ready:**
@@ -161,7 +204,7 @@ La semana 12 es de estabilización (pruebas, defectos e informe), y la entrega e
 
 **Reglas para usar IA:**
 - La IA propone y redacta; la persona revisa y responde por el resultado. Nada entra a develop sin el pull request revisado por la pareja.
-- Contexto fijo para todos: la especificación del proyecto (`AGENTS.md`) más el archivo de la historia que trabajas (`docs/historias/HU-XX.md`). Dáselos siempre a tu IA: así el código sale igual aunque lo pidan 6 personas distintas.
+- Contexto fijo para todos: la especificación del proyecto (`AGENTS.md`) más el archivo de la historia que trabajas (`docs/historias/HU-XX.md`). Para diseñar, agrega también `arquitectura-propuesta.md` (paquetes, dependencias y modelo de datos) y los RF, RNF y RN de tu historia en `docs/requerimientos.md`. Dáselos siempre a tu IA: así el código sale igual aunque lo pidan 6 personas distintas.
 - Primero diseño, después código: con la historia, sus criterios y su STRIDE se pide el diseño, se revisa, y recién entonces se pide el código siguiendo ese diseño.
 - El informe se redacta con IA solo a partir de datos reales (actas, hoja de métricas, capturas, código). Nunca pedirle que invente métricas, dailies ni evidencias: la plantilla exige datos reales.
 - Los diagramas que proponga la IA (por ejemplo en PlantUML) se pasan a la herramienta CASE del curso: el enunciado pide los archivos editables.
@@ -169,7 +212,7 @@ La semana 12 es de estabilización (pruebas, defectos e informe), y la entrega e
 
 ## 9. Historias de usuario
 
-Fuente: Excel del backlog. Cada historia vive en su propio archivo en [`docs/historias/`](docs/historias/), con su dueño, la persona que la prueba, la semana real, los criterios de aceptación y los controles STRIDE.
+Fuente: Excel del backlog. Cada historia vive en su propio archivo en [`docs/historias/`](docs/historias/), con su dueño, la persona que la prueba, la semana real, los criterios de aceptación y los controles STRIDE. Los requerimientos derivados de cada historia (RF, RNF, RN) y la matriz de trazabilidad están en [`docs/requerimientos.md`](docs/requerimientos.md).
 
 **Antes de diseñar o programar una historia**, lee este documento completo, el archivo de la historia y los archivos de las historias de las que depende.
 
@@ -259,4 +302,18 @@ Salen de los sprints que se graban en video: el **Sprint 4 del R1** y el **Sprin
 | HU-23 · Filtros de búsqueda por precio, capacidad y características | Sebastian Garate | Decorator | Decorator: cada filtro (precio máximo, capacidad mínima, característica) envuelve a la búsqueda base de HU-10 y se pueden combinar libremente, sin una subclase por cada combinación de filtros. |
 | HU-25 · Recordatorio de reserva por correo | Jorge Quispe | Factory Method, Adapter | Factory Method: crear el correo adecuado según el evento (recordatorio, pago confirmado, cancelación); solo el recordatorio respeta la preferencia de desactivarlo. Adapter para el proveedor de correo, que así se puede cambiar sin tocar el dominio. |
 
-Al diseñar estas historias, pide a tu IA que aplique estos patrones y que lo muestre en el diagrama de clases y en el de secuencia. Los patrones de arquitectura se agregarán aquí cuando el equipo los defina.
+Al diseñar estas historias, pide a tu IA que aplique estos patrones y que lo muestre en el diagrama de clases y en el de secuencia.
+
+**Dónde vive cada patrón** (según `arquitectura-propuesta.md`):
+
+| Patrón | Ubicación |
+| --- | --- |
+| Adapter, Factory Method, Facade (HU-13) | Paquete `pagos`: la interfaz `PasarelaPago` y su adaptador; `CheckoutFacade` |
+| Iterator, DAO (HU-14) | Paquete `reservas` |
+| Strategy (HU-15) | Paquete `reservas`: la interfaz `PoliticaReembolso` |
+| Command, Adapter (HU-16) | Paquete `pagos`: `SolicitudReembolso` (reutiliza el adaptador de HU-13) |
+| Decorator (HU-23) | Paquete `busqueda`: filtros combinables |
+| Factory Method, Adapter (HU-25) | Componente de correo en `comun` |
+| DAO / Repository | Toda la persistencia: un repositorio por agregado |
+
+**Patrones y estilos de arquitectura:** capas (N-capas), cliente-servidor de 3 niveles, monolito modular, MVC y DDD ligero (ver la sección 3).

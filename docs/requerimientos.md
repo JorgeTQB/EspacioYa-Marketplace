@@ -176,10 +176,10 @@
 
 | ID | Requerimiento | Origen |
 | --- | --- | --- |
-| RNF-ARQ-01 | Backend en Spring Boot (Java) y frontend en Angular. Base de datos: **por definir**. | §3 |
+| RNF-ARQ-01 | Backend en Spring Boot (Java) y frontend en React (SPA). Base de datos relacional: **por confirmar, se propone PostgreSQL** con Flyway. | §3, `arquitectura-propuesta.md` §1-2 |
 | RNF-ARQ-02 | Arquitectura en capas `Controller → Service → Repository` con entidades en el núcleo; el núcleo no depende de la web. | §3 reglas 1-2 |
 | RNF-ARQ-03 | Las entidades nunca salen del backend: la API recibe y devuelve DTO con solo los campos necesarios. | §3 regla 3 |
-| RNF-ARQ-04 | Un paquete por módulo (`cuentas`, `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`), cada uno con `controller`, `service`, `repository`, `entity` y `dto`. | §3 regla 4 |
+| RNF-ARQ-04 | Un paquete por módulo (`cuentas`, `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`), cada uno con `controller`, `dto`, `service`, `domain` y `repository`, más el paquete transversal `comun`. | §3 regla 4, `arquitectura-propuesta.md` §4.1 |
 | RNF-ARQ-05 | SOLID, alta cohesión y bajo acoplamiento; DAO/Repository en toda la persistencia; patrones por historia según la sección 7 (columna Patrón). | §3 regla 5, §10 |
 | RNF-ARQ-06 | Convenciones: dominio en español con sufijos técnicos en inglés; endpoints REST en plural y minúsculas. | §3 |
 | RNF-ARQ-07 | Configuración y secretos en variables de entorno, con `.env.example`; nunca se suben credenciales ni llaves. | §3 |
@@ -285,7 +285,7 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 
 ## 9. Pendientes y observaciones para el equipo
 
-1. **Base de datos por definir** (§3). Afecta a RNF-SEG-09 (restricción única por espacio y bloque) y a la concurrencia de RF-D-03: la base que se elija debe soportar restricciones únicas y transacciones.
+1. **Base de datos por confirmar** (§3). La propuesta es PostgreSQL (`arquitectura-propuesta.md` §1), por sus índices únicos parciales para RNF-SEG-09 y sus transacciones ACID para RF-D-03. Falta que el equipo la valide.
 2. **Estado "correo pendiente"** (HU-02 CA1) no aparece en la tabla de estados del arrendador (§5), que empieza en "correo verificado". Conviene agregarlo a §5.
 3. **Respuesta del arrendador en reclamos** (HU-26 CA1): se menciona que "el arrendador puede responder", pero no hay un criterio que diga cómo se ve ni qué se valida. Aclararlo con el PO antes del Sprint 8.
 4. **Control compensatorio de IPs del panel admin** (HU-06, HU-09) hasta HU-17. Decidir si se retira o se mantiene junto con MFA.
