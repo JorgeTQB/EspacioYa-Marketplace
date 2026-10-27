@@ -119,3 +119,31 @@
   y rechaza si falta "Pantallas"; el explorador del `orquestador` también
   revisa el kit, `src/api/` y las rutas. `docs/specs.md` y
   `docs/verification.md` ya no exigen `R<n>` ni test a las tasks de frontend.
+
+- 2026-10-27 — (orquestador, sdd:false) Resueltos §9.5 (política de contraseña) y §9.7 (límite de registros por IP) en `docs/requerimientos.md` por decisión de Jorge Quispe, para desbloquear HU-01.
+
+## 2026-10-27 — HU-01 Registro de usuario con consentimiento (done)
+- **Agente:** orquestador → spec_author → implementer → reviewer (dueño: Jorge Quispe).
+- **Rama:** `feature/HU-01-registro-consentimiento`.
+- **Spec:** `specs/HU-01/` con R1–R26 y T1–T18. Bloqueo inicial por §9.5 y
+  §9.7 resuelto por el dueño (contraseña 8–64 con letra y dígito y distinta
+  del correo; 5 registros por IP por hora, ventana deslizante, 429 genérico).
+  Cambio pedido por el dueño: sin correo real en HU-01 (notificador simulado
+  que solo escribe en el log; la cuenta nace con `correo_verificado = true`).
+  Spec aprobado por Jorge Quispe el 2026-10-27.
+- **Cambios:** migraciones `V1_1__usuarios.sql` y `V1_2__auditoria.sql`;
+  `comun/` (manejo global de errores, auditoría, límite de intentos por IP,
+  seguridad con BCrypt(12) y CORS, reloj UTC); `cuentas/` (dominio `Usuario`,
+  `PoliticaContrasena`, `RegistroService`, puerto `NotificadorCorreo` con
+  implementación simulada, `UsuarioController`, `PoliticaPrivacidadController`);
+  propiedades `espacioya.privacidad.version-vigente` y `espacioya.frontend.url`.
+  Frontend: `react-router-dom`, kit `Boton`/`Campo`/`Alerta`, `api/cliente.js`,
+  `api/cuentas.js`, pantallas `/registro` y `/privacidad`.
+- **Resultado:** `./init.sh` completo en verde (29 unitarias + 26 IT, lint y
+  build). Reviewer: APPROVED (`progress/review_HU-01.md`). Trazabilidad en
+  `progress/impl_HU-01.md`. Status → `done`.
+- **Pendientes:** texto legal definitivo de `/privacidad` (lo provee el
+  equipo); `docs/architecture.md` ("Estados del sistema") aún dice que
+  "correo pendiente" aplica al recién registrado, lo que no rige hasta HU-25.
+
+- 2026-10-27 — (orquestador, sdd:false) `docs/architecture.md`: el estado "Correo pendiente" ya no aplica al usuario recién registrado (correo simulado, HU-01 S5). `README.md`: nueva sección "Cómo levantar el proyecto para probarlo", con las pruebas manuales de HU-01.

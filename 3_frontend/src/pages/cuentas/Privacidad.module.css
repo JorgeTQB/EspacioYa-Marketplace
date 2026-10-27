@@ -1,0 +1,9 @@
+.pantalla {
+  max-width: calc(var(--ancho-contenido) / 2);
+  margin: var(--espacio-8) auto;
+}
+
+.version {
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-sm);
+}

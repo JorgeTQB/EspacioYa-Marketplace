@@ -1,9 +1,17 @@
-.app-header {
+.encabezado {
   padding: var(--espacio-4) 0;
   border-bottom: 1px solid var(--color-borde);
 }
 
-.app-header h1 {
+.marca {
   margin: 0;
+}
+
+.marca a {
   color: var(--color-primario);
+  text-decoration: none;
+}
+
+.inicio {
+  margin-top: var(--espacio-6);
 }

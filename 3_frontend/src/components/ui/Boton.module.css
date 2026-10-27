@@ -1,0 +1,53 @@
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espacio-2) var(--espacio-4);
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  font: inherit;
+  font-weight: var(--peso-medio);
+  cursor: pointer;
+}
+
+.primario {
+  background: var(--color-primario);
+  color: var(--color-sobre-primario);
+}
+
+.primario:hover:not(:disabled),
+.primario:active:not(:disabled) {
+  background: var(--color-primario-hover);
+}
+
+.secundario {
+  background: var(--color-superficie);
+  border-color: var(--color-borde-control);
+  color: var(--color-texto);
+}
+
+.secundario:hover:not(:disabled) {
+  background: var(--color-gris-suave);
+}
+
+.peligro {
+  background: var(--color-superficie);
+  border-color: var(--color-error-texto);
+  color: var(--color-error-texto);
+}
+
+.peligro:hover:not(:disabled) {
+  background: var(--color-error-fondo);
+}
+
+.peligro-confirmar {
+  background: var(--color-error-texto);
+  color: var(--color-sobre-primario);
+}
+
+.boton:disabled {
+  background: var(--color-gris-suave);
+  border-color: var(--color-borde);
+  color: var(--color-texto-deshabilitado);
+  cursor: not-allowed;
+}
