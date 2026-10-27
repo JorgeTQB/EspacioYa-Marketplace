@@ -116,3 +116,53 @@ Todos los tests llevan `@DisplayName("HU-01 R<n>: …")`; `./init.sh` no reporta
    future releases of the JDK"). No se tocó el `pom.xml` (design: sin cambios); conviene resolverlo en el arnés.
 7. Pendiente para dueño/orquestador (ya anotado por spec_author): `docs/architecture.md` "Estados del sistema"
    dice que "correo pendiente" aplica al usuario recién registrado; con S5 deja de ser cierto hasta HU-25.
+
+## Corrección CORS 2026-10-27
+
+**Defecto:** desde el navegador (`http://localhost:5173`), `POST /api/usuarios` fallaba por CORS: el preflight
+respondía 200 sin `Access-Control-Allow-Origin`, también con un origen no permitido.
+
+**Causa confirmada** (bytecode de `CorsConfigurer` en `spring-security-config-7.1.2.jar`):
+`getCorsConfigurationSource` hace `containsBeanDefinition("corsConfigurationSource")` y solo en ese caso usa el
+bean. Si no lo encuentra, recurre a `MvcCorsFilter.getMvcCorsConfigurationSource` (el `HandlerMappingIntrospector`
+de Spring MVC, que no tiene mapeos CORS). Así el `CorsFilter` no rechaza nada y tampoco agrega cabeceras. El bean
+se llamaba `origenesPermitidos`, por lo que nuestra configuración nunca se aplicaba.
+
+**Corrección:** se cambió el nombre del método `@Bean` a `corsConfigurationSource`, con un comentario que explica
+por qué el nombre importa. Su contenido no cambió (orígenes, métodos, cabeceras, `/api/**`).
+Por qué esta opción y no `.cors(c -> c.configurationSource(...))`: es un cambio de una línea y sigue la convención
+documentada de Spring Security. Además, inyectar un `CorsConfigurationSource` por tipo en `cadenaSeguridad` sería
+ambiguo: `HandlerMappingIntrospector` (`mvcHandlerMappingIntrospector`) también implementa esa interfaz, así que
+habría que agregar un `@Qualifier` o llamar al método del bean, que es más código para el mismo resultado.
+Si alguien vuelve a cambiar el nombre, los tests de abajo fallan.
+
+**Cabeceras permitidas (`allowedHeaders = Content-Type`):** alcanzan. `cliente.js` envía `Accept: application/json`
+y, si hay cuerpo, `Content-Type: application/json`. `Accept` es una cabecera *CORS-safelisted* (con ese valor), así
+que el navegador no la incluye en `Access-Control-Request-Headers`. Solo pide `content-type`, que está permitido
+(Spring compara sin distinguir mayúsculas). El test de preflight envía `content-type` en minúsculas, como lo hace
+el navegador. No se tocó el frontend.
+
+**Archivos modificados:**
+- `2_Backend/src/main/java/pe/edu/ulima/espacioya/comun/seguridad/ConfiguracionSeguridad.java` (nombre del bean + comentario)
+- `2_Backend/src/test/java/pe/edu/ulima/espacioya/cuentas/controller/UsuarioControllerIT.java` (3 tests nuevos, sección "CORS")
+
+**Tests de regresión añadidos** (`UsuarioControllerIT`, T7 / design §4):
+- `preflightDesdeElFrontendPermitido`: `OPTIONS /api/usuarios` con `Origin: http://localhost:5173`, método `POST`
+  y cabecera `content-type` → 200, `Access-Control-Allow-Origin: http://localhost:5173`, `Allow-Methods` incluye
+  POST y `Allow-Headers` incluye content-type.
+- `preflightDesdeOrigenNoPermitido`: `Origin: http://evil.com` → 403 sin `Access-Control-Allow-Origin`.
+- `postDesdeElFrontendLlevaCabeceraCors`: el `POST` real con `Origin` del frontend → 202 con `Access-Control-Allow-Origin`.
+
+**Comprobado que fallan con el código anterior:** con el bean renombrado de nuevo a `origenesPermitidos`,
+`./mvnw verify -Dit.test=UsuarioControllerIT` → 27 tests, **3 fallos** (ACAO null ×2; 403 esperado pero fue 200).
+Después se restauró la corrección.
+
+**Verificación:** `./init.sh` completo (sin `--rapido`) → **exit 0**, `[OK] Entorno listo`. `./mvnw verify`:
+29 unitarias + **29** de integración (26 + 3 nuevas), 0 fallos. ESLint y `npm run build` en verde.
+
+**Nota de trazabilidad para el reviewer:** se usó `@DisplayName("HU-01 R19: …")` porque tasks T7 dice "Cubre: R19"
+y así lo indicó el orquestador. Pero el texto de R19 en `requirements.md` solo habla del hash bcrypt: CORS no tiene un
+R propio, solo aparece en design §4 y en T7. No se cambió la spec. Si el dueño lo considera necesario, conviene
+agregar un R de CORS en una revisión de la spec.
+
+| R19 (CORS, vía T7) | `UsuarioControllerIT.preflightDesdeElFrontendPermitido`, `UsuarioControllerIT.preflightDesdeOrigenNoPermitido`, `UsuarioControllerIT.postDesdeElFrontendLlevaCabeceraCors` |
