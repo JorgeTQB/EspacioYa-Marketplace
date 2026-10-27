@@ -11,6 +11,7 @@
 application-local.properties
 application-local.yml
 application-local.yaml
+harness-sdd-main/
 
 # ============================================================
 # Backend: Spring Boot (Java) con Maven o Gradle
