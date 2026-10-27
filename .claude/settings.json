@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./init.sh)",
+      "Bash(./init.sh --rapido)",
+      "Bash(./mvnw test)",
+      "Bash(./mvnw verify)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm ci)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verificar-cierre.sh\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

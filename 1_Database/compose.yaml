@@ -1,0 +1,28 @@
+# PostgreSQL para desarrollo local. Solo levanta el servidor vacío:
+# las tablas las crean las migraciones de Flyway del backend
+# (2_Backend/src/main/resources/db/migration) al arrancar la app.
+#
+#   Encender: docker compose -f 1_Database/compose.yaml up -d
+#   Apagar:   docker compose -f 1_Database/compose.yaml down
+#   Borrar los datos: docker compose -f 1_Database/compose.yaml down -v
+#
+# Las credenciales son solo para esta base local; UAT usa las suyas por
+# variables de entorno (ver 2_Backend/.env.example).
+# La versión de la imagen debe coincidir con la de las pruebas
+# (TestcontainersConfiguration en 2_Backend).
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: espacioya-postgres
+    environment:
+      POSTGRES_DB: espacioya
+      POSTGRES_USER: espacioya
+      POSTGRES_PASSWORD: espacioya
+    ports:
+      - "5432:5432"
+    volumes:
+      - espacioya-datos:/var/lib/postgresql/data
+
+volumes:
+  espacioya-datos:

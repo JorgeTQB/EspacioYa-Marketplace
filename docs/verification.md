@@ -21,16 +21,19 @@ Comando:
 cd 2_Backend && ./mvnw test
 ```
 
-### Nivel 2 — Tests de integración (obligatorio para historias con endpoints)
+### Nivel 2 — Tests de integración (obligatorio para historias con endpoints o restricciones de BD)
 
-Las historias que añaden o cambian endpoints se verifican levantando el
-contexto de Spring (`@SpringBootTest`) con H2 en memoria y llamando al
-endpoint real con `MockMvc`:
+Las historias que añaden o cambian endpoints, migraciones o restricciones de
+la base de datos se verifican levantando el contexto de Spring
+(`@SpringBootTest`) contra un **PostgreSQL real en Docker** (Testcontainers),
+con las mismas migraciones Flyway que UAT, y llamando al endpoint real con
+`MockMvc`:
 
 ```java
 @SpringBootTest
 @AutoConfigureMockMvc
-class RegistroControllerIntegrationTest {
+@Import(TestcontainersConfiguration.class)
+class RegistroControllerIT {
     @Autowired MockMvc mvc;
 
     @Test
@@ -49,9 +52,33 @@ class RegistroControllerIntegrationTest {
 Comprueban también que la respuesta es un DTO sin campos sensibles y que los
 errores no revelan datos internos.
 
-> **Límite de H2:** H2 no soporta todo el SQL de PostgreSQL (por ejemplo, el
-> índice único parcial del bloque activo de HU-12). Si una restricción solo
-> existe en PostgreSQL, el `design.md` lo indica y se verifica en UAT (Nivel 3).
+Las reglas que protege la base de datos (bloque único, pago único, un
+reembolso por pago…) se prueban aquí, no en UAT. Si la regla es de
+concurrencia, la prueba lanza las dos operaciones a la vez:
+
+```java
+@Test
+@DisplayName("HU-12 R4: dos reservas simultáneas del mismo bloque, solo una gana")
+void soloUnaReservaGanaElMismoBloque() throws Exception {
+    var listos = new CountDownLatch(1);
+    Callable<Boolean> reservar = () -> {
+        listos.await();
+        try { reservaService.crear(solicitudMismoBloque()); return true; }
+        catch (ReglaNegocioException e) { return false; }
+    };
+    try (var hilos = Executors.newFixedThreadPool(2)) {
+        var a = hilos.submit(reservar);
+        var b = hilos.submit(reservar);
+        listos.countDown();
+        assertThat(List.of(a.get(), b.get())).containsExactlyInAnyOrder(true, false);
+    }
+}
+```
+
+Comando (necesita Docker Desktop encendido):
+```bash
+cd 2_Backend && ./mvnw verify
+```
 
 ### Nivel 3 — Caja negra en UAT (obligatorio, lo hace la pareja)
 
@@ -70,7 +97,7 @@ El implementer documenta el mapa en `progress/impl_HU-XX.md`:
 ```markdown
 ## Trazabilidad
 - R1 → `RegistroServiceTest.registraUsuarioConDatosValidos`
-- R2 → `RegistroControllerIntegrationTest.rechazaRegistroSinAceptarPrivacidad`
+- R2 → `RegistroControllerIT.rechazaRegistroSinAceptarPrivacidad`
 - R3 → `RegistroServiceTest.guardaContrasenaConHash`
 ```
 

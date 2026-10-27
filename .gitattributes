@@ -1,0 +1,2 @@
+# Los scripts de bash necesitan LF aunque core.autocrlf esté activo en Windows
+*.sh text eol=lf

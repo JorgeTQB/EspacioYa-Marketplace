@@ -42,7 +42,7 @@ El flujo automático se detiene **una vez**: cuando el `spec_author` termina
 sus tres archivos, marca la historia como `spec_ready` y para. El **dueño de la
 historia** lee `specs/HU-XX/` y dice "aprobado" (o pide cambios).
 
-Solo entonces el `leader` transiciona `spec_ready → in_progress` y lanza
+Solo entonces el `orquestador` transiciona `spec_ready → in_progress` y lanza
 el `implementer`.
 
 ```
@@ -145,7 +145,7 @@ El `implementer` documenta el mapa en `progress/impl_HU-XX.md`:
 ## Trazabilidad
 - R1 → `RegistroServiceTest.registraUsuarioConDatosValidos`
 - R2 → `RegistroServiceTest.rechazaRegistroSinAceptarPrivacidad`
-- R3 → `RegistroControllerIntegrationTest.enviaCorreoDeVerificacion`
+- R3 → `RegistroControllerIT.enviaCorreoDeVerificacion`
 ```
 
 ## Cuándo NO aplica SDD

@@ -9,7 +9,9 @@
 ## 1. Antes de empezar (obligatorio)
 
 1. Ejecuta `./init.sh` y verifica que termina sin errores. Si falla, **para**
-   y resuelve el entorno antes de tocar código.
+   y resuelve el entorno antes de tocar código. (`./init.sh --rapido` omite
+   las pruebas de integración y el build: vale para empezar, nunca para
+   cerrar una historia.)
 2. Lee `progress/HU-XX.md` de la historia que vas a trabajar para entender en qué
    estado quedó la última sesión.
 3. Lee `feature_list.json`. Toda historia de usuario nueva (`"sdd": true`) pasa por
@@ -25,12 +27,14 @@
 | `progress/history.md`        | Bitácora append-only de sesiones anteriores                                 | Si necesitas contexto histórico |
 | `specs/HU-XX/`               | `requirements.md` + `design.md` + `tasks.md` (Kiro-style)                   | Antes de implementar cualquier historia con `"sdd": true` |
 | `docs/historias/HU-XX.md`    | Historia, criterios de aceptación y controles STRIDE                        | Antes de redactar el spec de esa historia |
+| `docs/requerimientos.md`     | RF, RNF (límites de rate limiting), reglas de negocio, componentes transversales y pendientes | Antes de redactar el spec de una historia |
 | `docs/architecture.md`       | Qué significa "hacer un buen trabajo" en este proyecto                      | Antes de implementar |
+| `docs/modelo-datos.md`       | Tablas, atributos, estados y restricciones de la base de datos              | Antes de diseñar una migración |
 | `docs/conventions.md`        | Reglas de estilo, nombres, estructura                                       | Antes de escribir código |
 | `docs/specs.md`              | Proceso SDD: EARS notation, los 3 archivos, puerta de aprobación humana     | Antes de redactar o leer un spec |
 | `docs/verification.md`       | Cómo verificar que tu trabajo funciona (incluye trazabilidad requirements)  | Antes de declarar una historia como `done` |
 | `CHECKPOINTS.md`             | Criterios objetivos de "estado final correcto"                              | Para auto-evaluarte |
-| `.claude/agents/`            | Definiciones de subagentes (`leader`, `spec_author`, `implementer`, `reviewer`) | Si orquestas trabajo |
+| `.claude/agents/`            | Definiciones de subagentes (`orquestador`, `spec_author`, `implementer`, `reviewer`) | Si orquestas trabajo |
 
 ## 3. Reglas duras (no negociables)
 
@@ -41,7 +45,7 @@
   asegúrate de que el bloque de tests pasa al 100%.
 - **No saltes la fase de spec.** Toda historia con `"sdd": true` debe pasar
   por `spec_author` y obtener aprobación humana antes de tocar código.
-- **No saltes la puerta de aprobación humana.** El leader detiene el flujo
+- **No saltes la puerta de aprobación humana.** El orquestador detiene el flujo
   en `spec_ready` y espera.
 - **Documenta lo que haces** en `progress/HU-XX.md` mientras trabajas, no al final.
 - **Deja el repositorio limpio** antes de cerrar la sesión (ver §5).
@@ -53,13 +57,13 @@
 pending → [spec_author] → spec_ready → ⏸ DUEÑO → in_progress → [implementer → reviewer] → done
 ```
 
-1. El leader detecta la primera historia `pending` con `"sdd": true` del dueño.
-2. El leader lanza `spec_author`, que crea
+1. El orquestador detecta la primera historia `pending` con `"sdd": true` del dueño.
+2. El orquestador lanza `spec_author`, que crea
    `specs/HU-XX/{requirements,design,tasks}.md` y marca el status como
    `spec_ready`.
 3. **Pausa.** El dueño de la historia lee el spec en `specs/HU-XX/` y aprueba
    (o pide cambios).
-4. Una vez aprobado, el leader cambia el status a `in_progress` y lanza `implementer`.
+4. Una vez aprobado, el orquestador cambia el status a `in_progress` y lanza `implementer`.
 5. El implementer ejecuta `tasks.md` una a una, marcándolas `[x]`.
 6. El reviewer verifica trazabilidad `R<n>` ↔ test y tasks completas;
    aprueba o rechaza.

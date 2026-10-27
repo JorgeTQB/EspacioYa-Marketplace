@@ -10,6 +10,8 @@
 - **Rama:** _—_
 - **Inicio:** _—_
 - **Agente:** _—_
+- **Fase:** _—_ (spec / implementación / revisión)
+- **Spec aprobado por:** _—_ (dueño y fecha; sin esto no se pasa a `in_progress`)
 
 ## Plan
 

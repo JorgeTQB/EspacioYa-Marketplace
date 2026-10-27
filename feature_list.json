@@ -1,0 +1,589 @@
+{
+  "project": "espacioya",
+  "description": "Marketplace web para alquilar espacios deportivos y para eventos con pago en línea. Proyecto Final de Ingeniería de Software II (Universidad de Lima, 2026-2).",
+  "rules": {
+    "one_in_progress_per_owner": true,
+    "require_tests_to_close": true,
+    "require_approved_spec_to_implement": true,
+    "approval_by": "owner",
+    "valid_status": [
+      "pending",
+      "spec_ready",
+      "in_progress",
+      "done",
+      "blocked"
+    ],
+    "sdd_required_when": "story has \"sdd\": true",
+    "spec_dir": "specs/<id>/",
+    "progress_file": "progress/<id>.md",
+    "acceptance_source": "historia (docs/historias/<id>.md): criterios de aceptación y STRIDE"
+  },
+  "features": [
+    {
+      "id": "HU-01",
+      "title": "Registro de usuario con consentimiento",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 1,
+      "sprint": 1,
+      "week": 8,
+      "size": "S",
+      "depends_on": [],
+      "owner": "Jorge Quispe",
+      "tester": "Kevin Chan",
+      "patterns": [],
+      "historia": "docs/historias/HU-01.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-02",
+      "title": "Registro de arrendador",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 1,
+      "sprint": 1,
+      "week": 8,
+      "size": "S",
+      "depends_on": [
+        "HU-01"
+      ],
+      "owner": "Adriana Callupe",
+      "tester": "Sebastian Garate",
+      "patterns": [],
+      "historia": "docs/historias/HU-02.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-03",
+      "title": "Inicio y cierre de sesión",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 1,
+      "sprint": 1,
+      "week": 8,
+      "size": "S",
+      "depends_on": [
+        "HU-01",
+        "HU-02"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Kevin Chan",
+      "patterns": [],
+      "historia": "docs/historias/HU-03.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-04",
+      "title": "Recuperación de contraseña",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 1,
+      "sprint": 1,
+      "week": 8,
+      "size": "S",
+      "depends_on": [
+        "HU-03"
+      ],
+      "owner": "Eduardo Saldaña",
+      "tester": "Ariel Enriquez",
+      "patterns": [],
+      "historia": "docs/historias/HU-04.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-05",
+      "title": "Envío de documentos de identidad del arrendador",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 1,
+      "sprint": 2,
+      "week": 8,
+      "size": "M",
+      "depends_on": [
+        "HU-02"
+      ],
+      "owner": "Kevin Chan",
+      "tester": "Jorge Quispe",
+      "patterns": [],
+      "historia": "docs/historias/HU-05.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-06",
+      "title": "Revisión de identidad de arrendadores",
+      "epic": "F",
+      "module": "administracion",
+      "release": 1,
+      "sprint": 2,
+      "week": 8,
+      "size": "M",
+      "depends_on": [
+        "HU-05"
+      ],
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
+      "patterns": [],
+      "historia": "docs/historias/HU-06.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-07",
+      "title": "Publicar y editar un espacio",
+      "epic": "B",
+      "module": "espacios",
+      "release": 1,
+      "sprint": 2,
+      "week": 8,
+      "size": "M",
+      "depends_on": [
+        "HU-02"
+      ],
+      "owner": "Sebastian Garate",
+      "tester": "Adriana Callupe",
+      "patterns": [],
+      "historia": "docs/historias/HU-07.md",
+      "notes": "Dependencia de visibilidad: visible tras HU-06",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-08",
+      "title": "Disponibilidad del espacio",
+      "epic": "B",
+      "module": "espacios",
+      "release": 1,
+      "sprint": 2,
+      "week": 8,
+      "size": "M",
+      "depends_on": [
+        "HU-07"
+      ],
+      "owner": "Sebastian Garate",
+      "tester": "Adriana Callupe",
+      "patterns": [],
+      "historia": "docs/historias/HU-08.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-09",
+      "title": "Suspensión y reactivación de cuentas",
+      "epic": "F",
+      "module": "administracion",
+      "release": 1,
+      "sprint": 3,
+      "week": 9,
+      "size": "S",
+      "depends_on": [
+        "HU-06"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Kevin Chan",
+      "patterns": [],
+      "historia": "docs/historias/HU-09.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-10",
+      "title": "Búsqueda por tipo, zona y fecha",
+      "epic": "C",
+      "module": "busqueda",
+      "release": 1,
+      "sprint": 3,
+      "week": 9,
+      "size": "M",
+      "depends_on": [
+        "HU-07",
+        "HU-08"
+      ],
+      "owner": "Sebastian Garate",
+      "tester": "Adriana Callupe",
+      "patterns": [],
+      "historia": "docs/historias/HU-10.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-11",
+      "title": "Detalle del espacio",
+      "epic": "C",
+      "module": "busqueda",
+      "release": 1,
+      "sprint": 3,
+      "week": 9,
+      "size": "S",
+      "depends_on": [
+        "HU-07",
+        "HU-08"
+      ],
+      "owner": "Adriana Callupe",
+      "tester": "Sebastian Garate",
+      "patterns": [],
+      "historia": "docs/historias/HU-11.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-12",
+      "title": "Reserva con bloqueo temporal",
+      "epic": "D",
+      "module": "reservas",
+      "release": 1,
+      "sprint": 3,
+      "week": 9,
+      "size": "M",
+      "depends_on": [
+        "HU-03",
+        "HU-08",
+        "HU-11"
+      ],
+      "owner": "Eduardo Saldaña",
+      "tester": "Ariel Enriquez",
+      "patterns": [],
+      "historia": "docs/historias/HU-12.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-13",
+      "title": "Pago con tarjeta",
+      "epic": "E",
+      "module": "pagos",
+      "release": 1,
+      "sprint": 4,
+      "week": 9,
+      "size": "M",
+      "depends_on": [
+        "HU-12"
+      ],
+      "owner": "Eduardo Saldaña",
+      "tester": "Ariel Enriquez",
+      "patterns": [
+        "Adapter",
+        "Factory Method",
+        "Facade"
+      ],
+      "historia": "docs/historias/HU-13.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-14",
+      "title": "Mis reservas",
+      "epic": "D",
+      "module": "reservas",
+      "release": 1,
+      "sprint": 4,
+      "week": 9,
+      "size": "S",
+      "depends_on": [
+        "HU-12",
+        "HU-13"
+      ],
+      "owner": "Adriana Callupe",
+      "tester": "Sebastian Garate",
+      "patterns": [
+        "Iterator",
+        "DAO"
+      ],
+      "historia": "docs/historias/HU-14.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-15",
+      "title": "Cancelación de reservas",
+      "epic": "D",
+      "module": "reservas",
+      "release": 1,
+      "sprint": 4,
+      "week": 9,
+      "size": "S",
+      "depends_on": [
+        "HU-13",
+        "HU-14"
+      ],
+      "owner": "Kevin Chan",
+      "tester": "Jorge Quispe",
+      "patterns": [
+        "Strategy"
+      ],
+      "historia": "docs/historias/HU-15.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-16",
+      "title": "Reembolso automático",
+      "epic": "E",
+      "module": "pagos",
+      "release": 1,
+      "sprint": 4,
+      "week": 9,
+      "size": "S",
+      "depends_on": [
+        "HU-13",
+        "HU-15"
+      ],
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
+      "patterns": [
+        "Command",
+        "Adapter"
+      ],
+      "historia": "docs/historias/HU-16.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-17",
+      "title": "Autenticación multifactor (MFA)",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 2,
+      "sprint": 5,
+      "week": 10,
+      "size": "M",
+      "depends_on": [
+        "HU-03"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Kevin Chan",
+      "patterns": [],
+      "historia": "docs/historias/HU-17.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-18",
+      "title": "Registro de cuenta bancaria del arrendador",
+      "epic": "E",
+      "module": "pagos",
+      "release": 2,
+      "sprint": 5,
+      "week": 10,
+      "size": "S",
+      "depends_on": [
+        "HU-06"
+      ],
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
+      "patterns": [],
+      "historia": "docs/historias/HU-18.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-19",
+      "title": "Liquidación semanal al arrendador",
+      "epic": "E",
+      "module": "pagos",
+      "release": 2,
+      "sprint": 5,
+      "week": 10,
+      "size": "M",
+      "depends_on": [
+        "HU-13",
+        "HU-18"
+      ],
+      "owner": "Eduardo Saldaña",
+      "tester": "Ariel Enriquez",
+      "patterns": [],
+      "historia": "docs/historias/HU-19.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-20",
+      "title": "Edición de perfil",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 2,
+      "sprint": 6,
+      "week": 10,
+      "size": "S",
+      "depends_on": [
+        "HU-03"
+      ],
+      "owner": "Adriana Callupe",
+      "tester": "Sebastian Garate",
+      "patterns": [],
+      "historia": "docs/historias/HU-20.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-21",
+      "title": "Pausar o dar de baja una publicación",
+      "epic": "B",
+      "module": "espacios",
+      "release": 2,
+      "sprint": 6,
+      "week": 10,
+      "size": "S",
+      "depends_on": [
+        "HU-07",
+        "HU-15"
+      ],
+      "owner": "Sebastian Garate",
+      "tester": "Adriana Callupe",
+      "patterns": [],
+      "historia": "docs/historias/HU-21.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-22",
+      "title": "Derechos sobre datos personales",
+      "epic": "A",
+      "module": "cuentas",
+      "release": 2,
+      "sprint": 6,
+      "week": 10,
+      "size": "M",
+      "depends_on": [
+        "HU-01",
+        "HU-19",
+        "HU-20"
+      ],
+      "owner": "Kevin Chan",
+      "tester": "Jorge Quispe",
+      "patterns": [],
+      "historia": "docs/historias/HU-22.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-23",
+      "title": "Filtros de búsqueda por precio, capacidad y características",
+      "epic": "C",
+      "module": "busqueda",
+      "release": 2,
+      "sprint": 7,
+      "week": 11,
+      "size": "S",
+      "depends_on": [
+        "HU-07",
+        "HU-10"
+      ],
+      "owner": "Sebastian Garate",
+      "tester": "Adriana Callupe",
+      "patterns": [
+        "Decorator"
+      ],
+      "historia": "docs/historias/HU-23.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-24",
+      "title": "Reseñas y calificaciones",
+      "epic": "C",
+      "module": "busqueda",
+      "release": 2,
+      "sprint": 7,
+      "week": 11,
+      "size": "M",
+      "depends_on": [
+        "HU-14"
+      ],
+      "owner": "Adriana Callupe",
+      "tester": "Sebastian Garate",
+      "patterns": [],
+      "historia": "docs/historias/HU-24.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-25",
+      "title": "Recordatorio de reserva por correo",
+      "epic": "D",
+      "module": "reservas",
+      "release": 2,
+      "sprint": 7,
+      "week": 11,
+      "size": "S",
+      "depends_on": [
+        "HU-13"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Kevin Chan",
+      "patterns": [
+        "Factory Method",
+        "Adapter"
+      ],
+      "historia": "docs/historias/HU-25.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-26",
+      "title": "Reclamos sobre una reserva",
+      "epic": "F",
+      "module": "administracion",
+      "release": 2,
+      "sprint": 8,
+      "week": 11,
+      "size": "M",
+      "depends_on": [
+        "HU-14",
+        "HU-16",
+        "HU-19"
+      ],
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
+      "patterns": [],
+      "historia": "docs/historias/HU-26.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-27",
+      "title": "Reportes y moderación de publicaciones y reseñas",
+      "epic": "F",
+      "module": "administracion",
+      "release": 2,
+      "sprint": 8,
+      "week": 11,
+      "size": "M",
+      "depends_on": [
+        "HU-09",
+        "HU-17",
+        "HU-24"
+      ],
+      "owner": "Kevin Chan",
+      "tester": "Jorge Quispe",
+      "patterns": [],
+      "historia": "docs/historias/HU-27.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-28",
+      "title": "Historial de pagos y comprobantes",
+      "epic": "E",
+      "module": "pagos",
+      "release": 2,
+      "sprint": 8,
+      "week": 11,
+      "size": "S",
+      "depends_on": [
+        "HU-13",
+        "HU-16"
+      ],
+      "owner": "Eduardo Saldaña",
+      "tester": "Ariel Enriquez",
+      "patterns": [],
+      "historia": "docs/historias/HU-28.md",
+      "sdd": true,
+      "status": "pending"
+    }
+  ]
+}

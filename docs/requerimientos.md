@@ -1,14 +1,14 @@
 # Especificación de requerimientos — Marketplace de Alquiler de Espacios (EspacioYa)
 
 > **Para personas y asistentes de IA.** Este documento cataloga los requerimientos funcionales (RF), no funcionales (RNF) y las reglas de negocio (RN) del proyecto, y los traza a cada historia de usuario.
-> Se deriva **solo** de [`AGENTS.md`](../AGENTS.md) y de los archivos de [`docs/historias/`](historias/). Si algo de aquí contradice la especificación o una historia, manda la especificación (o la historia) y hay que avisar al equipo.
-> Versión 1.0 · 2026-10-11.
+> Se deriva **solo** de la especificación original del proyecto (hoy integrada en [`architecture.md`](architecture.md)) y de los archivos de [`docs/historias/`](historias/). Si algo de aquí contradice `architecture.md` o una historia, mandan ellos y hay que avisar al equipo.
+> Versión 1.1 · 2026-10-27.
 
 ## 1. Propósito y fuentes
 
 - **Propósito:** tener en un solo lugar qué debe hacer el sistema (RF), con qué calidad y restricciones (RNF) y bajo qué reglas (RN), con su origen. Sirve de base para el capítulo de requisitos del informe y para la matriz de trazabilidad que llena cada pareja de prueba (sección 7).
-- **Fuentes:** `AGENTS.md` (secciones 1 a 10) y las 28 historias `HU-01` a `HU-28`.
-- **Notación de origen:** `HU-XX CAn` = criterio de aceptación *n* de la historia; `HU-XX (X)` = control STRIDE de la historia con la letra X; `§n` = sección de `AGENTS.md`.
+- **Fuentes:** la especificación original del proyecto y las 28 historias `HU-01` a `HU-28`.
+- **Notación de origen:** `HU-XX CAn` = criterio de aceptación *n* de la historia; `HU-XX (X)` = control STRIDE de la historia con la letra X; `§n` = sección de la especificación original. Su contenido está hoy en `architecture.md`: §3 → Stack y Principios; §4 → Seguridad transversal; §5 → Estados del sistema; §6 → Qué NO hacer; §8 → `verification.md` (Definition of Done); §10 → Patrones por historia.
 - **Prioridad:** **Alta** = Release 1 (MVP transaccional); **Media** = Release 2 (confianza y operación).
 
 ## 2. Actores
@@ -176,10 +176,10 @@
 
 | ID | Requerimiento | Origen |
 | --- | --- | --- |
-| RNF-ARQ-01 | Backend en Spring Boot (Java) y frontend en React (SPA). Base de datos relacional: **por confirmar, se propone PostgreSQL** con Flyway. | §3, `arquitectura-propuesta.md` §1-2 |
+| RNF-ARQ-01 | Backend en Spring Boot (Java) y frontend en React (SPA). Base de datos **PostgreSQL 17** con migraciones Flyway. | §3, `architecture.md` (Stack) |
 | RNF-ARQ-02 | Arquitectura en capas `Controller → Service → Repository` con entidades en el núcleo; el núcleo no depende de la web. | §3 reglas 1-2 |
 | RNF-ARQ-03 | Las entidades nunca salen del backend: la API recibe y devuelve DTO con solo los campos necesarios. | §3 regla 3 |
-| RNF-ARQ-04 | Un paquete por módulo (`cuentas`, `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`), cada uno con `controller`, `dto`, `service`, `domain` y `repository`, más el paquete transversal `comun`. | §3 regla 4, `arquitectura-propuesta.md` §4.1 |
+| RNF-ARQ-04 | Un paquete por módulo (`cuentas`, `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`), cada uno con `controller`, `dto`, `service`, `domain` y `repository`, más el paquete transversal `comun`. | §3 regla 4, `architecture.md` (Principio 4) |
 | RNF-ARQ-05 | SOLID, alta cohesión y bajo acoplamiento; DAO/Repository en toda la persistencia; patrones por historia según la sección 7 (columna Patrón). | §3 regla 5, §10 |
 | RNF-ARQ-06 | Convenciones: dominio en español con sufijos técnicos en inglés; endpoints REST en plural y minúsculas. | §3 |
 | RNF-ARQ-07 | Configuración y secretos en variables de entorno, con `.env.example`; nunca se suben credenciales ni llaves. | §3 |
@@ -228,7 +228,7 @@
 
 ## 6. Fuera del alcance
 
-No son requerimientos y no se implementan (detalle y motivo en `AGENTS.md` §6): galería de más de 5 fotos y video; precios por franja horaria; mapa interactivo; favoritos; reprogramar reservas; panel de ingresos y ocupación; destacar publicaciones; billeteras digitales, transferencias y cuotas; notificaciones push; política de cancelación configurable; liquidación automática; reembolso de pagos tras expirar la reserva; respuesta del arrendador a reseñas y fotos en reclamos.
+No son requerimientos y no se implementan (detalle en `architecture.md`, sección "Qué NO hacer"): galería de más de 5 fotos y video; precios por franja horaria; mapa interactivo; favoritos; reprogramar reservas; panel de ingresos y ocupación; destacar publicaciones; billeteras digitales, transferencias y cuotas; notificaciones push; política de cancelación configurable; liquidación automática; reembolso de pagos tras expirar la reserva; respuesta del arrendador a reseñas y fotos en reclamos.
 
 ## 7. Matriz de trazabilidad
 
@@ -285,8 +285,8 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 
 ## 9. Pendientes y observaciones para el equipo
 
-1. **Base de datos por confirmar** (§3). La propuesta es PostgreSQL (`arquitectura-propuesta.md` §1), por sus índices únicos parciales para RNF-SEG-09 y sus transacciones ACID para RF-D-03. Falta que el equipo la valide.
-2. **Estado "correo pendiente"** (HU-02 CA1) no aparece en la tabla de estados del arrendador (§5), que empieza en "correo verificado". Conviene agregarlo a §5.
+1. ~~**Base de datos por confirmar**~~ **Resuelto:** PostgreSQL 17 (índices únicos parciales para RNF-SEG-09 y transacciones ACID para RF-D-03).
+2. ~~**Estado "correo pendiente"**~~ **Resuelto:** ya está en la tabla de estados de `architecture.md`.
 3. **Respuesta del arrendador en reclamos** (HU-26 CA1): se menciona que "el arrendador puede responder", pero no hay un criterio que diga cómo se ve ni qué se valida. Aclararlo con el PO antes del Sprint 8.
 4. **Control compensatorio de IPs del panel admin** (HU-06, HU-09) hasta HU-17. Decidir si se retira o se mantiene junto con MFA.
 5. **Política de contraseña** (HU-01): no hay reglas concretas (longitud, complejidad). Definirlas antes de programar HU-01.

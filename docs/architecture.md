@@ -4,8 +4,8 @@
 > evalúan código contra este archivo y contra el spec de la historia
 > (`specs/HU-XX/`). Si no está aquí ni en el spec, no es un requisito.
 >
-> Detalle y justificación: `arquitectura-propuesta.md` (base de datos, vista
-> lógica, modelo de datos) y `docs/estructura-backend.md` (paquetes y clases).
+> Modelo de datos: `docs/modelo-datos.md`. Requerimientos (RF, RNF, RN):
+> `docs/requerimientos.md`.
 
 ## Stack
 
@@ -14,7 +14,7 @@
 | Backend        | Spring Boot (Java) en `2_Backend/`: Spring MVC (API REST), Spring Data JPA (persistencia), Spring Security (autenticación, roles y MFA) |
 | Frontend       | React + Vite en `3_frontend/`: SPA que consume la API REST |
 | Comunicación   | API REST con JSON sobre HTTPS |
-| Base de datos  | Relacional. **[POR CONFIRMAR: PostgreSQL]**, con migraciones Flyway |
+| Base de datos  | **PostgreSQL 17**. El esquema lo crean solo las migraciones Flyway de `2_Backend/src/main/resources/db/migration/`; `1_Database/compose.yaml` solo levanta el servidor local vacío |
 | Pagos          | Pasarela certificada PCI DSS en modo de prueba (checkout de la pasarela + webhook con firma verificada) |
 | Archivos       | Almacenamiento privado fuera de la base de datos, servido con URL firmada de corta duración |
 | Notificaciones | Solo correo, mediante un componente reutilizable |
@@ -58,7 +58,7 @@ Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
      (`reservas` usa `PagoService`, no `PagoRepository`).
    - Sin dependencias circulares. Cuando un módulo de abajo necesita algo del
      de arriba, define una interfaz en `service/puertos/` y el de arriba la
-     implementa (ver `docs/estructura-backend.md` §3).
+     implementa (ver [Puertos entre módulos](#puertos-entre-módulos)).
    - Todos los módulos pueden usar `comun`; `comun` no depende de ningún módulo.
    - El dominio no depende de Spring Web ni de la pasarela: las integraciones
      externas (pasarela, correo, almacenamiento) van detrás de interfaces
@@ -109,6 +109,33 @@ base de datos relacional (migraciones Flyway)
 
 Integraciones externas (pasarela, correo, archivos) → siempre detrás de un Adapter.
 ```
+
+## Puertos entre módulos
+
+Cuando un módulo necesita algo de otro que ya depende de él (por ejemplo,
+`pagos` confirma reservas pero `reservas` usa `pagos` para reembolsar), no se
+crea un ciclo: el módulo de abajo define una interfaz en `service/puertos/` y
+el de arriba la implementa (DIP). Dirección permitida:
+
+```
+comun ← cuentas ← espacios ← reservas → pagos → cuentas
+                     ↑          ↑
+                 busqueda ──────┘        administracion → (todos)
+```
+
+| Interfaz (la define)                  | La implementa              | Para |
+|---------------------------------------|----------------------------|------|
+| `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
+| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
+| `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21 |
+| `pagos.ReservasPorCobrar`             | reservas                   | HU-13: obtener la reserva vigente con su monto y confirmarla |
+| `pagos.ReservasLiquidables`           | reservas                   | HU-19 |
+| `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
+
+Solo los servicios que usan otros módulos llevan interfaz pública
+(`CuentaService`, `ReservaService`, `PagoService`); los internos son clases
+concretas (YAGNI). Si una historia necesita un puerto nuevo, lo justifica en
+su `design.md` y lo agrega a esta tabla.
 
 ## Seguridad transversal (STRIDE)
 

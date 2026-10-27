@@ -61,7 +61,9 @@ pe/edu/ulima/espacioya/<modulo>/
 └── repository/   <Entidad>Repository.java
 ```
 
-Ver `docs/estructura-backend.md` para las clases previstas por módulo.
+Las clases concretas de cada historia las fija su `design.md`. Los puertos
+entre módulos van en `service/puertos/` (ver `docs/architecture.md`), y las
+tablas siguen `docs/modelo-datos.md`.
 
 Migraciones Flyway en `src/main/resources/db/migration/`, numeradas por sprint
 para no chocar entre personas: `V<sprint>_<n>__<descripcion>.sql`
@@ -70,12 +72,14 @@ no se edita: se crea otra.
 
 ## Tests
 
-- **Herramientas:** JUnit 5 + Mockito para unitarias; `@SpringBootTest` con
-  H2 en memoria y `MockMvc` para integración.
+- **Herramientas:** JUnit 5 + Mockito para unitarias; `@SpringBootTest` +
+  `MockMvc` contra un PostgreSQL real con Testcontainers para integración.
+  No se usa H2: las migraciones son de PostgreSQL.
 - **Ubicación:** `2_Backend/src/test/java/`, en el mismo paquete que la clase
   probada.
-- **Nombres de clase:** `<Clase>Test` (unitaria) y `<Clase>IntegrationTest`
-  (integración).
+- **Nombres de clase:** `<Clase>Test` (unitaria, corre con `./mvnw test`, sin
+  Docker) y `<Clase>IT` (integración, corre con `./mvnw verify`, necesita
+  Docker). Toda `*IT` lleva `@Import(TestcontainersConfiguration.class)`.
 - **Una prueba por criterio de aceptación**, incluido el de error, y por cada
   control STRIDE verificable.
 - **Nombres de test descriptivos** y `@DisplayName` con la historia y el
@@ -108,8 +112,10 @@ existe.
 ## Configuración y secretos
 
 - En variables de entorno, leídas en `application.properties` con `${VARIABLE}`.
-- Nunca se suben contraseñas, llaves de la pasarela ni tokens. Se mantiene un
-  `.env.example` con los nombres y sin valores reales.
+- Nunca se suben contraseñas, llaves de la pasarela ni tokens. Se mantiene
+  `2_Backend/.env.example` con los nombres y sin valores reales.
+- Única excepción: los valores por defecto de la base local
+  (`1_Database/compose.yaml`), que no protegen nada fuera de tu máquina.
 
 ## Ramas y pull requests
 
