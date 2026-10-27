@@ -3,8 +3,10 @@ package pe.edu.ulima.espacioya.cuentas.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,6 +32,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,7 +44,9 @@ import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 
-@SpringBootTest
+// El origen permitido se fija aquí para que los tests de CORS no dependan de FRONTEND_URL en el entorno.
+// Se usa un valor distinto del default de application.properties para probar que CORS lee la propiedad.
+@SpringBootTest(properties = "espacioya.frontend.url=" + UsuarioControllerIT.FRONTEND)
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, UsuarioControllerIT.Dobles.class})
 class UsuarioControllerIT {
@@ -54,6 +59,7 @@ class UsuarioControllerIT {
     private static final String MENSAJE_LIMITE = "Hiciste demasiados intentos. Espera un momento e inténtalo de nuevo.";
     private static final String MENSAJE_INESPERADO = "Ocurrió un problema. Intenta de nuevo más tarde.";
     private static final String CONTRASENA = "Segura123!";
+    static final String FRONTEND = "http://frontend.espacioya.test:5173";
     private static final AtomicInteger SIGUIENTE_IP = new AtomicInteger(1);
 
     @Autowired
@@ -424,6 +430,49 @@ class UsuarioControllerIT {
         assertThat(fila.get("rol")).isEqualTo("USUARIO");
         assertThat(fila.get("estado")).isEqualTo("ACTIVA");
         assertThat(fila.get("correo_verificado")).isEqualTo(true);
+    }
+
+    // ── CORS (T7, design §4) ─────────────────────────────────────────────
+
+    private ResultActions preflightDesde(String origenNavegador) throws Exception {
+        return mvc.perform(options("/api/usuarios")
+                .header(HttpHeaders.ORIGIN, origenNavegador)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type"));
+    }
+
+    @Test
+    @DisplayName("HU-01 R27: el preflight desde espacioya.frontend.url recibe Access-Control-Allow-Origin")
+    void preflightDesdeElFrontendPermitido() throws Exception {
+        preflightDesde(FRONTEND)
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FRONTEND))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, containsString("POST")))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, containsString("content-type")));
+    }
+
+    @Test
+    @DisplayName("HU-01 R28: el preflight desde un origen no permitido recibe 403 sin Access-Control-Allow-Origin")
+    void preflightDesdeOrigenNoPermitido() throws Exception {
+        preflightDesde("http://evil.com")
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    @Test
+    @DisplayName("HU-01 R27: el POST desde el frontend permitido lleva Access-Control-Allow-Origin")
+    void postDesdeElFrontendLlevaCabeceraCors() throws Exception {
+        mvc.perform(post("/api/usuarios")
+                        .with(solicitud -> {
+                            solicitud.setRemoteAddr(ip);
+                            return solicitud;
+                        })
+                        .header(HttpHeaders.ORIGIN, FRONTEND)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(valido("ana@correo.pe")))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FRONTEND));
     }
 
     // ── Límite por IP (STRIDE D) ─────────────────────────────────────────

@@ -35,8 +35,10 @@ public class ConfiguracionSeguridad {
         return http.build();
     }
 
+    // El nombre importa: .cors(Customizer.withDefaults()) busca el bean "corsConfigurationSource";
+    // con otro nombre Spring Security usa la configuración CORS de Spring MVC (vacía) y no aplica esta.
     @Bean
-    public CorsConfigurationSource origenesPermitidos(@Value("${espacioya.frontend.url}") String urlFrontend) {
+    public CorsConfigurationSource corsConfigurationSource(@Value("${espacioya.frontend.url}") String urlFrontend) {
         var configuracion = new CorsConfiguration();
         configuracion.setAllowedOrigins(List.of(urlFrontend));
         configuracion.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

@@ -46,7 +46,7 @@ Paquete base `pe.edu.ulima.espacioya`. Todo es **nuevo** salvo lo marcado (M).
 | | `ManejadorGlobalErrores` | `@RestControllerAdvice` (R13, R24, R25) |
 | `comun/auditoria/` | `Auditoria` (entidad), `AuditoriaRepository`, `AuditoriaService`, `EventoAuditoria` (record) | Componente de auditoría RNF-SEG-12 (R9, R16) |
 | `comun/limite/` | `LimitadorIntentos`, `ReglaLimite` (record), `FiltroLimiteIntentos` | Rate limiting RNF-SEG-17 (R21–R23); lo reutilizan HU-03 y HU-04 |
-| `comun/seguridad/` | `ConfiguracionSeguridad` | `SecurityFilterChain`, `PasswordEncoder` bcrypt(12), CORS (R19) |
+| `comun/seguridad/` | `ConfiguracionSeguridad` | `SecurityFilterChain`, `PasswordEncoder` bcrypt(12) (R19), CORS (R27, R28) |
 | `comun/configuracion/` | `ConfiguracionReloj` | Bean `Clock` (UTC) para probar plazos |
 | `comun/web/` | `IpCliente` | `static String de(HttpServletRequest)` → `getRemoteAddr()` |
 
@@ -61,7 +61,7 @@ Paquete base `pe.edu.ulima.espacioya`. Todo es **nuevo** salvo lo marcado (M).
 | `repository/` | `UsuarioRepository` | Spring Data JPA |
 | `service/` | `RegistroService` | Caso de uso registrar (R1–R3, R5–R20, R25) |
 | | `NotificadorCorreo` (interfaz) | Puerto de notificación por correo del módulo (R3, R25) |
-| | `NotificadorCorreoSimulado` | Única implementación en HU-01: solo log SLF4J (R4) |
+| | `NotificadorCorreoSimulado` | Única implementación en HU-01: solo log SLF4J (R4, R29, R30) |
 | | `PoliticaPrivacidad` | Lee `espacioya.privacidad.version-vigente` (R7, R26) |
 | `dto/` | `RegistroUsuarioDTO`, `MensajeDTO`, `VersionPoliticaDTO` | Entrada / salida |
 | `controller/` | `UsuarioController`, `PoliticaPrivacidadController` | Endpoints |
@@ -199,7 +199,8 @@ public class FiltroLimiteIntentos extends OncePerRequestFilter {
 salida del módulo, no un puerto entre módulos (no se agrega a la tabla de
 `docs/architecture.md`). `NotificadorCorreoSimulado` es el único bean que lo
 implementa; no abre sockets, no usa `JavaMailSender` ni ninguna propiedad
-`spring.mail.*` (R4). HU-25 agregará un adaptador real (sobre `comun/correo`) y
+`spring.mail.*` (R4); solo escribe una línea INFO con el mensaje de envío simulado (R29)
+y nunca el correo del usuario (R30). HU-25 agregará un adaptador real (sobre `comun/correo`) y
 reemplazará o desactivará el simulado; `RegistroService` no cambia porque depende solo
 de la interfaz.
 
@@ -219,9 +220,11 @@ regla coincide (método + ruta exacta) y `intentar` devuelve `false`, escribe 42
 `ErrorDTO` y no sigue la cadena. `OPTIONS` (preflight CORS) no coincide con ninguna regla.
 
 **`ConfiguracionSeguridad`**: `csrf` deshabilitado, `httpBasic` y `formLogin`
-deshabilitados, CORS con origen `espacioya.frontend.url`, `permitAll` para los dos
+deshabilitados, CORS con origen `espacioya.frontend.url` (R27, R28; el bean
+`CorsConfigurationSource` debe llamarse `corsConfigurationSource` para que
+`.cors(Customizer.withDefaults())` lo encuentre), `permitAll` para los dos
 endpoints de §3 y `anyRequest().authenticated()`; bean
-`PasswordEncoder = new BCryptPasswordEncoder(12)`. HU-03 extiende esta clase con la
+`PasswordEncoder = new BCryptPasswordEncoder(12)` (R19). HU-03 extiende esta clase con la
 sesión. CSRF se apaga porque HU-01 no usa cookies ni sesión; si HU-03 elige cookie de
 sesión, HU-03 decide el CSRF.
 
@@ -424,7 +427,7 @@ las necesite.
 `NotificadorCorreo` es un puerto interno de `cuentas` (ver §4).
 
 **Seguridad de logs:** ni la contraseña, ni su hash, ni el correo del usuario se
-escriben en logs (R4). Solo SLF4J; nada de `System.out` (`docs/conventions.md`).
+escriben en logs (el correo en el notificador: R30). Solo SLF4J; nada de `System.out` (`docs/conventions.md`).
 
 ## 11. Pantallas
 
@@ -494,7 +497,8 @@ edita `docs/`.
 |---|---|
 | R1, R2, R5, R20 | `UsuarioControllerIT` (registro válido → `correo_verificado = true`; campos `rol`/`estado`/`correoVerificado: false` extra ignorados; correo con mayúsculas guardado normalizado), `UsuarioTest` |
 | R3 | `RegistroServiceTest` (notificador llamado una vez con el correo normalizado), `UsuarioControllerIT` (el notificador falso capturó una llamada) |
-| R4 | `NotificadorCorreoSimuladoTest` (`OutputCaptureExtension`: hay una línea INFO de envío simulado que no contiene el correo; sin colaboradores de red) |
+| R4 | `NotificadorCorreoSimuladoTest` (sin colaboradores de red: constructores sin parámetros y solo campos `org.slf4j.*`) |
+| R29, R30 | `NotificadorCorreoSimuladoTest` (`OutputCaptureExtension`: R29, la salida tiene una línea INFO con el mensaje de envío simulado; R30, ni la salida estándar ni la de error contienen el correo) |
 | R6, R7, R13 | `UsuarioControllerIT` (400, BD sin filas, notificador sin llamadas) |
 | R8, R9 | `RegistroServiceTest`, `UsuarioControllerIT` (fila de `auditoria` con IP y versión) |
 | R10, R11, R12 | `PoliticaContrasenaTest` (límites 7/8/64/65, 73 bytes, sin letra, sin dígito, igual al correo en otro caso), `UsuarioControllerIT` (400 con `errores[contrasena]`) |
@@ -507,6 +511,8 @@ edita `docs/`.
 | R24 | `ManejadorGlobalErroresTest` (MockMvc standalone con controlador de prueba que lanza `RuntimeException`; cuerpo sin `trace`/`exception`) |
 | R25 | `RegistroServiceTest` + `UsuarioControllerIT` (notificador falso lanza → 500 y BD sin usuario) |
 | R26 | `PoliticaPrivacidadControllerIT` |
+| R27 | `UsuarioControllerIT` (preflight desde `espacioya.frontend.url` → 200 con ACAO; `POST` desde el frontend → 202 con ACAO) |
+| R28 | `UsuarioControllerIT` (preflight desde otro origen → 403 sin ACAO) |
 
 Reglas de las IT: `@Import(TestcontainersConfiguration.class)` y una
 `@TestConfiguration` de prueba con un `NotificadorCorreo` falso `@Primary` que captura

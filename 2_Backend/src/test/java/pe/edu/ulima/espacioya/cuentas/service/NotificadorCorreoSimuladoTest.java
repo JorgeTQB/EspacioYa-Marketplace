@@ -12,7 +12,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 class NotificadorCorreoSimuladoTest {
 
     @Test
-    @DisplayName("HU-01 R4: el envío simulado solo escribe una línea INFO sin el correo del usuario")
+    @DisplayName("HU-01 R29, R30: el envío simulado solo escribe una línea INFO sin el correo del usuario")
     void soloEscribeEnElLogSinElCorreo(CapturedOutput salida) {
         new NotificadorCorreoSimulado().notificarVerificacion("ana.secreta@correo.pe");
 

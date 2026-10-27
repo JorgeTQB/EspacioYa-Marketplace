@@ -21,6 +21,8 @@
   y no es rechazada por el propio límite (R21), sea válida o no.
 - **Notificador de correo:** el puerto `NotificadorCorreo` del módulo `cuentas`. En
   HU-01 su única implementación es simulada (supuesto S5).
+- **Mensaje de envío simulado:** `"Envío de correo de verificación simulado: no se envió
+  ningún correo (HU-01)."`
 
 ## Supuestos a confirmar por el dueño al aprobar
 
@@ -34,7 +36,7 @@
 | S2 | Una solicitud rechazada con 429 **no** cuenta como intento (si contara, quien insiste quedaría bloqueado para siempre). | R21, R22 |
 | S3 | El texto legal de la política de privacidad y de los términos lo provee el equipo; HU-01 solo agrega la página `/privacidad` que lo muestra con su versión. | Pantalla Privacidad |
 | S4 | Se agrega la dependencia `react-router-dom` (frontend, ya prevista en `docs/frontend.md`). El backend no agrega dependencias. | Pantallas |
-| S5 | **Decisión del dueño (2026-10-27):** el envío real del correo de verificación queda **fuera del alcance de HU-01**. El envío se simula: el registro llama al notificador de correo, cuya implementación no envía nada, y la API devuelve el mensaje de registro recibido. La cuenta queda con `correo_verificado = true` al registrarse, sin token ni enlace de verificación, para que HU-03 pueda iniciar sesión sin ese paso. CA1 ("recibo un correo de verificación") se da por cubierto con el envío simulado y el mensaje en pantalla. El adaptador real lo conecta HU-25. | R1, R2, R3, R4, R20 |
+| S5 | **Decisión del dueño (2026-10-27):** el envío real del correo de verificación queda **fuera del alcance de HU-01**. El envío se simula: el registro llama al notificador de correo, cuya implementación no envía nada, y la API devuelve el mensaje de registro recibido. La cuenta queda con `correo_verificado = true` al registrarse, sin token ni enlace de verificación, para que HU-03 pueda iniciar sesión sin ese paso. CA1 ("recibo un correo de verificación") se da por cubierto con el envío simulado y el mensaje en pantalla. El adaptador real lo conecta HU-25. | R1, R2, R3, R4, R20, R29, R30 |
 
 ## Registro exitoso (CA1)
 
@@ -54,9 +56,16 @@ CUANDO el sistema crea la cuenta según R1, el sistema DEBE invocar una sola vez
 notificación de verificación del notificador de correo con el correo normalizado.
 
 ## R4
-La implementación del notificador de correo de HU-01 NO DEBE abrir conexiones a un
-servidor de correo; DEBE solo escribir en el log, con nivel INFO, que el envío del
-correo de verificación fue simulado, sin incluir el correo del usuario.
+CUANDO el sistema notifica la verificación de una cuenta según R3, el sistema NO DEBE
+abrir conexiones a un servidor de correo (S5).
+
+## R29
+CUANDO el sistema notifica la verificación de una cuenta según R3, el sistema DEBE
+escribir en el log una línea de nivel INFO con el mensaje de envío simulado.
+
+## R30
+CUANDO el sistema notifica la verificación de una cuenta según R3, el sistema NO DEBE
+escribir el correo del usuario en el log.
 
 ## R5
 El sistema DEBE guardar el correo de la cuenta en su forma normalizada.
@@ -172,12 +181,24 @@ guardado el usuario de esa solicitud.
 CUANDO un visitante consulta `GET /api/politicas-privacidad/vigente`, el sistema DEBE
 responder 200 con la versión vigente.
 
+## Origen permitido del navegador (CORS)
+
+## R27
+CUANDO llega a `/api/**` una solicitud (incluido el preflight `OPTIONS`) con la
+cabecera `Origin` igual a `espacioya.frontend.url`, el sistema DEBE responder con
+`Access-Control-Allow-Origin` igual a ese origen.
+
+## R28
+SI llega a `/api/**` un preflight `OPTIONS` con un `Origin` distinto de
+`espacioya.frontend.url` ENTONCES el sistema DEBE rechazarlo con 403 sin cabecera
+`Access-Control-Allow-Origin`.
+
 ## Trazabilidad con la historia
 
 | Origen (`docs/historias/HU-01.md` y fuentes)                         | Cubierto por |
 |----------------------------------------------------------------------|--------------|
 | CA1: cuenta creada con datos válidos                                 | R1, R2, R5, R8 |
-| CA1: recibo un correo de verificación (envío simulado, S5)           | R2, R3, R4, R25 |
+| CA1: recibo un correo de verificación (envío simulado, S5)           | R2, R3, R4, R25, R29, R30 |
 | CA2: sin aceptación de privacidad no se completa                     | R6, R7, R26 |
 | CA3: contraseña débil → requisitos mínimos                           | R10, R11, R12, R13 |
 | CA3: correo existente → mensaje genérico sin revelar la cuenta       | R14, R15, R17, R18 |
@@ -185,6 +206,7 @@ responder 200 con la versión vigente.
 | (I) Errores que no confirman si el correo existe                     | R14, R17, R18, R24, R25 |
 | (D) Límite de registros por IP por hora (5/h, ventana deslizante)    | R21, R22, R23 |
 | (R) Fecha, hora, IP y versión de la política aceptada                | R8, R9, R16 |
-| RF-A-01 / RF-A-02 / RF-A-03                                          | R1–R4 / R6, R7 / R10–R17 |
+| RF-A-01 / RF-A-02 / RF-A-03                                          | R1–R4, R29, R30 / R6, R7 / R10–R17 |
 | RNF-SEG-05 · 12 · 13 · 17 · CUM-03                                   | R19 · R9, R16 · R24, R14 · R21–R23 · R8, R9 |
 | (E) transversal: rol asignado solo en el servidor                    | R20 |
+| CA1 desde el navegador: solo el frontend propio llama a la API (CORS) | R27, R28 |
