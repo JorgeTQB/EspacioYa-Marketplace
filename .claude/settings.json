@@ -1,18 +1,4 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(./init.sh)",
-      "Bash(./init.sh --rapido)",
-      "Bash(./mvnw test)",
-      "Bash(./mvnw verify)",
-      "Bash(npm run lint)",
-      "Bash(npm run build)",
-      "Bash(npm ci)",
-      "Bash(git status *)",
-      "Bash(git diff *)",
-      "Bash(git log *)"
-    ]
-  },
   "hooks": {
     "Stop": [
       {
@@ -24,6 +10,38 @@
           }
         ]
       }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(./init.sh)",
+      "Bash(./init.sh --rapido)",
+      "Bash(./mvnw test)",
+      "Bash(./mvnw verify)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm ci)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(pwd)",
+      "Bash(echo *)",
+      "Bash(git branch *)",
+      "Bash(git show *)",
+      "Bash(./mvnw *)",
+      "Bash(npm run *)",
+      "Bash(npx vitest *)",
+      "Read(~/.m2/**)"
+    ],
+    "additionalDirectories": [
+      "~/.m2/repository"
     ]
   }
 }

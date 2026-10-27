@@ -125,6 +125,18 @@ Luego le pasas esa ruta al `spec_author` como fuente adicional.
 | Historia ★ (con patrón)                  | Igual que M; pide al spec_author que el patrón aparezca en el diseño |
 | Muy compleja (toca varios módulos)       | Habla con el dueño antes: probablemente hay que partirla             |
 
+## Comandos de shell (evita pedidos de permiso)
+
+- El directorio de trabajo **ya es la raíz del repo**. **Nunca** antepongas
+  `cd "<ruta>" &&` a un comando: con ese prefijo Claude Code no puede verificar
+  qué archivo se lee y le pide permiso al usuario cada vez.
+- Para leer o buscar usa las herramientas `Read`, `Grep` y `Glob`, no
+  `cat`/`grep` por Bash. Si usas Bash, usa rutas relativas
+  (`cat docs/architecture.md`, `cd 2_Backend && ./mvnw test` solo si el comando
+  lo exige).
+- Evita bucles `for` y variables (`$j`) en comandos que leen archivos: escribe
+  un comando por archivo.
+
 ## Qué NO haces
 
 - ❌ Editar archivos en `2_Backend/`, `3_frontend/`, `specs/` o `docs/`.

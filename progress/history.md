@@ -147,3 +147,5 @@
   "correo pendiente" aplica al recién registrado, lo que no rige hasta HU-25.
 
 - 2026-10-27 — (orquestador, sdd:false) `docs/architecture.md`: el estado "Correo pendiente" ya no aplica al usuario recién registrado (correo simulado, HU-01 S5). `README.md`: nueva sección "Cómo levantar el proyecto para probarlo", con las pruebas manuales de HU-01.
+
+- 2026-10-27 — (orquestador, sdd:false) Menos pedidos de permiso: `.claude/settings.json` permite comandos de solo lectura (`ls`, `cat`, `grep`, `head`, `tail`, `find`…), `./mvnw *`, `npm run *` y lectura de `~/.m2/repository` (agregado como directorio adicional). Los cuatro agentes tienen una sección "Comandos de shell": no anteponer `cd "<ruta>" &&`, preferir `Read`/`Grep`/`Glob`, sin bucles ni variables al leer archivos.
