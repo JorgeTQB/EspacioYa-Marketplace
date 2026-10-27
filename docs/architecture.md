@@ -168,7 +168,7 @@ si es el correo o la identidad.
 
 | Estado                | Qué habilita |
 |-----------------------|--------------|
-| Correo pendiente      | Nada; espera la verificación del correo. Aplica también al usuario recién registrado |
+| Correo pendiente      | Nada; espera la verificación del correo. Hoy no se llega a este estado: mientras el envío de correo sea simulado (HU-01, S5), la cuenta nace con el correo verificado |
 | Correo verificado     | Iniciar sesión, crear borradores de espacios, subir documentos |
 | Identidad en revisión | Nada adicional; espera la revisión del admin |
 | Identidad verificada  | Publicar espacios visibles, recibir reservas pagadas, registrar cuenta bancaria |

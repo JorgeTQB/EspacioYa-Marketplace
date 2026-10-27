@@ -25,6 +25,98 @@ estadios, auditorios) con pago en línea.
 
 Si trabajas con un agente de IA, el punto de entrada es [`AGENTS.md`](AGENTS.md).
 
+## Cómo levantar el proyecto para probarlo
+
+Necesitas JDK 25, Node 20.19 o superior y Docker Desktop encendido. En
+Windows, corre los comandos desde Git Bash. Cada pieza va en su propia
+terminal, desde la raíz del repo.
+
+### 1. Base de datos (PostgreSQL 17 en Docker)
+
+```bash
+docker compose -f 1_Database/compose.yaml up -d
+```
+
+Levanta una base vacía en `localhost:5432` (base, usuario y contraseña:
+`espacioya`). Las tablas las crea el backend con Flyway al arrancar.
+
+### 2. Backend (Spring Boot, puerto 8080)
+
+```bash
+cd 2_Backend
+./mvnw spring-boot:run
+```
+
+En local no necesitas `.env`: `application.properties` ya apunta a la base del
+paso 1 y permite peticiones desde `http://localhost:5173`. Está listo cuando el
+log dice `Started EspacioYaApplication`.
+
+### 3. Frontend (React + Vite, puerto 5173)
+
+La primera vez, crea el `.env` del frontend con la URL de la API:
+
+```bash
+cd 3_frontend
+cp .env.example .env   # deja VITE_API_URL=http://localhost:8080
+npm install
+```
+
+Luego, cada vez:
+
+```bash
+npm run dev
+```
+
+Abre <http://localhost:5173>. Sin el `.env`, el frontend no encuentra la API.
+
+### 4. Apagar
+
+`Ctrl+C` en las terminales del backend y del frontend, y luego:
+
+```bash
+docker compose -f 1_Database/compose.yaml down      # conserva los datos
+docker compose -f 1_Database/compose.yaml down -v   # borra los datos
+```
+
+### Probar cada historia a mano
+
+Además de las pruebas automáticas (`./init.sh`), cada historia `done` se
+puede probar así. Agrega aquí la tuya al terminarla.
+
+#### HU-01 — Registro de usuario con consentimiento
+
+Entra a <http://localhost:5173/registro>.
+
+| Prueba | Qué haces | Qué debes ver |
+|--------|-----------|---------------|
+| CA1 — registro exitoso | Correo nuevo, contraseña válida (p. ej. `clave1234`), marca la casilla de privacidad | «Te enviamos un correo de verificación…». No llega ningún correo: el envío es simulado, y en el log del backend aparece `Envío de correo de verificación simulado` |
+| CA2 — sin consentimiento | Igual, pero sin marcar la casilla | Error bajo la casilla; no se crea la cuenta |
+| CA3 — contraseña débil | `abc`, `abcdefgh` (sin dígito), `12345678` (sin letra) o igual al correo | Los requisitos mínimos de contraseña |
+| CA3 — correo repetido | Registra otra vez un correo ya usado | El mismo mensaje que CA1, sin revelar que la cuenta existe |
+| (D) — límite por IP | Envía el formulario 6 veces en menos de una hora | El 6.º intento muestra un error de demasiados intentos (429). Reinicia el backend para limpiar el contador |
+| Privacidad | Entra a <http://localhost:5173/privacidad> | La política con su versión (`2026-10`) |
+
+Para comprobar lo que quedó en la base de datos:
+
+```bash
+docker exec -it espacioya-postgres psql -U espacioya -d espacioya \
+  -c "SELECT id, correo, rol, estado, correo_verificado, version_politica, fecha_consentimiento FROM usuario;" \
+  -c "SELECT accion, usuario_id, ip, fecha FROM auditoria ORDER BY fecha;"
+```
+
+Debes ver la cuenta con rol `USUARIO`, estado `ACTIVA`, `correo_verificado = t`
+y la versión de la política aceptada. En `auditoria` debe aparecer una fila por
+cada registro exitoso y por cada intento con un correo ya existente. La contraseña nunca se guarda en claro: solo su hash bcrypt.
+
+Si prefieres probar la API sin el frontend:
+
+```bash
+curl -i http://localhost:8080/api/politicas-privacidad/vigente
+curl -i -X POST http://localhost:8080/api/usuarios \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"prueba@ejemplo.com","contrasena":"clave1234","aceptaPrivacidad":true,"versionPolitica":"2026-10"}'
+```
+
 ## Cómo trabajar una historia con Claude Code
 
 El repositorio trae un arnés de **Spec Driven Development**: Claude no
