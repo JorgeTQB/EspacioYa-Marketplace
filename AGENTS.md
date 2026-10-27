@@ -31,6 +31,7 @@
 | `docs/architecture.md`       | Qué significa "hacer un buen trabajo" en este proyecto                      | Antes de implementar |
 | `docs/modelo-datos.md`       | Tablas, atributos, estados y restricciones de la base de datos              | Antes de diseñar una migración |
 | `docs/conventions.md`        | Reglas de estilo, nombres, estructura                                       | Antes de escribir código |
+| `docs/frontend.md`           | Carpetas, tokens y paleta, kit de componentes, mensajes y rutas del frontend | Antes de diseñar o construir una pantalla |
 | `docs/specs.md`              | Proceso SDD: EARS notation, los 3 archivos, puerta de aprobación humana     | Antes de redactar o leer un spec |
 | `docs/verification.md`       | Cómo verificar que tu trabajo funciona (incluye trazabilidad requirements)  | Antes de declarar una historia como `done` |
 | `CHECKPOINTS.md`             | Criterios objetivos de "estado final correcto"                              | Para auto-evaluarte |

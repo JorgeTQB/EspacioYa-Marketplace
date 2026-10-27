@@ -23,6 +23,7 @@ El nombre de la carpeta coincide con el id de la historia (`HU-01`, `HU-13`…).
 - Los archivos de las historias de las que depende.
 - Los RF, RNF y RN de la historia en `docs/requerimientos.md` (matriz §7).
 - `docs/architecture.md` y `docs/conventions.md`.
+- `docs/frontend.md`, si la historia tiene pantallas.
 
 ## Estados de una historia
 
@@ -31,10 +32,17 @@ El nombre de la carpeta coincide con el id de la historia (`HU-01`, `HU-13`…).
 | `pending`      | Sin spec. El `spec_author` es el primero en actuar.            |
 | `spec_ready`   | Spec redactado. Esperando aprobación del dueño. NO se toca código. |
 | `in_progress`  | Spec aprobado. `implementer` trabajando.                       |
-| `done`         | Pruebas verdes, `reviewer` aprobó, sesión cerrada.             |
+| `done`         | Código terminado: pruebas verdes, `reviewer` aprobó, sesión cerrada. |
 | `blocked`      | Atascado. Razón en `progress/HU-XX.md`.                        |
 
 Puede haber varias historias `in_progress` a la vez, pero como máximo una por dueño.
+
+`done` es el fin del trabajo del arnés, **no** la aceptación de la historia en
+Scrum. Lo que falta de la Definition of Done (despliegue en UAT, caja negra de
+la pareja y validación del Product Owner, ver `docs/verification.md`) se
+registra en la columna **Estado** de la matriz §7 de `docs/requerimientos.md`,
+no en `feature_list.json`. Si en UAT aparece un defecto, la historia vuelve a
+`in_progress` con su dueño.
 
 ## La puerta de aprobación humana
 
@@ -70,6 +78,10 @@ Reglas duras:
 - No mezcles varios `DEBE` en un mismo requirement. Si hay más de uno, parte.
 - No uses verbos blandos ("podría", "puede", "soporta"). Solo `DEBE` / `NO DEBE`.
 - Todo CA y todo control STRIDE de la historia queda cubierto por al menos un `R<n>`.
+- Los `R<n>` se escriben sobre la **API** (lo que el backend recibe, valida,
+  guarda y responde), no sobre la pantalla. Un CA visible ("veo un mensaje
+  genérico") se cubre con el `R<n>` de lo que responde la API, y su
+  presentación se describe en la sección "Pantallas" del `design.md`.
 
 Ejemplo:
 
@@ -109,16 +121,21 @@ Captura **antes** de tocar código:
 - Qué excepciones de `comun/error/` se reutilizan o se añaden.
 - Qué componentes de `comun` se reutilizan (auditoría, rate limiting, correo…).
 - Si la historia es ★: cómo se aplica su patrón (ver `docs/architecture.md`).
+- **Pantallas** (si la historia tiene interfaz): por cada pantalla, su ruta y
+  archivo en `pages/<modulo>/`, los componentes del kit que usa (y si agrega
+  uno nuevo), las funciones de `api/<modulo>.js` que llama y cómo muestra cada
+  CA visible. Sigue `docs/frontend.md`.
 - Qué alternativa se descartó y por qué (mínimo una).
 
 NO es ingeniería desde primeros principios — apóyate en
-`docs/architecture.md` y `docs/conventions.md`. El `design.md` documenta los
+`docs/architecture.md`, `docs/conventions.md` y `docs/frontend.md`. El `design.md` documenta los
 puntos donde tu historia roza la frontera de esas reglas.
 
 ## tasks.md — checklist ejecutable
 
-Pasos discretos en orden, cada uno con checkbox. Cada task referencia al
-menos un `R<n>` que cubre.
+Pasos discretos en orden, cada uno con checkbox. Cada task del backend
+referencia al menos un `R<n>` que cubre. Cada task de frontend referencia la
+pantalla o el CA visible que cubre (las pantallas no tienen `R<n>` propios).
 
 Ejemplo:
 
@@ -127,6 +144,7 @@ Ejemplo:
 - [ ] T2 — Añadir `RegistroService.registrar(RegistroUsuarioDTO)`. Cubre: R1, R2, R5.
 - [ ] T3 — Añadir `RegistroController` con `POST /api/usuarios`. Cubre: R1, R2.
 - [ ] T4 — Añadir `RegistroServiceTest` con un test por R1, R2 y R5. Cubre: R1, R2, R5.
+- [ ] T5 — Añadir `registrarUsuario` en `src/api/cuentas.js` y la pantalla `pages/cuentas/Registro.jsx`. Cubre: pantalla Registro (CA1, CA3).
 ```
 
 El `implementer` marca `[x]` cada task al completarla. El `reviewer`

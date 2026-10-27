@@ -1,0 +1,234 @@
+# Frontend — Cómo se construyen las pantallas
+
+> Seis personas hacen pantallas en paralelo. Esta guía existe para que todas
+> se vean como una sola aplicación y para que ningún agente "invente" estilos.
+> Si algo no está aquí ni en el `design.md` de la historia, no se hace.
+>
+> Estilo de código React: `docs/conventions.md`. Arquitectura general:
+> `docs/architecture.md`.
+
+## Principios
+
+1. **El frontend no tiene reglas de negocio.** Muestra lo que devuelve la API;
+   nunca calcula montos, roles ni estados (`docs/architecture.md`, principio 6).
+2. **Los requirements se escriben sobre la API.** Cada historia describe sus
+   pantallas en la sección "Pantallas" de su `design.md`, pero sus `R<n>` se
+   verifican con tests del backend. La pantalla se verifica con lint, build y
+   la caja negra de la pareja en UAT (`docs/verification.md`).
+3. **Un kit propio, sin librerías de componentes.** Nada de MUI, Ant Design,
+   Bootstrap, Tailwind ni similares: obligan a aprender su sistema y chocan con
+   el kit. Agregar cualquier dependencia al `package.json` se discute antes
+   (estado `blocked`).
+4. **Un solo origen para los estilos.** Todos los colores, espacios, bordes y
+   tamaños de texto salen de `src/styles/tokens.css`.
+
+## Estructura de carpetas
+
+```
+3_frontend/src/
+├── main.jsx              # Punto de entrada; monta el router
+├── index.css             # Estilos base (usa los tokens)
+├── styles/
+│   └── tokens.css        # ÚNICO archivo con colores literales
+├── components/
+│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques
+├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
+└── api/                  # cliente.js + un archivo por módulo: api/cuentas.js
+```
+
+- Las páginas se agrupan por el mismo módulo del backend (`cuentas`,
+  `espacios`, `busqueda`, `reservas`, `pagos`, `administracion`).
+- Cada componente lleva su CSS al lado como **CSS Module**
+  (`Boton.jsx` + `Boton.module.css`), así las clases de dos personas no chocan.
+
+## Tokens
+
+`src/styles/tokens.css` define variables CSS. Reglas:
+
+- ❌ Prohibido escribir colores (`#hex`, `rgb()`, `hsl()`) fuera de `tokens.css`.
+  `./init.sh` lo revisa.
+- Los espacios son múltiplos de 4 px (`--espacio-1` = 4 px … `--espacio-8` = 32 px).
+- Radios: `--radio` (8 px) para botones, campos y etiquetas; `--radio-tarjeta`
+  (12 px) para tarjetas y modales.
+- Una sola tipografía (`--fuente`, la del sistema) y la escala `--texto-xs` a
+  `--texto-2xl`.
+- Solo modo claro: ninguna historia pide modo oscuro.
+- `tokens.css` se importa una sola vez, en `src/main.jsx`, antes de `index.css`.
+
+## Paleta
+
+**Colores base**
+
+| Token | Hex | Dónde se usa |
+|-------|-----|--------------|
+| `--color-primario` | `#1D4ED8` | Botón principal (Reservar, Pagar, Publicar, Guardar), enlaces, bloque horario seleccionado, pestaña o menú activo, contorno del foco |
+| `--color-primario-hover` | `#1E3A8A` | El mismo botón o enlace al pasar el mouse o al presionarlo |
+| `--color-primario-suave` | `#DBEAFE` | Fondo de una fila o tarjeta seleccionada, halo del campo con foco, alertas informativas |
+| `--color-texto` | `#0F172A` | Títulos, texto principal y montos |
+| `--color-texto-secundario` | `#475569` | Etiquetas de campos, fechas, descripciones, texto de ayuda, texto del bloque ocupado |
+| `--color-texto-deshabilitado` | `#94A3B8` | Placeholders y controles deshabilitados |
+| `--color-fondo` | `#F8FAFC` | Fondo de toda la página |
+| `--color-superficie` | `#FFFFFF` | Fondo de tarjetas, formularios, modales y tablas |
+| `--color-borde` | `#E2E8F0` | Bordes decorativos: tarjetas, tablas, separadores y modales |
+| `--color-borde-control` | `#64748B` | Borde de controles: campos de texto, select, textarea, casillas, radios y botón secundario |
+| `--color-gris-suave` | `#F1F5F9` | Fondo de bloques ocupados y filas alternas de tablas |
+
+**Colores de estado.** Cada uno es un fondo claro y un texto oscuro de la misma
+familia; los usan `EtiquetaEstado` y `Alerta`.
+
+| Tipo | Fondo | Texto |
+|------|-------|-------|
+| Éxito | `--color-exito-fondo` `#DCFCE7` | `--color-exito-texto` `#15803D` |
+| Atención | `--color-atencion-fondo` `#FEF3C7` | `--color-atencion-texto` `#B45309` |
+| Error | `--color-error-fondo` `#FEE2E2` | `--color-error-texto` `#B91C1C` |
+| Neutro | `--color-neutro-fondo` `#F1F5F9` | `--color-neutro-texto` `#475569` |
+| Info (solo `Alerta`) | `--color-info-fondo` = primario suave | `--color-info-texto` = primario hover |
+
+**Por qué azul y no verde:** el verde ya significa "confirmada" o "pagada". Si
+la marca también fuera verde, un botón y un estado de éxito se confundirían.
+El azul además transmite confianza en la pantalla de pago.
+
+**Contraste.** Todo texto sobre su fondo cumple WCAG AA (4.5:1), y todo borde
+que permite reconocer un control cumple 3:1 (WCAG 1.4.11):
+
+- Un campo blanco sobre una tarjeta blanca solo se distingue por su borde; por
+  eso los controles usan `--color-borde-control` (4.76:1) y no `--color-borde`
+  (1.23:1). `--color-borde` queda solo para bordes decorativos, a los que la
+  regla no exige 3:1 y que con un gris fuerte harían la interfaz pesada.
+- `--color-texto-deshabilitado` (2.6:1 sobre blanco) solo se usa en controles
+  deshabilitados, que están exentos, y en placeholders, que nunca reemplazan a
+  la etiqueta del campo.
+
+Si agregas un token, comprueba su contraste antes. Alternativa descartada para
+el borde de controles: `#94A3B8`, que da 2.56:1 y no llega al mínimo.
+
+## Reglas de uso
+
+- **Un solo botón primario por pantalla**, para la acción principal. Las demás
+  acciones usan el botón secundario: fondo `--color-superficie`, borde
+  `--color-borde-control` y texto `--color-texto`.
+- **Bordes de un campo según su estado:** normal `--color-borde-control`; con
+  foco `--color-primario` (6.7:1) más un anillo de 2 px; con error
+  `--color-error-texto` (6.5:1). El foco se ve siempre, también al navegar con
+  el teclado.
+- **El rojo es solo para errores y acciones destructivas.** "Cancelar reserva"
+  o "Dar de baja" son botones `peligro`: texto `--color-error-texto` sobre
+  fondo blanco. Solo dentro del `Modal` de confirmación el botón pasa a rojo
+  relleno (`peligro-confirmar`).
+- **Montos** (precio, total, reembolso, comisión): siempre en `--color-texto`
+  con `--peso-negrita`. Nunca en verde ni en rojo: esos colores son de los estados.
+- Ningún color fuera de `tokens.css`. Los componentes usan siempre
+  `var(--color-…)`. Si hace falta un color nuevo, se agrega a `tokens.css` y a
+  esta guía.
+
+## Color de cada estado
+
+`EtiquetaEstado` recibe el valor del enum tal como lo devuelve la API y
+siempre muestra el **texto** del estado, no solo el color.
+
+| Entidad | Éxito | Atención | Error | Neutro |
+|---------|-------|----------|-------|--------|
+| Reserva | `CONFIRMADA` | `PENDIENTE_PAGO` (con el contador de 15 min) | — | `CANCELADA`, `EXPIRADA` |
+| Pago | `PAGADO` | — | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
+| Espacio | `PUBLICADO` | `PAUSADO` | `OCULTO` (moderación) | `BORRADOR`, `BAJA` |
+| Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
+| Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
+| Liquidación | `PAGADA` | `PENDIENTE_CUENTA`, `GENERADA` | — | — |
+| Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
+| Reclamo | — | abierto | — | — |
+| Cuenta bancaria | — | retenida 72 h | — | — |
+
+Cancelada y expirada van en neutro, no en error: no son fallos, son finales
+normales de una reserva. Los estados que aún no tienen enum (reclamo, cuenta
+bancaria) los nombra el spec de su historia, que agrega aquí los que falten.
+
+## Bloques horarios
+
+Son la pantalla central de HU-11 y HU-12 (`SelectorBloques`). Tres estilos fijos:
+
+| Estado del bloque | Estilo |
+|-------------------|--------|
+| Libre | Fondo blanco, borde y texto `--color-primario` (`--bloque-libre-*`) |
+| Seleccionado | Fondo `--color-primario`, texto blanco (`--bloque-seleccionado-*`) |
+| Ocupado | Fondo `--color-gris-suave`, texto `--color-texto-secundario` tachado, sin clic (`--bloque-ocupado-*`) |
+
+## Kit de componentes (`src/components/ui/`)
+
+Las pantallas solo usan estos componentes para estos elementos. **Si falta uno,
+se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
+"Pantallas" del `design.md`.
+
+| Componente | Para qué | Props mínimas |
+|------------|----------|---------------|
+| `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
+| `Campo` | Toda entrada de formulario, con su etiqueta | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda` |
+| `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior) | `estado` |
+| `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas" | `titulo`, `children`, `acciones` |
+| `Modal` | Confirmar acciones irreversibles (cancelar, suspender, dar de baja) | `abierto`, `titulo`, `onConfirmar`, `onCerrar` |
+| `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |
+
+**Quién los construye.** Igual que los componentes transversales de `comun`:
+los construye la primera historia que los necesita (la de menor sprint y, a
+igualdad, menor id) y los demás los reutilizan. El kit base del Sprint 1
+(`Boton`, `Campo`, `Alerta`, el router y `api/cliente.js`) lo construye
+**HU-01**; HU-02, HU-03 y HU-04 dependen de ella.
+
+## Mensajes y estados de carga
+
+Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
+"veo los requisitos mínimos"). Siempre igual:
+
+| Situación | Cómo se muestra |
+|-----------|-----------------|
+| Error de validación de un campo (formato, obligatorio) | Texto `--color-error-texto` debajo del `Campo` (prop `error`) y borde del campo del mismo color. La validación del cliente es solo de ayuda: el servidor siempre revalida |
+| Error de la API (cualquier 4xx o 5xx) | `Alerta` de tipo `error` arriba del formulario, con el mensaje del `ErrorDTO` tal cual. Si el `ErrorDTO` trae errores por campo, van además bajo cada `Campo` (su forma la fija el spec que crea el `ManejadorGlobalErrores`) |
+| Error de red (sin respuesta) | `Alerta` de error: "No pudimos conectar. Intenta de nuevo." |
+| Éxito | `Alerta` de tipo `exito`, o navegar a la pantalla siguiente |
+| Operación en curso | `Boton` con `cargando`: deshabilitado hasta la respuesta, para que no se envíe dos veces (reservas, pagos) |
+| Lista vacía | Texto secundario que explique qué falta ("Aún no tienes reservas") |
+
+- Los mensajes de seguridad son genéricos y no revelan si un correo o recurso
+  existe (RNF-USA-03, RNF-SEG-13). El frontend no los reescribe más específicos.
+- Nunca se muestran códigos HTTP, stack traces ni ids internos.
+- Textos en español, tratando al usuario de "tú".
+
+## Rutas y llamadas a la API
+
+- **Router:** `react-router-dom`, que agrega HU-01. Rutas en español,
+  minúsculas y con guiones: `/registro`, `/espacios/:id`, `/mis-reservas`.
+- **Cliente HTTP:** un solo `src/api/cliente.js` (sobre `fetch`) que pone la
+  URL base (`import.meta.env.VITE_API_URL`), el JSON y convierte las
+  respuestas de error en el `ErrorDTO`. Cada módulo tiene su archivo
+  (`api/reservas.js`) con una función por endpoint. Los componentes nunca
+  llaman a `fetch` directamente.
+- Cómo viaja la sesión (cookie o token) lo decide el spec de HU-03.
+
+## Accesibilidad mínima
+
+- Todo `Campo` tiene `<label>` asociada; nada de placeholders como etiqueta.
+- El foco es visible: contorno `--color-primario` (`:focus-visible` en
+  `index.css`). El halo `--color-primario-suave` puede acompañarlo, pero solo
+  no basta, porque sobre blanco casi no se ve.
+- El color nunca es la única señal: estados y errores siempre llevan texto.
+- Contraste AA en todo par texto/fondo (garantizado si solo usas tokens).
+
+## Sección "Pantallas" del `design.md`
+
+Toda historia con interfaz la incluye (ver `docs/specs.md`). Por cada pantalla:
+
+- Ruta y archivo (`pages/<modulo>/<Pantalla>.jsx`).
+- Componentes del kit que usa y si agrega alguno nuevo.
+- Funciones de `api/<modulo>.js` que llama y qué endpoint hay detrás.
+- Cómo muestra cada CA visible (mensaje, estado, navegación), según la tabla de
+  [Mensajes y estados de carga](#mensajes-y-estados-de-carga).
+
+## Qué NO hacer
+
+- No escribir colores, tamaños de letra ni espacios sueltos: usa los tokens.
+- No usar estilos en línea (`style={{…}}`) para dar apariencia.
+- No crear un botón, campo o alerta propio dentro de una pantalla.
+- No instalar librerías de componentes ni de CSS.
+- No calcular en el cliente nada que decida el servidor (montos, estados, roles).
+- No guardar datos personales ni tokens en `localStorage` sin que el spec de
+  HU-03 lo decida.

@@ -109,6 +109,16 @@ Mientras no haya pruebas de frontend, el mínimo es que compile y pase el lint:
 cd 3_frontend && npm run lint && npm run build
 ```
 
+Las pantallas no tienen `R<n>` propios: sus requirements se verifican en la
+API. Además del lint y el build:
+
+- `./init.sh` rechaza colores fuera de `src/styles/tokens.css` y librerías de
+  componentes o de CSS.
+- El `reviewer` comprueba que la pantalla respeta `docs/frontend.md` y la
+  sección "Pantallas" del `design.md`.
+- La pareja comprueba en UAT, con la caja negra (Nivel 3), que cada CA visible
+  se ve como dice esa sección.
+
 ## Anti-patrones (no hacer)
 
 - ❌ "He añadido el endpoint, debería funcionar." → falta test ejecutable.
@@ -123,12 +133,22 @@ cd 3_frontend && npm run lint && npm run build
 
 ## Definition of Done
 
+Tiene dos partes. El estado `done` de `feature_list.json` cubre solo la
+primera; la segunda se registra en la columna **Estado** de la matriz §7 de
+`docs/requerimientos.md`.
+
+**1. Código terminado** (lo verifica el arnés y permite marcar `done`):
+
 - Código revisado, con pruebas unitarias y de integración verdes.
 - Todos los `R<n>` con su test y todas las tasks `[x]`.
 - Controles STRIDE de la historia implementados.
 - Cumple PCI DSS y la protección de datos cuando aplica.
 - Documentación actualizada si cambia un contrato de API o un estado.
-- Desplegada en UAT y validada por el Product Owner.
+
+**2. Historia aceptada** (la registra la pareja en la matriz §7):
+
+- Desplegada en UAT, con los casos de caja negra y sus capturas (Nivel 3).
+- Validada por el Product Owner en la review.
 
 ## Verificación final antes de cerrar
 

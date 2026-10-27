@@ -20,7 +20,9 @@ ni `3_frontend/`. Si lo haces, el reviewer rechaza la historia.
 ## Protocolo
 
 1. Lee `AGENTS.md`, `docs/specs.md`, `docs/architecture.md`,
-   `docs/conventions.md` y `docs/modelo-datos.md`.
+   `docs/conventions.md` y `docs/modelo-datos.md`. Si la historia tiene
+   pantallas, también `docs/frontend.md` y lo que ya existe en
+   `3_frontend/src/components/ui/`.
 2. Lee las **fuentes del spec**:
    - `docs/historias/HU-XX.md`: historia, criterios de aceptación (CA) y STRIDE.
    - Las historias de su `depends_on` y, si ya tienen spec, su
@@ -48,9 +50,18 @@ ni `3_frontend/`. Si lo haces, el reviewer rechaza la historia.
      muestra en el diagrama de clases y de secuencia.
    - Si necesitas un puerto nuevo entre módulos, justifícalo aquí; la tabla
      de `docs/architecture.md` la actualiza el implementer.
-6. Redacta `tasks.md`: pasos discretos en orden, cada uno con `[ ]`, la
-   lista de `R<n>` que cubre y su test (`<Clase>Test` o `<Clase>IT`).
-   Termina con una task de verificación (`./init.sh` en verde).
+   - Si la historia tiene interfaz, incluye la sección **Pantallas** según
+     `docs/frontend.md`: ruta y archivo, componentes del kit (y cuáles faltan
+     y se agregan), funciones de `src/api/` y cómo se muestra cada CA visible.
+     Si la historia usa un estado que no está en la tabla "Color de cada
+     estado" de `docs/frontend.md`, indícalo aquí con su color.
+6. Redacta `tasks.md`: pasos discretos en orden, cada uno con `[ ]`.
+   - Las tasks del backend llevan la lista de `R<n>` que cubren y su test
+     (`<Clase>Test` o `<Clase>IT`).
+   - Las tasks de frontend (componente del kit, función de `src/api/`,
+     pantalla) indican la pantalla o el CA visible que cubren. No llevan
+     test: se verifican con lint, build y la caja negra en UAT.
+   - Termina con una task de verificación (`./init.sh` en verde).
 7. Cambia el `status` de esa historia a `spec_ready` en `feature_list.json`
    y anótalo en `progress/HU-XX.md`.
 8. **PARA**. No invoques al implementer. Espera la aprobación del dueño.

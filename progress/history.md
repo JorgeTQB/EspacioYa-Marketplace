@@ -60,3 +60,62 @@
   `README.md` explica al equipo cómo trabajar una historia con Claude Code.
 - **Pendiente:** los permisos (`permissions.allow`) de `.claude/settings.json`
   los agrega a mano el usuario; Claude no puede darse permisos a sí mismo.
+
+## 2026-10-27 — Definición de done y guía de frontend
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** `docs/specs.md` y `docs/verification.md` separan "código
+  terminado" (`done` del arnés) de "historia aceptada" (UAT y PO, columna
+  Estado de la matriz §7). Nueva `docs/frontend.md`: los `R<n>` se escriben
+  sobre la API y cada `design.md` trae una sección "Pantallas"; carpetas,
+  paleta azul con contraste AA verificado, color por estado, kit de 7
+  componentes (el kit base lo construye HU-01), mensajes, rutas y cliente HTTP.
+  `3_frontend/src/styles/tokens.css` creado; `index.css`, `App.css` e
+  `index.html` limpios de la plantilla de Vite (sin modo oscuro, `lang="es"`).
+  `init.sh` rechaza colores fuera de `tokens.css` y librerías de UI;
+  agentes, `CHECKPOINTS.md`, `AGENTS.md`, `conventions.md` y
+  `architecture.md` apuntan a la guía.
+- **Resultado:** `./init.sh` completo en verde.
+
+## 2026-10-27 — Paleta definitiva del frontend
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** `tokens.css` con la paleta exacta acordada (slate + azul, estados
+  éxito/atención/error/neutro, `--radio-tarjeta`), importado en `main.jsx`.
+  `docs/frontend.md` actualizado: tabla de colores, reglas de uso (un primario
+  por pantalla, rojo solo para errores y acciones destructivas, montos en
+  texto negrita), color de cada estado y botón `peligro-confirmar`. El bloque
+  ocupado usa `--color-texto-secundario` porque `#94A3B8` no se lee (2.3:1).
+- **Pendiente:** el borde de los campos (`#E2E8F0`, 1.2:1) no llega al 3:1;
+  decidir si se agrega un borde más oscuro para campos.
+
+## 2026-10-27 — Borde de controles
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** nuevo `--color-borde-control` (`#64748B`, 4.76:1) para campos,
+  casillas, radios y botón secundario; `--color-borde` queda para bordes
+  decorativos. `docs/frontend.md` fija los bordes del campo según su estado
+  (normal, foco con anillo de 2 px, error).
+- **Resultado:** resuelto el pendiente del borde de los campos.
+
+## 2026-10-27 — Endurecimiento del .gitignore
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** `.gitignore` ahora ignora state y variables de Terraform/CDK
+  (`*.tfstate`, `*.tfvars`, `.terraform/`, `.aws/`, `cdk.out/`), más llaves y
+  certificados (`*.pfx`, `*.keystore`, `*.p8`, `*.ppk`, `id_rsa*`,
+  `id_ed25519*`), credenciales (`credentials.json`, `*service-account*.json`,
+  `secrets.*`), perfiles `application-uat.*`/`application-prod.*`, `.npmrc`,
+  `*.har`, `http-client.private.env.json`, overrides de Docker Compose,
+  `CLAUDE.local.md` y respaldos de base (`*.dump`, `*.backup`, `*.sql.gz`,
+  `dumps/`). Nuevo `3_frontend/.env.example` que advierte que las variables
+  `VITE_` son públicas.
+- **Pendiente:** la regla "Secretos trackeados en git" de `init.sh` aún no
+  revisa los patrones nuevos.
+
+## 2026-10-27 — Agentes y frontend
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** revisado que todos los agentes lleguen a `docs/frontend.md`.
+  `spec_author` pide la sección "Pantallas" y separa tasks de backend (con
+  `R<n>` y test) de tasks de frontend (con pantalla o CA visible);
+  `implementer` ubica el código de frontend según la guía, actualiza sus
+  tablas y verifica con lint y build en lugar de tests; `reviewer` lee la guía
+  y rechaza si falta "Pantallas"; el explorador del `orquestador` también
+  revisa el kit, `src/api/` y las rutas. `docs/specs.md` y
+  `docs/verification.md` ya no exigen `R<n>` ni test a las tasks de frontend.

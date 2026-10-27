@@ -54,6 +54,12 @@
       `docs/architecture.md`.
 - [ ] ⚙ No hay secretos en el repositorio (`.env` sin trackear; solo
       `2_Backend/.env.example`).
+- [ ] ⚙ Frontend: ningún color (`#hex`, `rgb()`, `hsl()`) fuera de
+      `3_frontend/src/styles/tokens.css` y ninguna librería de componentes o
+      de CSS en `package.json`.
+- [ ] Frontend: las pantallas usan el kit de `src/components/ui/`, muestran
+      errores y éxitos según `docs/frontend.md` y llaman a la API solo desde
+      `src/api/`.
 
 ## C4 — La verificación es real
 

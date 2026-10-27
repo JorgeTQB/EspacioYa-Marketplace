@@ -22,7 +22,10 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** historia de
 ## Protocolo
 
 1. **Lee** `AGENTS.md`, `docs/architecture.md`, `docs/conventions.md`,
-   `docs/verification.md`, `docs/modelo-datos.md` y `docs/specs.md`.
+   `docs/verification.md`, `docs/modelo-datos.md` y `docs/specs.md`. Si la
+   historia tiene pantallas, también `docs/frontend.md`: las construyes con el
+   kit de `src/components/ui/` y los tokens, tal como dice la sección
+   "Pantallas" del `design.md`.
 2. **Lee el spec completo** en `specs/HU-XX/`. Cada `T<n>` de `tasks.md`
    es lo que vas a hacer; cada `R<n>` de `requirements.md` es lo que debe
    quedar verdadero al final.
@@ -31,7 +34,9 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** historia de
    - `Plan: las tasks T1..Tn de specs/HU-XX/tasks.md`
 4. **Para cada task `T<n>` en orden**:
    a. Implementa el cambio que indica la task, en el módulo y la capa que fija
-      `design.md` (`controller → service → domain / repository`).
+      `design.md` (`controller → service → domain / repository`). Si es de
+      frontend, va en la carpeta que fija `docs/frontend.md` (`pages/`,
+      `components/ui/`, `api/`) y usa solo tokens y el kit.
    b. Si la task incluye un test, escríbelo con
       `@DisplayName("HU-XX R<n>: <qué comprueba>")`. Unitarias `<Clase>Test`
       con Mockito y `Clock` fijo; integración `<Clase>IT` con
@@ -39,7 +44,8 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** historia de
    c. Marca `[x] T<n>` en `tasks.md` y añade una línea en la "Bitácora" de
       `progress/HU-XX.md`.
 5. Si `design.md` añade un puerto entre módulos, agrégalo a la tabla
-   "Puertos entre módulos" de `docs/architecture.md`.
+   "Puertos entre módulos" de `docs/architecture.md`. Si agrega un componente
+   al kit o un estado nuevo, agrégalo a las tablas de `docs/frontend.md`.
 6. **Verifica** ejecutando `./init.sh` completo (sin `--rapido`). Si falla →
    vuelve al paso 4.
 7. **Trazabilidad**: confirma que cada `R<n>` está cubierto por al menos
@@ -70,8 +76,9 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** historia de
 - ❌ No llenes las columnas de pruebas, capturas y estado de la matriz §7 de
   `docs/requerimientos.md`: eso lo hace la pareja que prueba.
 - ❌ No hagas commit, push ni PR: el dueño revisa y abre el PR hacia `develop`.
-- ✅ Toda escritura de código va acompañada de su test antes de pasar a
-  la siguiente task.
+- ✅ Todo código del backend va acompañado de su test antes de pasar a la
+  siguiente task. El frontend no tiene tests por ahora: cada task de
+  frontend termina con `npm run lint` y `npm run build` en verde.
 - ✅ Si una herramienta falla de manera inesperada (Docker, Maven, npm), NO
   improvises un workaround. Para, anota en `progress/HU-XX.md`, cambia el
   status a `blocked` y termina la sesión.

@@ -11,7 +11,37 @@
 application-local.properties
 application-local.yml
 application-local.yaml
+application-uat.*
+application-prod.*
+*.pfx
+*.keystore
+*.p8
+*.ppk
+id_rsa*
+id_ed25519*
+credentials.json
+*service-account*.json
+secrets.*
+.npmrc
+*.har
+http-client.private.env.json
+compose.override.yaml
+compose.override.yml
+docker-compose.override.yaml
+docker-compose.override.yml
+CLAUDE.local.md
 harness-sdd-main/
+
+# ============================================================
+# Infraestructura AWS (el state de Terraform guarda contraseñas
+# en texto plano)
+# ============================================================
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.aws/
+cdk.out/
 
 # ============================================================
 # Backend: Spring Boot (Java) con Maven o Gradle
@@ -59,6 +89,13 @@ logs/
 *.h2.db
 *.mv.db
 *.trace.db
+
+# Respaldos de la base: contienen datos personales.
+# No se ignora *.sql porque las migraciones de Flyway son .sql
+*.dump
+*.backup
+*.sql.gz
+dumps/
 
 # ============================================================
 # IDEs y editores

@@ -1,0 +1,72 @@
+/*
+ * Tokens de diseño de EspacioYa: el ÚNICO archivo con colores literales.
+ * Reglas de uso en docs/frontend.md. Solo modo claro.
+ * Si hace falta un color nuevo, se agrega aquí y a la guía.
+ */
+:root {
+  /* Marca */
+  --color-primario: #1D4ED8;
+  --color-primario-hover: #1E3A8A;
+  --color-primario-suave: #DBEAFE;
+
+  /* Texto */
+  --color-texto: #0F172A;
+  --color-texto-secundario: #475569;
+  --color-texto-deshabilitado: #94A3B8;
+
+  /* Superficies */
+  --color-fondo: #F8FAFC;
+  --color-superficie: #FFFFFF;
+  --color-borde: #E2E8F0;
+  /* Borde de controles (campos, casillas, botón secundario): 4.76:1, cumple el 3:1 de WCAG 1.4.11 */
+  --color-borde-control: #64748B;
+  --color-gris-suave: #F1F5F9;
+
+  /* Estados: fondo y texto */
+  --color-exito-fondo: #DCFCE7;
+  --color-exito-texto: #15803D;
+  --color-atencion-fondo: #FEF3C7;
+  --color-atencion-texto: #B45309;
+  --color-error-fondo: #FEE2E2;
+  --color-error-texto: #B91C1C;
+  --color-neutro-fondo: #F1F5F9;
+  --color-neutro-texto: #475569;
+
+  /* Alias de uso (no son colores nuevos) */
+  --color-sobre-primario: var(--color-superficie);
+  --color-info-fondo: var(--color-primario-suave);
+  --color-info-texto: var(--color-primario-hover);
+  --bloque-libre-fondo: var(--color-superficie);
+  --bloque-libre-texto: var(--color-primario);
+  --bloque-seleccionado-fondo: var(--color-primario);
+  --bloque-seleccionado-texto: var(--color-sobre-primario);
+  --bloque-ocupado-fondo: var(--color-gris-suave);
+  /* Texto secundario y no deshabilitado: #94A3B8 sobre gris suave da 2.3:1 y no se lee */
+  --bloque-ocupado-texto: var(--color-texto-secundario);
+
+  /* Forma y espacio */
+  --radio: 8px;
+  --radio-tarjeta: 12px;
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-3: 12px;
+  --espacio-4: 16px;
+  --espacio-6: 24px;
+  --espacio-8: 32px;
+
+  /* Tipografía: una sola familia, la del sistema */
+  --fuente: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --texto-xs: 12px;
+  --texto-sm: 14px;
+  --texto-base: 16px;
+  --texto-lg: 20px;
+  --texto-xl: 24px;
+  --texto-2xl: 32px;
+  --peso-normal: 400;
+  --peso-medio: 500;
+  --peso-negrita: 600;
+  --interlineado: 1.5;
+
+  /* Ancho máximo del contenido */
+  --ancho-contenido: 1120px;
+}

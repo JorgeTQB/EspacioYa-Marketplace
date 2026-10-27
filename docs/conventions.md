@@ -24,6 +24,9 @@
 - El estilo lo marca ESLint (`npm run lint`), sin advertencias.
 - Las llamadas a la API van en un solo lugar por módulo (`src/api/`), no
   dentro de los componentes.
+- Colores y medidas solo desde `src/styles/tokens.css`; CSS Modules por
+  componente; pantallas armadas con el kit de `src/components/ui/`. Todo el
+  detalle (carpetas, paleta, kit, mensajes, rutas) está en `docs/frontend.md`.
 
 ## Nombres
 

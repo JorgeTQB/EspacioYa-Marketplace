@@ -12,7 +12,7 @@
 | Pieza          | Decisión |
 |----------------|----------|
 | Backend        | Spring Boot (Java) en `2_Backend/`: Spring MVC (API REST), Spring Data JPA (persistencia), Spring Security (autenticación, roles y MFA) |
-| Frontend       | React + Vite en `3_frontend/`: SPA que consume la API REST |
+| Frontend       | React + Vite en `3_frontend/`: SPA que consume la API REST, con tokens CSS y un kit de componentes propio (`docs/frontend.md`) |
 | Comunicación   | API REST con JSON sobre HTTPS |
 | Base de datos  | **PostgreSQL 17**. El esquema lo crean solo las migraciones Flyway de `2_Backend/src/main/resources/db/migration/`; `1_Database/compose.yaml` solo levanta el servidor local vacío |
 | Pagos          | Pasarela certificada PCI DSS en modo de prueba (checkout de la pasarela + webhook con firma verificada) |

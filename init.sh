@@ -83,7 +83,8 @@ echo "── 2. Verificando archivos base del arnés ─────────
 for f in AGENTS.md CHECKPOINTS.md feature_list.json \
          progress/_plantilla.md progress/history.md \
          docs/architecture.md docs/conventions.md docs/specs.md docs/verification.md \
-         docs/requerimientos.md docs/modelo-datos.md \
+         docs/requerimientos.md docs/modelo-datos.md docs/frontend.md \
+         3_frontend/src/styles/tokens.css \
          .claude/agents/orquestador.md .claude/agents/spec_author.md \
          .claude/agents/implementer.md .claude/agents/reviewer.md; do
   if [ ! -f "$f" ]; then
@@ -245,6 +246,15 @@ fi
 if [ -d "$FRONTEND/src" ]; then
   regla "console.log en el frontend" \
     grep -rn 'console\.log' --include='*.js' --include='*.jsx' "$FRONTEND/src"
+  regla "Colores fuera de src/styles/tokens.css (docs/frontend.md)" \
+    grep -rnE '#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?)\(' --include='*.css' --include='*.js' --include='*.jsx' \
+    --exclude='tokens.css' "$FRONTEND/src"
+fi
+
+if [ -f "$FRONTEND/package.json" ]; then
+  regla "Librerías de componentes o de CSS en el frontend (docs/frontend.md)" \
+    grep -nE '"(@mui/[a-z-]+|antd|bootstrap|react-bootstrap|tailwindcss|@chakra-ui/[a-z-]+|styled-components|@emotion/[a-z-]+)"' \
+    "$FRONTEND/package.json"
 fi
 
 regla "Secretos trackeados en git" \

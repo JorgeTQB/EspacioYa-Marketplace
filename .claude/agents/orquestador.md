@@ -106,8 +106,10 @@ Si necesitas un detalle, lo lees del disco.
 **Explorador.** Lánzalo con `subagent_type: "general-purpose"`. El tipo
 `Explore` es de solo lectura y no puede escribir su informe. Pídele que:
 
-- responda preguntas acotadas sobre el código existente (clases, tablas,
-  endpoints y componentes de `comun` que la historia puede reutilizar);
+- responda preguntas acotadas sobre el código existente que la historia puede
+  reutilizar: clases, tablas, endpoints y componentes de `comun` en el
+  backend; componentes de `3_frontend/src/components/ui/`, funciones de
+  `src/api/` y rutas ya creadas en el frontend;
 - no modifique nada fuera de `progress/explore_HU-XX.md`;
 - escriba ahí la pregunta, los archivos analizados y lo encontrado, con rutas;
 - devuelva solo `explorado -> progress/explore_HU-XX.md`.

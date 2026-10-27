@@ -12,7 +12,8 @@ cambios. No editas código.
 ## Protocolo
 
 1. Lee `docs/architecture.md`, `docs/conventions.md`, `docs/specs.md`,
-   `docs/verification.md` y `CHECKPOINTS.md`.
+   `docs/verification.md` y `CHECKPOINTS.md`. Si la historia toca
+   `3_frontend/`, también `docs/frontend.md`.
 2. Identifica la historia que te pasa el orquestador (`HU-XX`, en `in_progress`
    en `feature_list.json`) y abre `specs/HU-XX/`, `docs/historias/HU-XX.md`
    y `progress/impl_HU-XX.md`.
@@ -36,6 +37,12 @@ cambios. No editas código.
    - ¿Respeta `docs/conventions.md`? (nombres en español, `record` para DTO,
      inyección por constructor, migración `V<sprint>_<n>__…`, `ErrorDTO`
      con mensajes genéricos)
+   - Si toca `3_frontend/`, ¿respeta `docs/frontend.md`? (solo tokens, sin
+     estilos en línea para la apariencia, pantallas armadas con el kit,
+     un solo botón primario por pantalla, mensajes de error y éxito según su
+     tabla, colores de estado según su tabla, llamadas solo vía `src/api/`)
+     ¿Coincide con la sección "Pantallas" del `design.md`? Si la historia tiene
+     interfaz y esa sección falta, rechaza.
    - ¿Coincide con `design.md`? Si se desvía, ¿está justificado?
    - ¿Tiene su test correspondiente?
    - Si la historia es ★, ¿se aplica el patrón de su `patterns`?
