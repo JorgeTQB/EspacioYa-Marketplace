@@ -178,3 +178,158 @@ b. `progress/HU-01.md` (Bitácora): la entrada del implementer está **duplicada
 c. `UsuarioControllerIT.java:60` fija `FRONTEND = "http://localhost:5173"`. Si alguien corre los tests con
    `FRONTEND_URL` definida en el entorno, los 3 tests fallan. Es más robusto inyectar
    `@Value("${espacioya.frontend.url}")` o fijar la propiedad en el test con `@TestPropertySource`.
+
+---
+
+## Revisión final R27 2026-10-27
+
+**Veredicto:** RECHAZADO (CHANGES_REQUESTED)
+
+Motivo único bloqueante: R27 no cumple el EARS estricto de `docs/specs.md`. Lo demás está correcto.
+
+### 1. Spec (`specs/HU-01/`)
+- [ ] **R27 en EARS** — `requirements.md:177-182` junta **dos `DEBE`** y dos patrones en un solo requirement:
+  uno de evento ("CUANDO … `Origin` igual a `espacioya.frontend.url`, el sistema DEBE responder con ACAO…") y uno
+  no deseado ("SI … `Origin` distinto … ENTONCES el sistema DEBE rechazarlo con 403 sin ACAO"). Esto incumple la regla
+  dura de `docs/specs.md:78`: "No mezcles varios `DEBE` en un mismo requirement. Si hay más de uno, parte".
+  Cada patrón por separado está bien escrito. (R4, `requirements.md:56-59`, tiene el mismo defecto, pero es
+  anterior y ya estaba aprobado. Se anota y no bloquea esta revisión.)
+- [x] Tabla de trazabilidad: `requirements.md:200` agrega "CA1 desde el navegador … (CORS) | R27".
+- [x] R19 queda solo para bcrypt: `requirements.md:132-134`, `requirements.md:193,198` y `design.md:506`.
+- [x] No quedan referencias de CORS a R19 en la spec: `design.md:49` dice "bcrypt(12) (R19), CORS (R27)";
+  `design.md:222-226` pone R27 para CORS y R19 para el `PasswordEncoder`; `design.md:512` es la fila de pruebas de R27.
+  Las únicas apariciones de "R19 … CORS" están en `progress/impl_HU-01.md:164-169`, como registro histórico.
+- [x] T7 (`tasks.md:16`) dice "R19 (bcrypt), R27 (CORS)". T11 (`tasks.md:24`) dice "R27 (3 IT CORS)". T19
+  (`tasks.md:42`) es `[x]` y su texto coincide con lo que se hizo. Son coherentes.
+
+### 2. `ConfiguracionSeguridad`
+- [x] El bean se llama `corsConfigurationSource` (`ConfiguracionSeguridad.java:41`). La corrección es mínima: en el
+  commit `2a77bac` solo cambian el nombre del método y un comentario de 2 líneas (+4/−2). Esta revisión no cambia
+  código de producción.
+
+### 3. `UsuarioControllerIT`
+- [x] `@SpringBootTest(properties = "espacioya.frontend.url=" + UsuarioControllerIT.FRONTEND)` (línea 49), con
+  `FRONTEND = "http://frontend.espacioya.test:5173"` (línea 62). Este valor es distinto del default
+  `${FRONTEND_URL:http://localhost:5173}` (`application.properties:20`), así que el test prueba que CORS lee la
+  propiedad.
+- [x] No dependen de `FRONTEND_URL`: ejecuté `FRONTEND_URL=http://otro:9999 ./init.sh` (completo) y terminó con
+  exit 0. Los 3 casos CORS aparecen en `target/failsafe-reports/TEST-…UsuarioControllerIT.xml` sin fallos (27/27).
+  `init.sh` no redefine `FRONTEND_URL`, así que la variable llega a la JVM de las pruebas.
+- [x] Las etiquetas son `HU-01 R27:` (líneas 445, 455 y 463). Validan:
+  - ACAO = `FRONTEND` en el preflight (líneas 447-451: 200, ACAO, métodos y cabeceras).
+  - ACAO = `FRONTEND` en el POST (líneas 470-475: 202).
+  - 403 sin ACAO para `http://evil.com` (líneas 457-459).
+- [x] Fijar la propiedad no rompe los demás IT de la clase. `FRONTEND` solo se usa en los 3 IT CORS, y los 27 IT de
+  la clase pasan. La clase ya tenía su propia clave de contexto por `@Import(… Dobles)`. `PoliticaPrivacidadControllerIT`
+  y `EspacioYaApplicationIT` siguen en verde.
+
+### 4. Checkpoints
+- `./init.sh` completo (sin `--rapido`, con `FRONTEND_URL=http://otro:9999`): **exit 0**, `[OK] Entorno listo`.
+  29 unitarias + 29 IT, 0 fallos y 0 errores. ESLint y build OK.
+- C1: [x] · C2: [x] · C3: [x] · C4: [x] · C5: [x] (rama `feature/HU-01-registro-consentimiento`, sin archivos sin
+  trackear) · C6: [ ] porque "`requirements.md` usa EARS estricto" falla por R27 (§1). El resto de C6 está en [x].
+
+### 5. Alcance
+- [x] `git status` muestra solo `UsuarioControllerIT.java`, `progress/HU-01.md`, `progress/impl_HU-01.md` y
+  `specs/HU-01/{requirements,design,tasks}.md`. No hay cambios en `3_frontend/` ni en `feature_list.json`, ni archivos
+  sin trackear.
+
+### Cambios requeridos
+1. `spec_author`: partir R27 en dos requirements:
+   - **R27** (evento): CUANDO llega a `/api/**` una solicitud (incluido el preflight `OPTIONS`) con `Origin` igual a
+     `espacioya.frontend.url`, el sistema DEBE responder con `Access-Control-Allow-Origin` igual a ese origen.
+   - **R28** (no deseado): SI llega a `/api/**` un preflight `OPTIONS` con `Origin` distinto de
+     `espacioya.frontend.url` ENTONCES el sistema DEBE rechazarlo con 403 sin `Access-Control-Allow-Origin`.
+
+   Después hay que actualizar:
+   - la tabla de trazabilidad (`requirements.md:200` → R27, R28);
+   - `design.md:49,222,512` (R28 aparte en el plan de pruebas);
+   - T7, T11 y T19 (o una T20) en `tasks.md`.
+
+   El dueño (Jorge Quispe) debe aprobar esta revisión de spec.
+2. `implementer`: cambiar la etiqueta de `preflightDesdeOrigenNoPermitido` (línea 455) a `HU-01 R28: …`, agregar
+   R28 al mapa de `progress/impl_HU-01.md` y volver a correr `./init.sh` completo.
+
+### Observaciones no bloqueantes
+a. `progress/HU-01.md:8-9,15,17-18` está desactualizado: dice "Fase: corrección aprobada por reviewer", "la
+   corrección no cambia la spec", "Incumple R19" y "validar contra R19". Hay que actualizarlo y, al cerrar,
+   devolverlo a la plantilla (C5).
+b. `progress/impl_HU-01.md:169`: la fila "R19 (CORS, vía T7)" sigue con formato de tabla. Conviene tacharla o
+   marcarla "obsoleta → R27/R28" para que no se lea como mapa vigente.
+
+## Revisión final integral 2026-10-27
+
+**Veredicto:** APROBADO (APPROVED)
+
+Cambios revisados: `git diff HEAD` (8 archivos sin commit) y el código de producción de `2a77bac`.
+
+### 1. Spec (`specs/HU-01/`)
+- [x] **R4** (`requirements.md:58-60`): patrón de evento, un solo `NO DEBE` ("abrir conexiones a un servidor de correo"). Es verificable y está escrito sobre el backend.
+- [x] **R29** (`requirements.md:62-64`): patrón de evento, un `DEBE` (una línea INFO con el mensaje de envío simulado). Verificable.
+- [x] **R30** (`requirements.md:66-68`): patrón de evento, un `NO DEBE` (el correo del usuario no va al log). Verificable.
+- [x] **R27** (`requirements.md:186-189`): patrón de evento, un `DEBE` (ACAO igual al origen, también en el preflight). Está escrito sobre la API.
+- [x] **R28** (`requirements.md:191-194`): patrón no deseado `SI … ENTONCES`, un `DEBE` (403 sin ACAO). Está escrito sobre la API.
+- [x] Definición "Mensaje de envío simulado" (`requirements.md:24-25`): es el mismo texto, carácter por carácter, que `NotificadorCorreoSimulado.java` (`log.info`) y que la aserción de `NotificadorCorreoSimuladoTest.java:21`.
+- [x] Tabla de trazabilidad:
+  - CA1 correo → R2, R3, R4, R25, R29, R30;
+  - RF-A-01 → R1–R4, R29, R30;
+  - CORS → R27, R28 (`requirements.md:212`);
+  - S5 → R29, R30.
+- [x] `design.md`:
+  - :49 → bcrypt (R19), CORS (R27, R28);
+  - :64 y :202-203 → R4/R29/R30;
+  - :223-227 → nombre del bean `corsConfigurationSource` y R19 solo para el `PasswordEncoder`;
+  - :430 → R30;
+  - §12 :500-501 y :514-515 → filas separadas para R4, R29/R30, R27 y R28.
+- [x] `tasks.md`:
+  - T7 → R19 (bcrypt), R27, R28;
+  - T10 → R4, R29, R30 con sus tests;
+  - T11 → R27 (2 IT) y R28 (1 IT);
+  - T19, T20 y T21 están `[x]` (líneas 42, 46 y 50). T19 dice "3 IT a R27" y T20 corrige uno a R28; se lee bien como historial.
+- [x] No quedan referencias viejas: `grep R19` en `specs/HU-01` solo da bcrypt/Usuario. R27 nunca aparece solo como requisito doble. Las menciones "R19 (CORS)" están solo en `progress/impl_HU-01.md:167-172`, marcadas como histórico.
+
+### 2. `ConfiguracionSeguridad`
+- [x] El bean `corsConfigurationSource(@Value("${espacioya.frontend.url}") …)` está en `ConfiguracionSeguridad.java:41`, con `.cors(Customizer.withDefaults())` en la línea 30.
+- [x] La corrección es mínima: en `2a77bac` cambian solo el nombre del método y un comentario de 2 líneas. Los cambios sin commit no tocan `src/main`.
+
+### 3. Tests
+- [x] `UsuarioControllerIT.java:49`: `@SpringBootTest(properties = "espacioya.frontend.url=" + FRONTEND)` con `FRONTEND = "http://frontend.espacioya.test:5173"` (línea 62). Este valor es distinto del default de `application.properties:20`.
+- [x] Etiquetas:
+  - `HU-01 R27:` en el preflight permitido (línea 445: 200, ACAO = FRONTEND, métodos y cabeceras);
+  - `HU-01 R27:` en el POST permitido (línea 463: 202, ACAO = FRONTEND);
+  - `HU-01 R28:` en el origen no permitido (línea 455: 403 y `doesNotExist(ACAO)`).
+- [x] `NotificadorCorreoSimuladoTest.java`:
+  - `HU-01 R29, R30:` en `soloEscribeEnElLogSinElCorreo` (línea 15): comprueba INFO, el mensaje exacto y que `ana.secreta` no esté en stdout ni en stderr;
+  - `HU-01 R4:` en `sinColaboradoresDeRed` (línea 27): constructores sin parámetros y solo campos `org.slf4j.*`.
+
+### 4. Mapa de trazabilidad (`progress/impl_HU-01.md`)
+- [x] R4 → `sinColaboradoresDeRed` (:63).
+- [x] R27 → los 2 IT del origen permitido (:86).
+- [x] R28 → `preflightDesdeOrigenNoPermitido` (:87).
+- [x] R29 y R30 → `soloEscribeEnElLogSinElCorreo` (:88-89).
+- [x] R1–R30 tienen al menos un test.
+
+### 5. Checkpoints
+- `./init.sh` completo (sin `--rapido`, entorno por defecto): **exit 0**, `[OK] Entorno listo`. 29 unitarias + 29 IT, 0 fallos. ESLint y build OK.
+- `FRONTEND_URL=http://otro:9999 ./init.sh` completo: **exit 0**, con los mismos conteos y 0 fallos.
+- C1: [x]
+- C2: [x]
+- C3: [x] (sin cambios en `src/main` desde la revisión anterior; el notificador sigue siendo un Adapter detrás del puerto `NotificadorCorreo`)
+- C4: [x]
+- C5: [x] Está en la rama `feature/HU-01-registro-consentimiento` y no hay archivos sin trackear (solo ignorados: `target/`, `node_modules/`, `.idea/`, `dist/`, `3_frontend/.env`). Al cerrar falta una entrada en `progress/history.md` y devolver `progress/HU-01.md` a la plantilla; ver la observación (a).
+- C6: [x] EARS estricto en R4 y R27–R30, trazabilidad completa, tasks `[x]` y mapa al día.
+
+### 6. Alcance
+- [x] `git status` muestra solo `UsuarioControllerIT.java`, `NotificadorCorreoSimuladoTest.java`, `progress/{HU-01,impl_HU-01,review_HU-01}.md` y `specs/HU-01/{requirements,design,tasks}.md`.
+- [x] No hay cambios en `3_frontend/` ni en `feature_list.json`, ni archivos sin trackear.
+
+### Cambios requeridos
+Ninguno.
+
+### Observaciones no bloqueantes
+a. `progress/HU-01.md` está desactualizado:
+   - :8 todavía dice "Fase: revisión de spec (R27/R28)";
+   - :19 del plan dice "validar contra R19";
+   - la entrada de T19 está duplicada en :29-30.
+   Al cerrar hay que devolverlo a la plantilla y registrar la sesión en `progress/history.md` (C5).
+b. `soloEscribeEnElLogSinElCorreo` comprueba `contains("INFO")` y el mensaje por separado, no en la misma línea. Hoy es suficiente porque el notificador emite una sola línea, pero es una aserción algo débil para R29.

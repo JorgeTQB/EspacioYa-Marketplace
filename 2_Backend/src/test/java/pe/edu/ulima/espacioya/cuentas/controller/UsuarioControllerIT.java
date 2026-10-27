@@ -44,7 +44,9 @@ import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 
-@SpringBootTest
+// El origen permitido se fija aquí para que los tests de CORS no dependan de FRONTEND_URL en el entorno.
+// Se usa un valor distinto del default de application.properties para probar que CORS lee la propiedad.
+@SpringBootTest(properties = "espacioya.frontend.url=" + UsuarioControllerIT.FRONTEND)
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, UsuarioControllerIT.Dobles.class})
 class UsuarioControllerIT {
@@ -57,7 +59,7 @@ class UsuarioControllerIT {
     private static final String MENSAJE_LIMITE = "Hiciste demasiados intentos. Espera un momento e inténtalo de nuevo.";
     private static final String MENSAJE_INESPERADO = "Ocurrió un problema. Intenta de nuevo más tarde.";
     private static final String CONTRASENA = "Segura123!";
-    private static final String FRONTEND = "http://localhost:5173";
+    static final String FRONTEND = "http://frontend.espacioya.test:5173";
     private static final AtomicInteger SIGUIENTE_IP = new AtomicInteger(1);
 
     @Autowired
@@ -440,7 +442,7 @@ class UsuarioControllerIT {
     }
 
     @Test
-    @DisplayName("HU-01 R19: el preflight desde espacioya.frontend.url recibe Access-Control-Allow-Origin")
+    @DisplayName("HU-01 R27: el preflight desde espacioya.frontend.url recibe Access-Control-Allow-Origin")
     void preflightDesdeElFrontendPermitido() throws Exception {
         preflightDesde(FRONTEND)
                 .andExpect(status().isOk())
@@ -450,7 +452,7 @@ class UsuarioControllerIT {
     }
 
     @Test
-    @DisplayName("HU-01 R19: el preflight desde un origen no permitido recibe 403 sin Access-Control-Allow-Origin")
+    @DisplayName("HU-01 R28: el preflight desde un origen no permitido recibe 403 sin Access-Control-Allow-Origin")
     void preflightDesdeOrigenNoPermitido() throws Exception {
         preflightDesde("http://evil.com")
                 .andExpect(status().isForbidden())
@@ -458,7 +460,7 @@ class UsuarioControllerIT {
     }
 
     @Test
-    @DisplayName("HU-01 R19: el POST desde el frontend permitido lleva Access-Control-Allow-Origin")
+    @DisplayName("HU-01 R27: el POST desde el frontend permitido lleva Access-Control-Allow-Origin")
     void postDesdeElFrontendLlevaCabeceraCors() throws Exception {
         mvc.perform(post("/api/usuarios")
                         .with(solicitud -> {

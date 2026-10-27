@@ -60,7 +60,7 @@ design §4) ni componentes fuera de los ya listados en `docs/frontend.md`.
 | R1 | `UsuarioControllerIT.creaUsuarioActivoVerificado`, `RegistroServiceTest.guardaUsuarioNuevo`, `UsuarioTest.registrarFijaRolEstadoYVerificacion` |
 | R2 | `UsuarioControllerIT.responde202SoloConMensaje` |
 | R3 | `RegistroServiceTest.notificaUnaVezConCorreoNormalizado`, `UsuarioControllerIT.invocaAlNotificador` |
-| R4 | `NotificadorCorreoSimuladoTest.soloEscribeEnElLogSinElCorreo`, `NotificadorCorreoSimuladoTest.sinColaboradoresDeRed` |
+| R4 | `NotificadorCorreoSimuladoTest.sinColaboradoresDeRed` |
 | R5 | `UsuarioControllerIT.guardaCorreoNormalizado`, `UsuarioTest.normalizaCorreo`, `RegistroServiceTest.guardaUsuarioNuevo` |
 | R6 | `UsuarioControllerIT.rechazaSinAceptarPrivacidad`, `UsuarioControllerIT.rechazaSinCampoDeAceptacion` |
 | R7 | `UsuarioControllerIT.rechazaVersionDistinta`, `UsuarioControllerIT.rechazaSinVersion`, `RegistroServiceTest.rechazaVersionNoVigente` |
@@ -83,6 +83,10 @@ design §4) ni componentes fuera de los ya listados en `docs/frontend.md`.
 | R24 | `ManejadorGlobalErroresTest.errorInesperadoEsGenerico`, `UsuarioControllerIT.falloDelNotificador` |
 | R25 | `UsuarioControllerIT.falloDelNotificador` (500 genérico, BD sin usuario ni auditoría), `RegistroServiceTest.falloDelNotificadorRevierte` |
 | R26 | `PoliticaPrivacidadControllerIT.devuelveVersionVigente` |
+| R27 | `UsuarioControllerIT.preflightDesdeElFrontendPermitido`, `UsuarioControllerIT.postDesdeElFrontendLlevaCabeceraCors` |
+| R28 | `UsuarioControllerIT.preflightDesdeOrigenNoPermitido` |
+| R29 | `NotificadorCorreoSimuladoTest.soloEscribeEnElLogSinElCorreo` |
+| R30 | `NotificadorCorreoSimuladoTest.soloEscribeEnElLogSinElCorreo` |
 
 Todos los tests llevan `@DisplayName("HU-01 R<n>: …")`; `./init.sh` no reporta R sin test.
 
@@ -165,4 +169,102 @@ y así lo indicó el orquestador. Pero el texto de R19 en `requirements.md` solo
 R propio, solo aparece en design §4 y en T7. No se cambió la spec. Si el dueño lo considera necesario, conviene
 agregar un R de CORS en una revisión de la spec.
 
-| R19 (CORS, vía T7) | `UsuarioControllerIT.preflightDesdeElFrontendPermitido`, `UsuarioControllerIT.preflightDesdeOrigenNoPermitido`, `UsuarioControllerIT.postDesdeElFrontendLlevaCabeceraCors` |
+> Histórico, reemplazado por la sección "T19 etiquetas R27": R19 (CORS, vía T7) → `UsuarioControllerIT.preflightDesdeElFrontendPermitido`, `UsuarioControllerIT.preflightDesdeOrigenNoPermitido`, `UsuarioControllerIT.postDesdeElFrontendLlevaCabeceraCors`
+
+## Tests CORS independientes del entorno 2026-10-27
+
+**Origen:** observación no bloqueante de `progress/review_HU-01.md` ("Revisión corrección CORS 2026-10-27"):
+`UsuarioControllerIT` tenía `http://localhost:5173` escrito a mano y los IT de CORS fallaban si `FRONTEND_URL`
+estaba definida en el entorno con otro valor.
+
+**Opción elegida:** fijar la propiedad en el test con
+`@SpringBootTest(properties = "espacioya.frontend.url=" + UsuarioControllerIT.FRONTEND)`, con
+`FRONTEND = "http://frontend.espacioya.test:5173"` (la constante pasó de `private` a package-private para poder
+usarla en la anotación). Motivos frente a inyectar `@Value`:
+- Es determinista: las propiedades de `@SpringBootTest` tienen más prioridad que las variables de entorno, así que
+  el test prueba siempre la misma configuración. Con `@Value`, el test toma lo que haya en el entorno; si alguien
+  define `FRONTEND_URL=http://evil.com`, el test del origen ajeno se rompería.
+- El valor es distinto del default de `application.properties` (`${FRONTEND_URL:http://localhost:5173}`). Así el
+  test prueba que CORS lee `espacioya.frontend.url` y no que coincide por casualidad con el default.
+- No agrega otro contexto de Spring: la clase ya tenía su propia combinación de `@Import(... Dobles)`, así que
+  ya tenía una clave de caché propia.
+- Sigue la convención de `docs/conventions.md`: la configuración sale de propiedades y no está escrita a mano en el
+  código. No se tocó código de producción.
+
+Los 3 tests siguen validando lo mismo: el preflight y el POST desde el origen configurado reciben
+`Access-Control-Allow-Origin` con ese origen, y `http://evil.com` recibe 403 sin ACAO. No se cambiaron los
+`@DisplayName`.
+
+**Archivo modificado:** `2_Backend/src/test/java/pe/edu/ulima/espacioya/cuentas/controller/UsuarioControllerIT.java`
+(anotación `@SpringBootTest` + constante `FRONTEND`).
+
+**Verificación:**
+- `FRONTEND_URL` sin definir: `./mvnw verify -Dit.test=UsuarioControllerIT` → 27 tests, 0 fallos.
+- `FRONTEND_URL=http://otro:9999`: el mismo comando → 27 tests, 0 fallos, BUILD SUCCESS.
+- Contraprueba: con la versión anterior del IT (HEAD) y `FRONTEND_URL=http://otro:9999` → 2 fallos
+  (`preflightDesdeElFrontendPermitido`, `postDesdeElFrontendLlevaCabeceraCors`). Después se restauró la corrección.
+- `./init.sh` completo: los tests del backend (29 unitarias + 29 de integración), ESLint y el build pasan. El script
+  termina con **exit 1** por 2 checks de trazabilidad que salen de los cambios que otro agente está haciendo en
+  paralelo en `specs/HU-01/`, y no de esta corrección: "HU-01 está done con 1 task(s) sin marcar en tasks.md" y
+  "sin @DisplayName para R27". Se resuelven en la tarea siguiente, cuando se cambien las etiquetas (R19 → R de CORS)
+  y se marque la task.
+
+## T19 etiquetas R27 2026-10-27
+
+**Origen:** revisión de spec aprobada hoy por Jorge Quispe (R27 CORS, T19).
+
+**Cambios:**
+- `2_Backend/src/test/java/pe/edu/ulima/espacioya/cuentas/controller/UsuarioControllerIT.java`: solo el `@DisplayName`
+  de `preflightDesdeElFrontendPermitido`, `preflightDesdeOrigenNoPermitido` y `postDesdeElFrontendLlevaCabeceraCors`
+  pasa de `HU-01 R19:` a `HU-01 R27:`. El cuerpo de los tests no cambia. `guardaHashBcrypt` sigue con R19.
+- `progress/impl_HU-01.md`: fila R27 agregada a la tabla de trazabilidad. La fila suelta "R19 (CORS, vía T7)" de la
+  nota para el reviewer queda como registro histórico; ahora el mapa vigente es R27.
+- `specs/HU-01/tasks.md`: `[x] T19`.
+- No se tocó código de producción, frontend ni `feature_list.json`.
+
+**Verificación:** `./init.sh` completo → **exit 0**, `[OK] Entorno listo`. Los checks de trazabilidad que antes
+fallaban ("1 task(s) sin marcar" y "sin @DisplayName para R27") pasan.
+
+**Conteo de pruebas (Maven, `./mvnw verify`):** **29 unitarias + 29 de integración**, 0 fallos, 0 errores, 0 omitidas.
+Desglose según `target/surefire-reports` y `target/failsafe-reports`:
+- Unitarias (29): RegistroServiceTest 12, PoliticaContrasenaTest 7, LimitadorIntentosTest 4,
+  ManejadorGlobalErroresTest 2, UsuarioTest 2, NotificadorCorreoSimuladoTest 2, EspacioYaApplicationTests 1.
+- Integración (29): UsuarioControllerIT 27, PoliticaPrivacidadControllerIT 1, EspacioYaApplicationIT 1.
+
+**29 vs 27:** el número correcto del total es **29 IT**. El número no bajó: el "27" venía de una ejecución filtrada
+(`./mvnw verify -Dit.test=UsuarioControllerIT`), que solo corre esa clase (27 tests). El "29" es lo que corre
+`./init.sh` con todas las clases (27 + 1 + 1). El "26" de la sección T18 es anterior a los 3 IT de CORS
+(26 + 3 = 29).
+
+## T20 etiqueta R28 2026-10-27
+
+**Origen:** partición de R27 en R27/R28 aprobada hoy por Jorge Quispe (T20).
+
+**Cambios:**
+- `2_Backend/src/test/java/pe/edu/ulima/espacioya/cuentas/controller/UsuarioControllerIT.java`: solo el `@DisplayName`
+  de `preflightDesdeOrigenNoPermitido` pasa de `HU-01 R27:` a `HU-01 R28:`. `preflightDesdeElFrontendPermitido` y
+  `postDesdeElFrontendLlevaCabeceraCors` siguen en `HU-01 R27:`. El cuerpo de los tests no cambia.
+- `progress/impl_HU-01.md`: en el mapa de trazabilidad, R27 queda con los 2 tests del origen permitido y se agrega
+  la fila R28 → `UsuarioControllerIT.preflightDesdeOrigenNoPermitido`.
+- `specs/HU-01/tasks.md`: solo la línea de T20 pasa a `[x]`. No se tocó nada más de `specs/` (el otro agente está
+  editando R4 en paralelo).
+- No se tocó código de producción, frontend, `feature_list.json` ni `progress/HU-01.md`.
+
+**Verificación:** `./init.sh` completo → **exit 0**, `[OK] Entorno listo`. Specs, progress y tasks coherentes; ningún
+check de trazabilidad falló (tampoco por R4 al momento de la ejecución). `./mvnw verify`: 29 unitarias + 29 de
+integración, 0 fallos. ESLint y `npm run build` en verde.
+
+## T21 etiquetas R4/R29/R30 2026-10-27
+
+- **Check de trazabilidad:** `init.sh` (línea 121) lee `@DisplayName("HU-XX R1, R3: …")` con el regex
+  `/@DisplayName\(\s*"(HU-\d{2})((?:[\s,y]+R\d+)+)\s*:/`, así que `"HU-01 R29, R30:"` se reconoce. No se cambió el script.
+- **Test** `2_Backend/src/test/java/pe/edu/ulima/espacioya/cuentas/service/NotificadorCorreoSimuladoTest.java`:
+  - `soloEscribeEnElLogSinElCorreo`: `@DisplayName` pasa de `HU-01 R4:` a `HU-01 R29, R30:`.
+  - `sinColaboradoresDeRed`: se queda en `HU-01 R4:`.
+- **Mensaje exacto:** el test ya comprueba `"Envío de correo de verificación simulado: no se envió ningún correo (HU-01)."`,
+  que coincide con la definición "Mensaje de envío simulado" de `requirements.md`. No hizo falta cambiar el código de producción.
+- **Mapa de trazabilidad:** R4 → `sinColaboradoresDeRed`; R29 y R30 → `soloEscribeEnElLogSinElCorreo`.
+- **tasks.md:** `[x] T21`.
+- **No se tocó:** código de producción, frontend, `feature_list.json`, `progress/HU-01.md`. No se hizo commit.
+- **Verificación:** `./init.sh` completo, **exit 0**: trazabilidad, specs y arquitectura OK, `./mvnw verify` 29 unitarias + 29 IT
+  sin fallos, ESLint y build del frontend OK, `[OK] Entorno listo`.
