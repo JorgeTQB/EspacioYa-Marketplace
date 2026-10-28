@@ -64,6 +64,9 @@ function IniciarSesion() {
           onChange={setContrasena}
           error={errores.contrasena}
         />
+        <p className={estilos.olvido}>
+          <Link to="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
+        </p>
         <Boton tipo="submit" cargando={enviando}>
           Iniciar sesión
         </Boton>

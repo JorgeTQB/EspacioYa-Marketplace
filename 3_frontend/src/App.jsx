@@ -8,8 +8,10 @@ import Boton from './components/ui/Boton.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
+import RecuperarContrasena from './pages/cuentas/RecuperarContrasena.jsx'
 import Registro from './pages/cuentas/Registro.jsx'
 import RegistroArrendador from './pages/cuentas/RegistroArrendador.jsx'
+import RestablecerContrasena from './pages/cuentas/RestablecerContrasena.jsx'
 import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
@@ -89,6 +91,8 @@ function App() {
           <Route path="/registro-arrendador" element={<RegistroArrendador />} />
           <Route path="/privacidad" element={<Privacidad />} />
           <Route path="/iniciar-sesion" element={<IniciarSesion />} />
+          <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
+          <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
           <Route
             path="/panel"
             element={

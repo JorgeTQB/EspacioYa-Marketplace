@@ -291,3 +291,67 @@
     para `EN_REVISION` y `RECHAZADA`; avisar a Ariel Enriquez (HU-06) que
     `V2_1` ya está ocupada. Todo está sin commitear: el dueño revisa y abre el
     PR hacia `develop`.
+
+## 2026-10-28 — HU-04 Recuperación de contraseña (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Eduardo Saldaña).
+- **Rama:** `feature/HU-04-recuperacion-contrasena` (desde `develop` en `832d7a1`).
+- **Spec:** `specs/HU-04/` con R1–R31, DT-1…DT-10 y T1–T15. Explorador en
+  `progress/explore_HU-04.md`. Spec aprobado por Eduardo Saldaña el 2026-10-28.
+  Decisiones del dueño: **D1** el notificador simulado escribe el enlace en el log
+  solo con la propiedad de desarrollo `espacioya.correo.simulado.registrar-enlace`
+  (apagada por defecto, nunca en UAT); **D2** el puerto se amplía en
+  `cuentas/service/NotificadorCorreo` (HU-25 lo moverá a `comun/correo`); **D3** al
+  superar 3 solicitudes por correo y hora se responde el mismo 202 sin emitir enlace
+  (sin 429); **D4** tras restablecer no se inicia sesión: la pantalla lleva al login
+  con un aviso. Supuestos S1–S12 aceptados tal cual: **S1** `V1_5__token.sql` +
+  `spring.flyway.out-of-order=true`; **S2** sin enlace para cuentas no habilitadas
+  (regla de HU-03), también al validar y confirmar; **S3** tabla `token` + `creado_en`,
+  `hash_token` único con CHECK hex, `ON DELETE CASCADE`; **S4** uso único con UPDATE
+  condicional y anulación de pendientes al pedir otro y al restablecer; **S5** token
+  en `#token=` y en el cuerpo de un `POST`, forma validada antes del hash, un solo
+  mensaje de enlace inválido, endpoint de validación al abrir; **S6** mensajes y
+  acciones de auditoría (la validación al abrir no se audita); **S7** revocar
+  sesiones en la misma transacción y reiniciar el contador de login; **S8** solo la
+  política de HU-01; **S9** cuentan las solicitudes válidas en forma, exista o no la
+  cuenta; **S10** diferencia de tiempo aceptada hasta HU-25; **S11** límite en
+  memoria (una instancia); **S12** sin límite por IP.
+- **Cambios:** `comun/seguridad` (`TokenAleatorio.tieneFormato`, tres `permitAll`);
+  migración `V1_5__token.sql`; `application.properties` (`out-of-order`, propiedad de
+  D1) y `.env.example` (`CORREO_SIMULADO_REGISTRAR_ENLACE=false`); `cuentas/`
+  (`Token`, `TipoToken`, `MotivoRechazoRecuperacion`, `Usuario.cambiarContrasena`,
+  `TokenRepository`, `SesionRepository.revocarTodas`, `NotificadorCorreo.
+  notificarRecuperacion` y simulado con la propiedad, `InicioSesionService.
+  PREFIJO_CLAVE` de paquete, `RecuperacionContrasenaService`, tres DTO con
+  `toString` enmascarado, `RecuperacionContrasenaController` con `POST
+  /api/recuperaciones`, `/validaciones` y `/confirmaciones`; auditoría
+  `RECUPERACION_SOLICITADA`, `RECUPERACION_NO_EMITIDA`, `RECUPERACION_RECHAZADA` y
+  `CONTRASENA_RESTABLECIDA`). Dobles `NotificadorFalso` de `UsuarioControllerIT` y
+  `ArrendadorControllerIT` con el método nuevo. Frontend: `api/cuentas.js` (tres
+  funciones con `autenticada: false`), `textosCuentas.js`, pantallas
+  `/recuperar-contrasena` (`RecuperarContrasena.jsx`) y `/restablecer-contrasena`
+  (`RestablecerContrasena.jsx`), enlace "¿Olvidaste tu contraseña?" en
+  `IniciarSesion.jsx` y rutas en `App.jsx`. Docs: `modelo-datos.md` (`token`).
+- **Resultado:** `./init.sh` completo en verde (204 unitarias + 147 IT con
+  Testcontainers, incluida una prueba concurrente de dos confirmaciones; lint y
+  build OK). Reviewer: APPROVED (`progress/review_HU-04.md`). Trazabilidad R1–R31
+  en `progress/impl_HU-04.md`. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review y avisos):**
+  1. (HU-25) `RecuperacionContrasenaService.solicitar` notifica dentro de la
+     transacción: con el proveedor real, un fallo daría 500 solo a cuentas
+     existentes y revelaría que existen (STRIDE I). HU-25 debe capturar el fallo o
+     enviar después del commit sin cambiar el 202.
+  2. Dos solicitudes simultáneas de la misma cuenta pueden dejar dos tokens
+     vigentes (`anularPendientes` y `save` no se serializan). Riesgo bajo: ambos
+     son de un solo uso y de 30 minutos.
+  3. (UX, caja negra en UAT) En `RestablecerContrasena.jsx`, un error de red al
+     validar muestra la vista de enlace inválido con "No pudimos conectar…" y el
+     enlace "Solicitar un enlace nuevo"; puede confundir.
+  - **Aviso al equipo:** desde este PR rige `spring.flyway.out-of-order=true`
+    (S1): Flyway aplica migraciones de número menor que lleguen tarde. La
+    numeración por sprint sigue siendo obligatoria y una migración subida a
+    `develop` no se edita. Avisar a Ariel Enriquez (HU-06) antes de numerar su
+    `V2_n`.
+  - **UAT:** `CORREO_SIMULADO_REGISTRAR_ENLACE` debe quedar en `false` (D1); el
+    enlace solo se lee del log en una máquina de desarrollo. El límite de
+    solicitudes vive en memoria: una sola instancia del backend (S11).
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.

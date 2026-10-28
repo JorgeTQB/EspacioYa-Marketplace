@@ -94,6 +94,10 @@ public class Usuario {
         return Optional.empty();
     }
 
+    public void cambiarContrasena(String nuevoHash) {
+        hashContrasena = nuevoHash;
+    }
+
     public Long getId() {
         return id;
     }

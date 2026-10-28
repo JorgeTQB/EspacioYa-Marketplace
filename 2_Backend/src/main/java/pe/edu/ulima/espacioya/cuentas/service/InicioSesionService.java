@@ -35,7 +35,7 @@ public class InicioSesionService {
 
     private static final String ENTIDAD_SESION = "sesion";
     private static final String ENTIDAD_USUARIO = "usuario";
-    private static final String PREFIJO_CLAVE = "login|";
+    static final String PREFIJO_CLAVE = "login|";
 
     private final UsuarioRepository usuarios;
     private final PerfilArrendadorRepository perfiles;

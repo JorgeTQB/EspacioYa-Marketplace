@@ -10,6 +10,11 @@
   background: var(--color-superficie);
 }
 
+.olvido {
+  margin: 0 0 var(--espacio-4);
+  font-size: var(--texto-sm);
+}
+
 .otraOpcion {
   margin-top: var(--espacio-4);
   font-size: var(--texto-sm);
