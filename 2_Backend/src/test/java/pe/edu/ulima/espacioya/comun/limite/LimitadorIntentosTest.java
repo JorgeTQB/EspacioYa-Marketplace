@@ -16,6 +16,8 @@ class LimitadorIntentosTest {
     private static final String CLAVE = "POST /api/usuarios|10.0.0.1";
     private static final int MAXIMO = 5;
     private static final Duration VENTANA = Duration.ofHours(1);
+    private static final String CLAVE_LOGIN = "login|ana@correo.pe";
+    private static final Duration VENTANA_LOGIN = Duration.ofMinutes(15);
 
     private RelojControlable reloj;
     private LimitadorIntentos limitador;
@@ -77,5 +79,72 @@ class LimitadorIntentosTest {
 
         assertThat(limitador.intentar(CLAVE, MAXIMO, VENTANA)).isFalse();
         assertThat(limitador.intentar("POST /api/usuarios|10.0.0.2", MAXIMO, VENTANA)).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-03 R16, R17: con 4 fallos registrados no supera el límite y con 5 sí")
+    void superaLimiteAlQuintoFallo() {
+        for (int i = 0; i < MAXIMO - 1; i++) {
+            limitador.registrar(CLAVE_LOGIN);
+        }
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isFalse();
+
+        limitador.registrar(CLAVE_LOGIN);
+
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-03 R18: consultar superaLimite no registra un intento")
+    void superaLimiteNoRegistra() {
+        for (int i = 0; i < 10; i++) {
+            assertThat(limitador.superaLimite(CLAVE_LOGIN, 1, VENTANA_LOGIN)).isFalse();
+        }
+
+        limitador.registrar(CLAVE_LOGIN);
+
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, 1, VENTANA_LOGIN)).isTrue();
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, 2, VENTANA_LOGIN)).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-03 R19: a los 15 minutos de un fallo deja de contarlo")
+    void dejaDeContarAlPasarLaVentana() {
+        for (int i = 0; i < MAXIMO; i++) {
+            limitador.registrar(CLAVE_LOGIN);
+        }
+        reloj.avanzar(Duration.ofMinutes(15).minusSeconds(1));
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isTrue();
+
+        reloj.avanzar(Duration.ofSeconds(1));
+
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-03 R20: limpiar reinicia a cero los fallos de la clave")
+    void limpiarReiniciaContador() {
+        for (int i = 0; i < MAXIMO; i++) {
+            limitador.registrar(CLAVE_LOGIN);
+        }
+
+        limitador.limpiar(CLAVE_LOGIN);
+
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isFalse();
+        for (int i = 0; i < MAXIMO - 1; i++) {
+            limitador.registrar(CLAVE_LOGIN);
+        }
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-03 R21: el bloqueo de un correo no afecta a otro")
+    void clavesDeLoginIndependientes() {
+        for (int i = 0; i < MAXIMO; i++) {
+            limitador.registrar(CLAVE_LOGIN);
+        }
+
+        assertThat(limitador.superaLimite(CLAVE_LOGIN, MAXIMO, VENTANA_LOGIN)).isTrue();
+        assertThat(limitador.superaLimite("login|beto@correo.pe", MAXIMO, VENTANA_LOGIN)).isFalse();
     }
 }

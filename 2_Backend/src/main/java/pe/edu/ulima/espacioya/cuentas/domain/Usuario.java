@@ -2,6 +2,7 @@ package pe.edu.ulima.espacioya.cuentas.domain;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Optional;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -77,6 +78,20 @@ public class Usuario {
 
     public static String normalizarCorreo(String correo) {
         return correo == null ? null : correo.trim().toLowerCase(Locale.ROOT);
+    }
+
+    // Orden fijo: el motivo solo va a la auditoría; al cliente siempre le llega el mismo 401 genérico.
+    public Optional<MotivoRechazoInicioSesion> motivoRechazoInicioSesion() {
+        if (rol == Rol.ADMIN) {
+            return Optional.of(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
+        }
+        if (!correoVerificado) {
+            return Optional.of(MotivoRechazoInicioSesion.CORREO_NO_VERIFICADO);
+        }
+        if (estado != EstadoUsuario.ACTIVA) {
+            return Optional.of(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
+        }
+        return Optional.empty();
     }
 
     public Long getId() {
