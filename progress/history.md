@@ -198,3 +198,237 @@
   llaves con `openssl rand -base64 32` y las guarda en `~/.bashrc` (Git Bash).
   Sin cambios en código ni en `application.properties`.
 - 2026-10-27 — (orquestador, sdd:false) Ajuste: la regla "Comandos de shell" pasa también a `CLAUDE.md` (la sesión principal no lee `orquestador.md`). Backend se corre como `./2_Backend/mvnw -f 2_Backend/pom.xml …` y frontend como `npm --prefix 3_frontend …`, sin `cd` ni `timeout N`; ambos permitidos en `.claude/settings.json`.
+
+## 2026-10-28 — HU-03 Inicio y cierre de sesión (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Jorge Quispe).
+- **Rama:** `feature/HU-03-inicio-cierre-sesion`.
+- **Spec:** `specs/HU-03/` con R1–R36, DT-1…DT-15 y T1–T19. Explorador en
+  `progress/explore_HU-03.md`. Spec aprobado por Jorge Quispe el 2026-10-28
+  aceptando P1–P7 con los valores por defecto: el ADMIN no inicia sesión aún
+  (llega con HU-06); token opaco en `Authorization: Bearer` guardado en
+  `sessionStorage` y solo su SHA-256 en BD; bloqueo temporal por correo
+  normalizado (5 fallos en ventana deslizante de 15 min, en memoria, se
+  reinicia con login exitoso); mensajes genéricos "Correo o contraseña
+  incorrectos." y "Tu sesión no es válida o expiró. Inicia sesión de nuevo.";
+  aviso de identidad solo para `ARRENDADOR` con `NO_INICIADA`; inactividad
+  deslizante de 30 min sin tope absoluto; sesiones concurrentes permitidas.
+- **Cambios:** `comun/` (`TokenAleatorio`, `LimitadorIntentos.superaLimite/
+  registrar/limpiar`, `CredencialesInvalidasException` y
+  `DemasiadosIntentosException` con handlers 401/429 y mensajes en `ErrorDTO`,
+  puerto `ValidadorSesion`, `UsuarioAutenticado`, `FiltroAutenticacionSesion`,
+  `PuntoEntradaNoAutenticado`, `ConfiguracionSeguridad` STATELESS con CORS que
+  admite `Authorization`); migración `V1_4__sesion.sql`; `cuentas/` (`Sesion`,
+  `MotivoRechazoInicioSesion`, `Usuario.motivoRechazoInicioSesion`,
+  `PerfilArrendador.AVISO_IDENTIDAD`, `SesionRepository`, `InicioSesionService`
+  con hash señuelo, `SesionService` que implementa `ValidadorSesion`,
+  `SesionController` con `POST /api/sesiones`, `GET /api/sesiones/actual` y
+  `DELETE /api/sesiones/actual`; auditoría `LOGIN_EXITOSO`, `LOGIN_FALLIDO`,
+  `LOGIN_BLOQUEADO` y `CIERRE_SESION`). Frontend: `api/tokenSesion.js`,
+  `api/cliente.js` con Bearer y manejo de 401, `api/cuentas.js`, carpeta
+  `sesion/` (`ProveedorSesion`, `useSesion`, `RutaProtegida`), pantallas
+  `/iniciar-sesion` y `/panel`, encabezado de `App.jsx` con "Iniciar sesión" /
+  "Mi panel" y "Cerrar sesión". Docs: `modelo-datos.md` y `frontend.md`.
+- **Resultado:** `./init.sh` completo en verde (118 unitarias + 89 IT con
+  Testcontainers, lint y build OK). Reviewer: APPROVED
+  (`progress/review_HU-03.md`). Trazabilidad R1–R36 en `progress/impl_HU-03.md`.
+  Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):** `SesionService.validar`
+  no revisa `usuario.estado`; HU-09 debe revocar las sesiones al suspender una
+  cuenta. En `App.jsx` el error de red al cerrar sesión sigue visible al cambiar
+  de ruta, y un 401 al cerrar sesión provoca dos navegaciones seguidas (estético).
+  HTTPS y una sola instancia (contador en memoria) son del despliegue. Todo está
+  sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+## 2026-10-28 — HU-05 Envío de documentos de identidad del arrendador (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Kevin Chan).
+- **Rama:** `feature/HU-05-documentos-identidad`.
+- **Spec:** `specs/HU-05/` con R1–R42, DT-1…DT-17 y T1–T18. Explorador en
+  `progress/explore_HU-05.md`. Spec aprobado por Kevin Chan el 2026-10-28
+  aceptando P1–P16 con los valores por defecto: disco local
+  (`ALMACENAMIENTO_DIRECTORIO`) detrás del Adapter `AlmacenamientoArchivos`;
+  cifrado AES-256-GCM con `CIFRADO_LLAVE`; URL firmada propia
+  `GET /api/archivos` (HMAC, 5 min, llave `ALMACENAMIENTO_LLAVE_FIRMA`); dos
+  documentos obligatorios (`IDENTIDAD` y `PROPIEDAD`) en un solo envío; 5 MB
+  inclusivo por archivo; JPG/PNG re-codificados sin metadatos (máx. 40 MP) y
+  PDF sin cambios; el reenvío reemplaza filas y archivos; solo se envía desde
+  `NO_INICIADA` o `RECHAZADA`; el arrendador ve sus documentos vigentes con
+  URL firmada; acceso del admin diferido a HU-06; sin rate limiting ni correo;
+  el `aviso` de sesión gana textos para `EN_REVISION` y `RECHAZADA`
+  (reemplaza HU-03 R5 para esos estados); 403 para rol no arrendador o correo
+  no verificado; retención fuera de alcance (HU-22); migración `V2_1`.
+- **Cambios:** `comun/` (`AccesoDenegadoException`,
+  `RecursoNoEncontradoException`, `ValidacionException` con handlers
+  403/404/400 y `MaxUploadSizeExceededException`/`MultipartException`;
+  `CifradorArchivos`; `FirmadorUrl` y `UrlFirmada`; `ValidadorArchivo` con
+  magic bytes, tope de píxeles y re-codificación; `AlmacenamientoArchivos`,
+  `AlmacenamientoLocal`, `ArchivosPrivados`; `ArchivoController` con
+  `permitAll`); propiedades multipart/Tomcat/almacenamiento, `.env.example`
+  y `.gitignore` (`2_Backend/almacenamiento/`); migración
+  `V2_1__documento_identidad.sql`; `cuentas/` (`TipoDocumentoIdentidad`,
+  `DocumentoIdentidad`, `PerfilArrendador.enviarDocumentos/
+  puedeEnviarDocumentos/avisoIdentidad`, `DocumentoIdentidadRepository`,
+  `findParaActualizar` con bloqueo pesimista, `IdentidadArrendadorService`,
+  `IdentidadArrendadorController` con `POST` y `GET
+  /api/arrendadores/actual/identidad`, DTOs `IdentidadDTO` y
+  `DocumentoIdentidadDTO`; auditoría de cada carga y rechazo). Frontend:
+  `Campo tipo="archivo"`, `EtiquetaEstado`, `cliente.js` con `FormData`,
+  `cuentas.js` (`enviarDocumentosIdentidad`, `obtenerIdentidad`), pantalla
+  `/panel/identidad` (`VerificarIdentidad.jsx`) y enlace desde `Panel.jsx`.
+  Docs: `modelo-datos.md` y `frontend.md`.
+- **Resultado:** `./init.sh` completo en verde (173 unitarias + 119 IT con
+  Testcontainers, lint y build OK). Reviewer: APPROVED
+  (`progress/review_HU-05.md`). Trazabilidad R1–R42 en `progress/impl_HU-05.md`.
+  Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):**
+  1. (HU-06/HU-07) `ArchivoController` solo convierte `IllegalStateException`
+     en 404; un `UncheckedIOException` de `AlmacenamientoLocal.leer` da 500
+     genérico, y el design § 4 dice "cualquier fallo → 404". Unificarlo al
+     reutilizar el componente.
+  2. (UAT) `AlmacenamientoLocal` usa `ATOMIC_MOVE`: si el volumen de
+     `ALMACENAMIENTO_DIRECTORIO` no admite movimientos atómicos, lanzará
+     `AtomicMoveNotSupportedException` (500). Tenerlo en cuenta al configurarlo.
+  - Además: probar a mano en UAT un archivo de más de 6 MB para confirmar el
+    400 de R13 a través de Tomcat; avisar en el PR que DT-12 reemplaza HU-03 R5
+    para `EN_REVISION` y `RECHAZADA`; avisar a Ariel Enriquez (HU-06) que
+    `V2_1` ya está ocupada. Todo está sin commitear: el dueño revisa y abre el
+    PR hacia `develop`.
+
+## 2026-10-28 — HU-04 Recuperación de contraseña (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Eduardo Saldaña).
+- **Rama:** `feature/HU-04-recuperacion-contrasena` (desde `develop` en `832d7a1`).
+- **Spec:** `specs/HU-04/` con R1–R31, DT-1…DT-10 y T1–T15. Explorador en
+  `progress/explore_HU-04.md`. Spec aprobado por Eduardo Saldaña el 2026-10-28.
+  Decisiones del dueño: **D1** el notificador simulado escribe el enlace en el log
+  solo con la propiedad de desarrollo `espacioya.correo.simulado.registrar-enlace`
+  (apagada por defecto, nunca en UAT); **D2** el puerto se amplía en
+  `cuentas/service/NotificadorCorreo` (HU-25 lo moverá a `comun/correo`); **D3** al
+  superar 3 solicitudes por correo y hora se responde el mismo 202 sin emitir enlace
+  (sin 429); **D4** tras restablecer no se inicia sesión: la pantalla lleva al login
+  con un aviso. Supuestos S1–S12 aceptados tal cual: **S1** `V1_5__token.sql` +
+  `spring.flyway.out-of-order=true`; **S2** sin enlace para cuentas no habilitadas
+  (regla de HU-03), también al validar y confirmar; **S3** tabla `token` + `creado_en`,
+  `hash_token` único con CHECK hex, `ON DELETE CASCADE`; **S4** uso único con UPDATE
+  condicional y anulación de pendientes al pedir otro y al restablecer; **S5** token
+  en `#token=` y en el cuerpo de un `POST`, forma validada antes del hash, un solo
+  mensaje de enlace inválido, endpoint de validación al abrir; **S6** mensajes y
+  acciones de auditoría (la validación al abrir no se audita); **S7** revocar
+  sesiones en la misma transacción y reiniciar el contador de login; **S8** solo la
+  política de HU-01; **S9** cuentan las solicitudes válidas en forma, exista o no la
+  cuenta; **S10** diferencia de tiempo aceptada hasta HU-25; **S11** límite en
+  memoria (una instancia); **S12** sin límite por IP.
+- **Cambios:** `comun/seguridad` (`TokenAleatorio.tieneFormato`, tres `permitAll`);
+  migración `V1_5__token.sql`; `application.properties` (`out-of-order`, propiedad de
+  D1) y `.env.example` (`CORREO_SIMULADO_REGISTRAR_ENLACE=false`); `cuentas/`
+  (`Token`, `TipoToken`, `MotivoRechazoRecuperacion`, `Usuario.cambiarContrasena`,
+  `TokenRepository`, `SesionRepository.revocarTodas`, `NotificadorCorreo.
+  notificarRecuperacion` y simulado con la propiedad, `InicioSesionService.
+  PREFIJO_CLAVE` de paquete, `RecuperacionContrasenaService`, tres DTO con
+  `toString` enmascarado, `RecuperacionContrasenaController` con `POST
+  /api/recuperaciones`, `/validaciones` y `/confirmaciones`; auditoría
+  `RECUPERACION_SOLICITADA`, `RECUPERACION_NO_EMITIDA`, `RECUPERACION_RECHAZADA` y
+  `CONTRASENA_RESTABLECIDA`). Dobles `NotificadorFalso` de `UsuarioControllerIT` y
+  `ArrendadorControllerIT` con el método nuevo. Frontend: `api/cuentas.js` (tres
+  funciones con `autenticada: false`), `textosCuentas.js`, pantallas
+  `/recuperar-contrasena` (`RecuperarContrasena.jsx`) y `/restablecer-contrasena`
+  (`RestablecerContrasena.jsx`), enlace "¿Olvidaste tu contraseña?" en
+  `IniciarSesion.jsx` y rutas en `App.jsx`. Docs: `modelo-datos.md` (`token`).
+- **Resultado:** `./init.sh` completo en verde (204 unitarias + 147 IT con
+  Testcontainers, incluida una prueba concurrente de dos confirmaciones; lint y
+  build OK). Reviewer: APPROVED (`progress/review_HU-04.md`). Trazabilidad R1–R31
+  en `progress/impl_HU-04.md`. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review y avisos):**
+  1. (HU-25) `RecuperacionContrasenaService.solicitar` notifica dentro de la
+     transacción: con el proveedor real, un fallo daría 500 solo a cuentas
+     existentes y revelaría que existen (STRIDE I). HU-25 debe capturar el fallo o
+     enviar después del commit sin cambiar el 202.
+  2. Dos solicitudes simultáneas de la misma cuenta pueden dejar dos tokens
+     vigentes (`anularPendientes` y `save` no se serializan). Riesgo bajo: ambos
+     son de un solo uso y de 30 minutos.
+  3. (UX, caja negra en UAT) En `RestablecerContrasena.jsx`, un error de red al
+     validar muestra la vista de enlace inválido con "No pudimos conectar…" y el
+     enlace "Solicitar un enlace nuevo"; puede confundir.
+  - **Aviso al equipo:** desde este PR rige `spring.flyway.out-of-order=true`
+    (S1): Flyway aplica migraciones de número menor que lleguen tarde. La
+    numeración por sprint sigue siendo obligatoria y una migración subida a
+    `develop` no se edita. Avisar a Ariel Enriquez (HU-06) antes de numerar su
+    `V2_n`.
+  - **UAT:** `CORREO_SIMULADO_REGISTRAR_ENLACE` debe quedar en `false` (D1); el
+    enlace solo se lee del log en una máquina de desarrollo. El límite de
+    solicitudes vive en memoria: una sola instancia del backend (S11).
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-28 — (orquestador, sdd:false) `docs/conventions.md`: nueva sección "Migraciones que llegan tarde (`out-of-order`)" con la regla de `spring.flyway.out-of-order=true` (S1 de HU-04), cómo elegir el número, qué hacer si choca y que una migración no depende de otra de número mayor. Pedido por Eduardo Saldaña.
+
+- 2026-10-28 — (orquestador, sdd:false) `./mvnw spring-boot:run` fallaba en local con `Falta ALMACENAMIENTO_LLAVE_FIRMA o no es una llave de 32 bytes en base64`: HU-05 hizo obligatoria esa llave, pero el README solo documentaba las dos de cifrado de HU-02 y `2_Backend/.env.example` decía que en local no hacía falta nada. `README.md` (paso "2. Backend"): tabla con las tres llaves, comando para generar la de firma, aviso de no duplicar variables en `~/.bashrc` y qué hacer si ya se tenían las de cifrado. `2_Backend/.env.example`: aclara que las tres llaves también son obligatorias en local. Verificado: con la llave definida el backend llega a `Started EspacioYaApplication`. Pedido por SebGarate.
+
+- 2026-10-28 — (orquestador, sdd:false) `init.sh`, bloque 1: nuevo chequeo de `CIFRADO_LLAVE`, `CIFRADO_LLAVE_HUELLA` y `ALMACENAMIENTO_LLAVE_FIRMA` (definidas, 32 bytes en base64 y distintas entre sí, el mismo criterio que `LlaveCifrado`, `CifradorCampos` y `FirmadorUrl`). Es `[WARN]` y no `[FAIL]`: las pruebas traen sus llaves en `src/test/resources`, así que solo avisa que `./mvnw spring-boot:run` no arrancará. Nunca muestra los valores. Probado con 5 casos (ninguna, falta la de firma, 16 bytes, repetida, todas bien) y con `./init.sh --rapido` (exit 0, 204 unitarias OK). Pedido por SebGarate.
+
+- 2026-10-28 — (orquestador, sdd:false) Subagente `spec_author` renombrado a `spec-author`: Claude Code no lo registraba (era el único de `.claude/agents/` con guion bajo en `name:`; los nombres de subagente admiten solo minúsculas, números y guiones), así que `subagent_type: "spec_author"` fallaba con "Agent type not found". `git mv .claude/agents/spec_author.md .claude/agents/spec-author.md` y referencias actualizadas en `CLAUDE.md`, `AGENTS.md`, `CHECKPOINTS.md`, `README.md`, `docs/specs.md`, `.claude/agents/orquestador.md` e `init.sh`. Los registros históricos (`progress/` y `specs/` de HU-01–05) quedan sin tocar. Hay que reiniciar la sesión de Claude Code para que cargue el agente. Pedido por Sebastian Garate.
+
+- 2026-10-28 — (orquestador, sdd:false) `docs/requerimientos.md` §8, fila "Almacenamiento privado cifrado con URL firmada": HU-07 ya no reutiliza el cifrado ni la URL firmada para las fotos de espacios. Las fotos son públicas (no sensibles): se guardan sin cifrar en el adaptador de disco, con URL estable y cacheable; las de espacios en borrador solo las ve su dueño. Se mantiene la validación y re-codificación de `ValidadorArchivo` (elimina EXIF/GPS). Simplifica HU-10 y HU-11 (no firman URLs en cada consulta). Decisión de Sebastian Garate al revisar P4 del spec de HU-07.
+
+## 2026-10-28 — HU-07 Publicar y editar un espacio (done)
+- **Agente:** orquestador → explorador → spec-author → implementer → reviewer (dueño: Sebastian Garate).
+- **Rama:** `feature/HU-07-publicar-editar-espacio` (desde `develop` en `a90508b`).
+- **Spec:** `specs/HU-07/` con R1–R55, DT-1…DT-19 y T1–T16 (más T1b, T1c, T9b y
+  T11b). Explorador en `progress/explore_HU-07.md`. Spec aprobado por Sebastian
+  Garate el 2026-10-28. Decisiones del dueño: **P4** fotos de espacios públicas,
+  guardadas sin cifrar detrás del adaptador (`ArchivosPublicos`, clave
+  `espacios/<UUID>`), con URL estable `GET /api/fotos/{uuid}` (sin URL firmada);
+  las de un `PUBLICADO` las ve cualquiera (`Cache-Control: public, max-age=3600`)
+  y las de un borrador u otro estado solo su dueño con sesión (`no-store`); el
+  resto recibe el mismo 404 genérico. Se mantiene `ValidadorArchivo` (5 MiB,
+  magic bytes, 40 MP, re-codificación sin EXIF/GPS). **P5** `descripcion`
+  obligatoria de 10 a 2000 caracteres tras recortar. P1–P16 restantes aceptadas
+  con los valores por defecto: zona como lista cerrada (tabla `zona`, 43 distritos
+  de Lima + 7 del Callao), una foto por solicitud y hasta 5, al menos 1 foto para
+  publicar, editar un `PUBLICADO` lo deja `PUBLICADO`, interfaz `CuentaService`
+  en `cuentas`, precio de reservas pagadas a cargo de HU-12 (P13), migración `V2_2`.
+- **Cambios:** `comun/` (`web/ArchivoMultipart` compartido con
+  `IdentidadArrendadorController`; `almacenamiento/ArchivosPublicos`; `permitAll`
+  solo para `GET /api/fotos/*` en `ConfiguracionSeguridad`); `cuentas/`
+  (`CuentaService`, `CuentaServiceImpl`, `HabilitacionArrendadorDTO`); migración
+  `V2_2__espacio.sql` (`zona` con 50 filas, `espacio` con `precio_hora
+  NUMERIC(8,2)`, `foto_espacio` con CHECK de orden 1–5 y UNIQUE diferido); módulo
+  `espacios/` (dominio `Espacio`, `FotoEspacio`, `Zona`, `EstadoEspacio`,
+  `TipoEspacio`, `DatosEspacio`; repositorios con bloqueo pesimista; DTO `record`;
+  `EspacioService`, `FotoEspacioService`; `EspacioController`, `ZonaController`,
+  `FotoEspacioController`, `FotoPublicaController`; auditoría de creación,
+  edición con campos cambiados, publicación, foto agregada/quitada/rechazada).
+  Frontend: `Campo tipo="textarea"`, `Tarjeta`, estados de `Espacio` en
+  `EtiquetaEstado`, `peticionArchivo` en `api/cliente.js`, `api/espacios.js`,
+  `textosEspacios.js`, pantallas `MisEspacios`, `EditarEspacio` y
+  `FotoDelEspacio` (blob con `Bearer`), enlace en `Panel.jsx` y rutas
+  `/panel/espacios`, `/panel/espacios/nuevo` y `/panel/espacios/:id`. Docs:
+  `modelo-datos.md`, `frontend.md`, `architecture.md` (fila Archivos y excepción
+  de las fotos en "Qué NO hacer").
+- **Desvíos aceptados por el reviewer:** `Cache-Control` como texto literal
+  (`public, max-age=3600` / `no-store`); zonas ordenadas con `Collator` es-PE en
+  Java en vez de `ORDER BY`; `errorDe` y `avisarSiPerdioSesion` extraídos en
+  `api/cliente.js` sin cambio de conducta; `<EditarEspacio key="nuevo" />` para
+  remontar al pasar a `:id`; casos con `..` de R55 probados como `a..b` (un
+  segmento `..` lo corta antes el firewall de Spring Security con 400 genérico).
+- **Corrección tras la revisión (observación 1):** un JSON con `"capacidad": 20.7`
+  se aceptaba truncado a `20` (201), contra R4 ("entero de 1 a 100 000").
+  Corregido solo en `FichaEspacioDTO`: el componente `capacidad` usa el
+  deserializador `FichaEspacioDTO.SoloEntero`, que acepta únicamente un número JSON
+  entero; un decimal, texto (`"20"`), booleano, objeto, arreglo o entero fuera de
+  `int` queda `null` y `@NotNull` responde 400 con el campo `capacidad` y el
+  mensaje de R4. Sin cambios en la configuración global de Jackson ni en el
+  frontend (ya muestra el error por campo). Tests: `EspacioControllerIT.
+  capacidadNoEntera` (crear y editar, fila intacta) y `FichaEspacioDTOTest.
+  capacidadDesdeJson`; trazabilidad de R4 actualizada en `design.md`.
+- **Resultado:** `./init.sh` completo en verde tras la corrección (273 unitarias +
+  196 IT con Testcontainers, lint y build OK; único `[WARN]` las llaves locales
+  ausentes, previo a HU-07). Reviewer: APPROVED (`progress/review_HU-07.md`).
+  Trazabilidad R1–R55 en `progress/impl_HU-07.md`. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):**
+  2. (HU-09) `FotoEspacioService.ver` no oculta las fotos de un arrendador
+     `SUSPENDIDA` (`docs/architecture.md`: "sus espacios no se muestran"). Fuera de
+     los R de HU-07: avisar a Jorge Quispe, dueño de HU-09, para que lo cubra al
+     implementar la suspensión.
+  3. `FotoEspacioService.registrar` y `quitar` llaman a `espacio.tocar(...)`, que
+     actualiza `actualizado_en` al agregar o quitar fotos. El spec no lo pide ni lo
+     prohíbe; reflejarlo en `specs/HU-07/design.md` si se vuelve a tocar.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+- 2026-10-28 — HU-07, observación 3 del review: documentado en `specs/HU-07/design.md` (DT-20, `Espacio.tocar` y flujos de agregar/quitar foto) que agregar o quitar una foto actualiza `espacio.actualizado_en`. Sin cambios de código, tests, requirements ni tasks.

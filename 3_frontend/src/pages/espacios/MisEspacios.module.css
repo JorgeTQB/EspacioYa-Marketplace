@@ -1,0 +1,41 @@
+.pantalla {
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  margin-bottom: var(--espacio-4);
+}
+
+.encabezado h2 {
+  margin: 0;
+}
+
+.secundario,
+.dato {
+  color: var(--color-texto-secundario);
+}
+
+.dato,
+.precio {
+  margin: 0;
+}
+
+.precio {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ancho-contenido) / 4), 1fr));
+  gap: var(--espacio-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

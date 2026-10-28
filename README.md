@@ -42,23 +42,38 @@ Levanta una base vacía en `localhost:5432` (base, usuario y contraseña:
 
 ### 2. Backend (Spring Boot, puerto 8080)
 
-**Solo la primera vez: crea tus llaves de cifrado.** El backend cifra datos
-sensibles (desde la HU-02) y no arranca sin dos llaves: `CIFRADO_LLAVE` y
-`CIFRADO_LLAVE_HUELLA`. Si faltan, el log muestra
-`Falta CIFRADO_LLAVE o no es una llave de 32 bytes en base64`. Cada
+**Solo la primera vez: crea tus llaves.** El backend no arranca sin tres
+llaves de 32 bytes en base64, todas distintas:
+
+| Variable | Para qué | Desde |
+|---|---|---|
+| `CIFRADO_LLAVE` | Cifra datos sensibles en la base | HU-02 |
+| `CIFRADO_LLAVE_HUELLA` | Huella para buscar datos cifrados | HU-02 |
+| `ALMACENAMIENTO_LLAVE_FIRMA` | Firma las URL de 5 min de documentos y fotos | HU-05 |
+
+Si falta alguna, el log termina con
+`Falta <VARIABLE> o no es una llave de 32 bytes en base64`. Cada
 desarrollador genera las suyas: tu base local es solo tuya, así que no
 necesitas las llaves de nadie más. Desde Git Bash:
 
 ```bash
 echo "export CIFRADO_LLAVE=$(openssl rand -base64 32)" >> ~/.bashrc
 echo "export CIFRADO_LLAVE_HUELLA=$(openssl rand -base64 32)" >> ~/.bashrc
+echo "export ALMACENAMIENTO_LLAVE_FIRMA=$(openssl rand -base64 32)" >> ~/.bashrc
 source ~/.bashrc
 ```
 
 Así quedan guardadas en `~/.bashrc` y cada terminal nueva de Git Bash ya las
-trae. No las cambies después: lo que ya se cifró en tu base no se podría leer.
-Si las pierdes, borra tu base (`down -v`, paso 4) y genera otras. Nunca las
-subas al repo.
+trae. Corre cada línea **una sola vez**: si una variable aparece dos veces en
+`~/.bashrc`, vale la última. Para ver cuáles tienes sin mostrar los valores:
+`grep -o '^export [A-Z_]*' ~/.bashrc`.
+
+Si ya tenías las dos de cifrado y el backend dejó de arrancar al traer la
+HU-05, agrega solo la tercera línea. No cambies las de cifrado: lo que ya se
+cifró en tu base no se podría leer. Si las pierdes, borra tu base (`down -v`,
+paso 4) y genera otras. La de firma sí puedes regenerarla cuando quieras: solo
+invalida las URL de archivos emitidas en los últimos 5 minutos. Nunca subas
+ninguna al repo.
 
 Luego, cada vez:
 
@@ -146,7 +161,7 @@ programa una historia sin que su dueño apruebe antes un spec.
 | Pieza | Archivos |
 |-------|----------|
 | El repositorio es el sistema | `AGENTS.md`, `init.sh`, `feature_list.json`, `specs/`, `progress/`, `docs/` |
-| Orquestación con subagentes | `.claude/agents/`: `orquestador`, `spec_author`, `implementer`, `reviewer` |
+| Orquestación con subagentes | `.claude/agents/`: `orquestador`, `spec-author`, `implementer`, `reviewer` |
 | Spec Driven Development | `docs/specs.md`: EARS y aprobación del dueño en `spec_ready` |
 | Supervisión | `CHECKPOINTS.md`, hook de `.claude/settings.json`, pruebas en `2_Backend/src/test/` |
 
@@ -167,7 +182,7 @@ Windows, corre los comandos desde Git Bash.
 2. Dile quién eres, con el nombre que aparece en `owner` de
    `feature_list.json`: **«Soy Jorge Quispe, trabaja mi siguiente historia»**
    (o «trabaja HU-03»).
-3. **Fase spec.** El `spec_author` escribe
+3. **Fase spec.** El `spec-author` escribe
    `specs/HU-XX/{requirements,design,tasks}.md` y la historia pasa a
    `spec_ready`. Claude se detiene.
 4. Lee los tres archivos y responde **«aprobado»** o pide cambios. Solo vale
@@ -185,14 +200,14 @@ Si algo queda `blocked`, la razón y la pregunta para ti están en
 
 | Archivo | Lo escribe | Contiene |
 |---------|------------|----------|
-| `specs/HU-XX/requirements.md` | spec_author | Requirements en EARS (`R1`, `R2`…) y trazabilidad con los CA y STRIDE |
-| `specs/HU-XX/design.md` | spec_author | Endpoints, clases, migraciones, diagramas y alternativa descartada |
-| `specs/HU-XX/tasks.md` | spec_author | Checklist; el implementer la marca `[x]` |
+| `specs/HU-XX/requirements.md` | spec-author | Requirements en EARS (`R1`, `R2`…) y trazabilidad con los CA y STRIDE |
+| `specs/HU-XX/design.md` | spec-author | Endpoints, clases, migraciones, diagramas y alternativa descartada |
+| `specs/HU-XX/tasks.md` | spec-author | Checklist; el implementer la marca `[x]` |
 | `progress/HU-XX.md` | orquestador e implementer | Estado vivo de la historia, aprobación y bloqueos |
 | `progress/explore_HU-XX.md` | explorador | Código existente que la historia puede reutilizar |
 | `progress/impl_HU-XX.md` | implementer | Archivos tocados y mapa `R<n> → test` |
 | `progress/review_HU-XX.md` | reviewer | Veredicto contra `docs/`, el spec y `CHECKPOINTS.md` |
-| `feature_list.json` | orquestador, spec_author e implementer | Estado: `pending` → `spec_ready` → `in_progress` → `done` |
+| `feature_list.json` | orquestador, spec-author e implementer | Estado: `pending` → `spec_ready` → `in_progress` → `done` |
 | `progress/history.md` | implementer | Resumen de cada sesión cerrada (solo se agrega) |
 
 Los subagentes no devuelven su trabajo por el chat: lo dejan en estos

@@ -104,6 +104,11 @@ class UsuarioControllerIT {
             correos.add(correoNormalizado);
         }
 
+        @Override
+        public void notificarRecuperacion(String correoNormalizado, String enlace) {
+            throw new UnsupportedOperationException("HU-04 no se prueba en esta clase");
+        }
+
         void reiniciar() {
             correos.clear();
             fallar.set(false);

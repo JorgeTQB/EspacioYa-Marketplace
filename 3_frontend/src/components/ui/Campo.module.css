@@ -66,3 +66,12 @@
 .error {
   color: var(--color-error-texto);
 }
+
+.archivo {
+  cursor: pointer;
+}
+
+.texto {
+  resize: vertical;
+  line-height: var(--interlineado);
+}

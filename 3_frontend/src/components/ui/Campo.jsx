@@ -1,7 +1,18 @@
 import { useId } from 'react'
 import estilos from './Campo.module.css'
 
-function Campo({ etiqueta, nombre, tipo = 'text', valor, onChange, error, ayuda, opciones = [] }) {
+function Campo({
+  etiqueta,
+  nombre,
+  tipo = 'text',
+  valor,
+  onChange,
+  error,
+  ayuda,
+  opciones = [],
+  accept,
+  filas = 4,
+}) {
   const id = useId()
   const idAyuda = `${id}-ayuda`
   const idError = `${id}-error`
@@ -57,6 +68,39 @@ function Campo({ etiqueta, nombre, tipo = 'text', valor, onChange, error, ayuda,
             </option>
           ))}
         </select>
+        {mensajes}
+      </div>
+    )
+  }
+
+  if (tipo === 'textarea') {
+    return (
+      <div className={estilos.campo}>
+        <label htmlFor={id} className={estilos.etiqueta}>{etiqueta}</label>
+        <textarea
+          {...comunes}
+          rows={filas}
+          className={`${claseControl} ${estilos.texto}`}
+          value={valor}
+          onChange={(evento) => onChange(evento.target.value)}
+        />
+        {mensajes}
+      </div>
+    )
+  }
+
+  // Un input de archivo no puede ser controlado: entrega el archivo elegido (o null), no un texto.
+  if (tipo === 'archivo') {
+    return (
+      <div className={estilos.campo}>
+        <label htmlFor={id} className={estilos.etiqueta}>{etiqueta}</label>
+        <input
+          {...comunes}
+          type="file"
+          accept={accept}
+          className={`${claseControl} ${estilos.archivo}`}
+          onChange={(evento) => onChange(evento.target.files?.[0] ?? null)}
+        />
         {mensajes}
       </div>
     )

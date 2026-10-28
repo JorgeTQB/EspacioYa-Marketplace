@@ -73,7 +73,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-03.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-04",
@@ -92,7 +92,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-04.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-05",
@@ -111,7 +111,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-05.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-06",
@@ -150,7 +150,7 @@
       "historia": "docs/historias/HU-07.md",
       "notes": "Dependencia de visibilidad: visible tras HU-06",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-08",

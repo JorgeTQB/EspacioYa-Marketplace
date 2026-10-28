@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import pe.edu.ulima.espacioya.comun.web.IpCliente;
+import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.dto.RegistroArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.RegistroArrendadorRecibidoDTO;
 import pe.edu.ulima.espacioya.cuentas.service.RegistroArrendadorService;
@@ -19,7 +20,7 @@ import pe.edu.ulima.espacioya.cuentas.service.RegistroArrendadorService;
 @RequestMapping("/api/arrendadores")
 public class ArrendadorController {
 
-    public static final String AVISO_IDENTIDAD = "Para publicar tus espacios, primero debes verificar tu identidad.";
+    public static final String AVISO_IDENTIDAD = PerfilArrendador.AVISO_IDENTIDAD;
 
     private final RegistroArrendadorService registroArrendadorService;
 

@@ -12,13 +12,14 @@
 | --- | --- | --- | --- |
 | Cuentas | `usuario` | id, nombre, correo (único), hash_contrasena, telefono, foto_url, rol (USUARIO, ARRENDADOR, ADMIN), correo_verificado, estado (ACTIVA, SUSPENDIDA, ELIMINADA), version_politica, fecha_consentimiento, recordatorios_activos | HU-01, HU-02, HU-09, HU-20, HU-25 |
 | | `perfil_arrendador` | usuario_id, tipo_documento (DNI, RUC), numero_documento (cifrado), hash_documento (único, HMAC), razon_social (cifrada), direccion_fiscal (cifrada), estado_identidad (NO_INICIADA, EN_REVISION, VERIFICADA, RECHAZADA), motivo_rechazo | HU-02, HU-05, HU-06 |
-| | `documento_identidad` | id, arrendador_id, tipo, ruta_archivo, tipo_mime, tamano, subido_en | HU-05 |
+| | `documento_identidad` | id, arrendador_id, tipo (IDENTIDAD, PROPIEDAD), ruta_archivo (clave aleatoria `identidad/<UUID>` del almacenamiento privado; el archivo va cifrado fuera de la BD y el nombre original no se guarda), tipo_mime (application/pdf, image/jpeg, image/png, según el contenido real), tamano (bytes recibidos, 1 a 5 242 880), subido_en. Solo los documentos vigentes: un reenvío reemplaza los anteriores | HU-05, HU-06 |
 | | `revision_identidad` | id, arrendador_id, admin_id, decision, motivo, fecha | HU-06 |
-| | `token` | id, usuario_id, tipo (VERIFICACION, RECUPERACION), hash_token, expira_en, usado_en | HU-01, HU-04 |
-| | `sesion` | id, usuario_id, creada_en, expira_en, revocada | HU-03, HU-04, HU-09 |
+| | `token` | id, usuario_id, tipo (VERIFICACION, RECUPERACION; hoy solo se usa RECUPERACION), hash_token (único, SHA-256 hex del token; el token nunca se guarda en claro), creado_en, expira_en (creado_en + 30 min en RECUPERACION), usado_en (al usarlo o anularlo; las filas no se borran) | HU-01, HU-04 |
+| | `sesion` | id, usuario_id, hash_token (único, SHA-256 hex del token; el token nunca se guarda en claro), creada_en, expira_en (se mueve a ahora + 30 min en cada solicitud autenticada), revocada | HU-03, HU-04, HU-09 |
 | | `mfa` / `codigo_respaldo` | usuario_id, secreto (cifrado), activo / hash_codigo, usado | HU-17 |
-| Espacios | `espacio` | id, arrendador_id, nombre, tipo (CANCHA, ESTADIO, AUDITORIO), direccion, zona, capacidad, precio_hora, descripcion, estado (BORRADOR, PUBLICADO, PAUSADO, BAJA, OCULTO) | HU-07, HU-21, HU-27 |
-| | `foto_espacio` | id, espacio_id, ruta_archivo, orden (máximo 5) | HU-07 |
+| Espacios | `zona` | codigo (PK, p. ej. `MIRAFLORES`), nombre (único, con tildes). Catálogo cerrado sembrado por la migración: 43 distritos de Lima Metropolitana y 7 del Callao | HU-07, HU-10 |
+| | `espacio` | id, arrendador_id, nombre (3–100), tipo (CANCHA, ESTADIO, AUDITORIO), direccion (5–200), zona (FK a `zona.codigo`), capacidad (1–100 000), precio_hora (`NUMERIC(8,2)`, S/ 1.00–100 000.00, un único precio por hora), descripcion (obligatoria, 10–2000), estado (BORRADOR, PUBLICADO, PAUSADO, BAJA, OCULTO), creado_en, actualizado_en | HU-07, HU-21, HU-27 |
+| | `foto_espacio` | id, espacio_id, ruta_archivo (clave aleatoria `espacios/<UUID>` del almacenamiento; el archivo va **sin cifrar** fuera de la BD, re-codificado y sin metadatos, y su UUID forma la URL estable `/api/fotos/<UUID>`; el nombre original no se guarda), tipo_mime (image/jpeg, image/png, según el contenido real), orden (1–5; la principal es la 1) | HU-07 |
 | | `horario_semanal` | id, espacio_id, dia_semana, hora_inicio, hora_fin | HU-08 |
 | | `bloqueo_fecha` | id, espacio_id, fecha | HU-08 |
 | | `caracteristica` / `espacio_caracteristica` | id, nombre / espacio_id + caracteristica_id | HU-23 |
@@ -45,6 +46,10 @@
 | `reclamo.reserva_id` único | Un reclamo por reserva | HU-26 |
 | `usuario.correo` único | No hay dos cuentas con el mismo correo | HU-01 |
 | `perfil_arrendador.hash_documento` único (HMAC-SHA256 del número, que va cifrado) | No hay dos arrendadores con el mismo RUC o DNI | HU-02 |
+| `documento_identidad` (arrendador_id, tipo) único | Como mucho un documento vigente de cada tipo por arrendador | HU-05 |
+| `foto_espacio.orden` entre 1 y 5 (`CHECK`) y (espacio_id, orden) único, diferido para renumerar en una transacción | Como mucho 5 fotos por espacio, sin dos en el mismo lugar | HU-07 |
+| `espacio.zona` FK a `zona.codigo`; `CHECK` de tipo, estado, capacidad y precio_hora | Un espacio solo está en una zona del catálogo, con valores válidos | HU-07 |
+| `token.hash_token` único (SHA-256 hex del token) | Un enlace de un solo uso no se confunde con otro; el token en claro no se guarda | HU-04 |
 | Llaves foráneas en todas las relaciones | No hay reservas, pagos ni reseñas huérfanas | Todas |
 
 ## Diagrama entidad-relación (núcleo)
@@ -54,6 +59,7 @@ erDiagram
   USUARIO ||--o| PERFIL_ARRENDADOR : "es (si es arrendador)"
   PERFIL_ARRENDADOR ||--o{ DOCUMENTO_IDENTIDAD : sube
   PERFIL_ARRENDADOR ||--o{ ESPACIO : publica
+  ZONA ||--o{ ESPACIO : ubica
   PERFIL_ARRENDADOR ||--o{ CUENTA_BANCARIA : registra
   PERFIL_ARRENDADOR ||--o{ LIQUIDACION : recibe
   ESPACIO ||--o{ FOTO_ESPACIO : tiene

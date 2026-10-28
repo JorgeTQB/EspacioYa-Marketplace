@@ -16,7 +16,7 @@
 | Comunicación   | API REST con JSON sobre HTTPS |
 | Base de datos  | **PostgreSQL 17**. El esquema lo crean solo las migraciones Flyway de `2_Backend/src/main/resources/db/migration/`; `1_Database/compose.yaml` solo levanta el servidor local vacío |
 | Pagos          | Pasarela certificada PCI DSS en modo de prueba (checkout de la pasarela + webhook con firma verificada) |
-| Archivos       | Almacenamiento privado fuera de la base de datos, servido con URL firmada de corta duración |
+| Archivos       | Fuera de la base de datos. Documentos: almacenamiento privado cifrado, servido con URL firmada de corta duración. Fotos de espacios: sin cifrar y con URL estable `/api/fotos/<UUID>`, públicas solo si el espacio está publicado (decisión del dueño de HU-07) |
 | Notificaciones | Solo correo, mediante un componente reutilizable |
 
 Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
@@ -135,7 +135,9 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 
 Solo los servicios que usan otros módulos llevan interfaz pública
 (`CuentaService`, `ReservaService`, `PagoService`); los internos son clases
-concretas (YAGNI). Si una historia necesita un puerto nuevo, lo justifica en
+concretas (YAGNI). `CuentaService` la creó HU-07 con
+`habilitacionArrendador` (correo e identidad verificados del arrendador de la
+sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. Si una historia necesita un puerto nuevo, lo justifica en
 su `design.md` y lo agrega a esta tabla.
 
 ## Seguridad transversal (STRIDE)
@@ -222,7 +224,10 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 - No tomar el ID del usuario del cuerpo o la URL cuando debe salir de la sesión.
 - No usar el SDK de la pasarela, del correo o del almacenamiento fuera de su adaptador.
 - No mostrar detalles técnicos en los errores al cliente; el detalle va a los logs.
-- No guardar archivos en la base de datos ni servirlos con URL pública.
+- No guardar archivos en la base de datos ni servir documentos con URL pública.
+  Excepción decidida por el dueño de HU-07: las fotos de espacios no son
+  sensibles y se sirven en `/api/fotos/<UUID>`, públicas si el espacio está
+  `PUBLICADO` y, si no, solo a su dueño.
 - No introducir microservicios, colas de mensajes ni nuevos módulos sin
   discutirlo antes (estado `blocked`).
 - No implementar nada de lo que está **fuera del alcance**, aunque parezca útil:
