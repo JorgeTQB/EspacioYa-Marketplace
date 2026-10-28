@@ -188,3 +188,12 @@
   raíz) antes del PR; revisar la rama destino del PR (`develop` vs `master`);
   HTTPS y llaves de cifrado son del despliegue (DT-10); estético en `App.jsx:24`;
   posible IT de arranque sin llaves para R38.
+
+## 2026-10-27 — README: llaves de cifrado para levantar el backend en local (sdd: false)
+
+- **Motivo:** `./mvnw spring-boot:run` fallaba en local con
+  `Falta CIFRADO_LLAVE o no es una llave de 32 bytes en base64`. Los tests traen
+  llaves fijas propias, pero la app no tiene default (R38 de HU-02, a propósito).
+- **Cambios:** `README.md` § "2. Backend": cada desarrollador genera sus propias
+  llaves con `openssl rand -base64 32` y las guarda en `~/.bashrc` (Git Bash).
+  Sin cambios en código ni en `application.properties`.

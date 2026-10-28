@@ -42,14 +42,35 @@ Levanta una base vacía en `localhost:5432` (base, usuario y contraseña:
 
 ### 2. Backend (Spring Boot, puerto 8080)
 
+**Solo la primera vez: crea tus llaves de cifrado.** El backend cifra datos
+sensibles (desde la HU-02) y no arranca sin dos llaves: `CIFRADO_LLAVE` y
+`CIFRADO_LLAVE_HUELLA`. Si faltan, el log muestra
+`Falta CIFRADO_LLAVE o no es una llave de 32 bytes en base64`. Cada
+desarrollador genera las suyas: tu base local es solo tuya, así que no
+necesitas las llaves de nadie más. Desde Git Bash:
+
+```bash
+echo "export CIFRADO_LLAVE=$(openssl rand -base64 32)" >> ~/.bashrc
+echo "export CIFRADO_LLAVE_HUELLA=$(openssl rand -base64 32)" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Así quedan guardadas en `~/.bashrc` y cada terminal nueva de Git Bash ya las
+trae. No las cambies después: lo que ya se cifró en tu base no se podría leer.
+Si las pierdes, borra tu base (`down -v`, paso 4) y genera otras. Nunca las
+subas al repo.
+
+Luego, cada vez:
+
 ```bash
 cd 2_Backend
 ./mvnw spring-boot:run
 ```
 
-En local no necesitas `.env`: `application.properties` ya apunta a la base del
-paso 1 y permite peticiones desde `http://localhost:5173`. Está listo cuando el
-log dice `Started EspacioYaApplication`.
+Aparte de las llaves, en local no necesitas `.env`: `application.properties`
+ya apunta a la base del paso 1 y permite peticiones desde
+`http://localhost:5173`. Está listo cuando el log dice
+`Started EspacioYaApplication`.
 
 ### 3. Frontend (React + Vite, puerto 5173)
 
