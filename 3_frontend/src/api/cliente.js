@@ -9,6 +9,11 @@ export const NO_AUTENTICADO = 401
 
 const suscriptoresSesionPerdida = new Set()
 
+// Para enlaces que el navegador abre por su cuenta (p. ej. URL firmadas de archivos).
+export function urlApi(ruta) {
+  return `${URL_BASE}${ruta}`
+}
+
 export function alPerderSesion(callback) {
   suscriptoresSesionPerdida.add(callback)
   return () => suscriptoresSesionPerdida.delete(callback)
@@ -24,7 +29,10 @@ async function leerJson(respuesta) {
 
 export async function peticion(ruta, { metodo = 'GET', cuerpo, autenticada = true } = {}) {
   const opciones = { method: metodo, headers: { Accept: 'application/json' } }
-  if (cuerpo !== undefined) {
+  if (cuerpo instanceof FormData) {
+    // Sin Content-Type: el navegador lo pone con el boundary del multipart.
+    opciones.body = cuerpo
+  } else if (cuerpo !== undefined) {
     opciones.headers['Content-Type'] = 'application/json'
     opciones.body = JSON.stringify(cuerpo)
   }

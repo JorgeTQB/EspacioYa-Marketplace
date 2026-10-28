@@ -56,3 +56,14 @@ export function obtenerSesionActual() {
 export function cerrarSesion() {
   return peticion('/api/sesiones/actual', { metodo: 'DELETE' })
 }
+
+export function enviarDocumentosIdentidad({ documentoIdentidad, documentoPropiedad }) {
+  const formulario = new FormData()
+  if (documentoIdentidad) formulario.append('documentoIdentidad', documentoIdentidad)
+  if (documentoPropiedad) formulario.append('documentoPropiedad', documentoPropiedad)
+  return peticion('/api/arrendadores/actual/documentos', { metodo: 'POST', cuerpo: formulario })
+}
+
+export function obtenerIdentidad() {
+  return peticion('/api/arrendadores/actual/identidad')
+}

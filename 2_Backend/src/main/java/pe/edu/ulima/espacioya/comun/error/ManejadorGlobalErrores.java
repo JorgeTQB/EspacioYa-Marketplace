@@ -12,6 +12,8 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 @RestControllerAdvice
 public class ManejadorGlobalErrores {
@@ -51,6 +53,34 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorDTO> cuerpoIlegible(HttpMessageNotReadableException ex) {
         log.debug("Cuerpo de la solicitud ilegible", ex);
+        return ResponseEntity.badRequest().body(ErrorDTO.de(ErrorDTO.MENSAJE_VALIDACION));
+    }
+
+    @ExceptionHandler(ValidacionException.class)
+    public ResponseEntity<ErrorDTO> validacionVariosCampos(ValidacionException ex) {
+        return ResponseEntity.badRequest().body(new ErrorDTO(ErrorDTO.MENSAJE_VALIDACION, ex.getErrores()));
+    }
+
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<ErrorDTO> accesoDenegado(AccesoDenegadoException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorDTO.de(ErrorDTO.MENSAJE_ACCESO_DENEGADO));
+    }
+
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<ErrorDTO> recursoNoEncontrado(RecursoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorDTO.de(ErrorDTO.MENSAJE_RECURSO_NO_ENCONTRADO));
+    }
+
+    // El archivo superó el límite de multipart antes de llegar al controlador: no hay campo que señalar.
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorDTO> archivoDemasiadoGrande(MaxUploadSizeExceededException ex) {
+        log.debug("Solicitud multipart rechazada por tamaño", ex);
+        return ResponseEntity.badRequest().body(ErrorDTO.de(ErrorDTO.MENSAJE_ARCHIVO_DEMASIADO_GRANDE));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorDTO> multipartIlegible(MultipartException ex) {
+        log.debug("Solicitud multipart ilegible", ex);
         return ResponseEntity.badRequest().body(ErrorDTO.de(ErrorDTO.MENSAJE_VALIDACION));
     }
 

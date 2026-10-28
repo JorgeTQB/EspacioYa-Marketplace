@@ -10,6 +10,7 @@ import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
 import Registro from './pages/cuentas/Registro.jsx'
 import RegistroArrendador from './pages/cuentas/RegistroArrendador.jsx'
+import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
 import estilos from './App.module.css'
@@ -93,6 +94,14 @@ function App() {
             element={
               <RutaProtegida>
                 <Panel />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/panel/identidad"
+            element={
+              <RutaProtegida>
+                <VerificarIdentidad />
               </RutaProtegida>
             }
           />

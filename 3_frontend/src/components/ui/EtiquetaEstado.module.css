@@ -1,0 +1,27 @@
+.etiqueta {
+  display: inline-block;
+  padding: var(--espacio-1) var(--espacio-3);
+  border-radius: var(--radio);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+}
+
+.exito {
+  background: var(--color-exito-fondo);
+  color: var(--color-exito-texto);
+}
+
+.atencion {
+  background: var(--color-atencion-fondo);
+  color: var(--color-atencion-texto);
+}
+
+.error {
+  background: var(--color-error-fondo);
+  color: var(--color-error-texto);
+}
+
+.neutro {
+  background: var(--color-neutro-fondo);
+  color: var(--color-neutro-texto);
+}

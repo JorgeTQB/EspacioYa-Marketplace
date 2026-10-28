@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { obtenerSesionActual } from '../../api/cuentas.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import useSesion from '../../sesion/useSesion.js'
@@ -33,6 +34,11 @@ function Panel() {
       <h2>{textos.titulo}</h2>
       {sesion.aviso && <Alerta tipo="atencion">{sesion.aviso}</Alerta>}
       <p className={estilos.descripcion}>{textos.descripcion}</p>
+      {sesion.rol === 'ARRENDADOR' && (
+        <p>
+          <Link to="/panel/identidad">Verificar mi identidad</Link>
+        </p>
+      )}
     </section>
   )
 }

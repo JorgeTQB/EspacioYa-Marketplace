@@ -24,6 +24,10 @@ import pe.edu.ulima.espacioya.comun.cifrado.ConvertidorCifrado;
 public class PerfilArrendador implements Persistable<Long> {
 
     public static final String AVISO_IDENTIDAD = "Para publicar tus espacios, primero debes verificar tu identidad.";
+    public static final String AVISO_IDENTIDAD_EN_REVISION =
+            "Estamos revisando tus documentos de identidad. Te avisaremos cuando terminemos.";
+    public static final String AVISO_IDENTIDAD_RECHAZADA =
+            "Tu identidad fue rechazada. Vuelve a subir tus documentos. Motivo: ";
 
     @Id
     @Column(name = "usuario_id")
@@ -73,6 +77,28 @@ public class PerfilArrendador implements Persistable<Long> {
         perfil.estadoIdentidad = EstadoIdentidad.NO_INICIADA;
         perfil.motivoRechazo = null;
         return perfil;
+    }
+
+    // RN-01: se envían documentos al empezar o tras un rechazo; en revisión o verificada, no.
+    public boolean puedeEnviarDocumentos() {
+        return estadoIdentidad == EstadoIdentidad.NO_INICIADA || estadoIdentidad == EstadoIdentidad.RECHAZADA;
+    }
+
+    public void enviarDocumentos() {
+        if (!puedeEnviarDocumentos()) {
+            throw new IllegalStateException("La identidad no admite un nuevo envío en estado " + estadoIdentidad);
+        }
+        estadoIdentidad = EstadoIdentidad.EN_REVISION;
+        motivoRechazo = null;
+    }
+
+    public String avisoIdentidad() {
+        return switch (estadoIdentidad) {
+            case NO_INICIADA -> AVISO_IDENTIDAD;
+            case EN_REVISION -> AVISO_IDENTIDAD_EN_REVISION;
+            case RECHAZADA -> AVISO_IDENTIDAD_RECHAZADA + (motivoRechazo == null ? "" : motivoRechazo);
+            case VERIFICADA -> null;
+        };
     }
 
     @PostLoad

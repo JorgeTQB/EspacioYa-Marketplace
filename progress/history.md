@@ -237,3 +237,57 @@
   de ruta, y un 401 al cerrar sesión provoca dos navegaciones seguidas (estético).
   HTTPS y una sola instancia (contador en memoria) son del despliegue. Todo está
   sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+## 2026-10-28 — HU-05 Envío de documentos de identidad del arrendador (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Kevin Chan).
+- **Rama:** `feature/HU-05-documentos-identidad`.
+- **Spec:** `specs/HU-05/` con R1–R42, DT-1…DT-17 y T1–T18. Explorador en
+  `progress/explore_HU-05.md`. Spec aprobado por Kevin Chan el 2026-10-28
+  aceptando P1–P16 con los valores por defecto: disco local
+  (`ALMACENAMIENTO_DIRECTORIO`) detrás del Adapter `AlmacenamientoArchivos`;
+  cifrado AES-256-GCM con `CIFRADO_LLAVE`; URL firmada propia
+  `GET /api/archivos` (HMAC, 5 min, llave `ALMACENAMIENTO_LLAVE_FIRMA`); dos
+  documentos obligatorios (`IDENTIDAD` y `PROPIEDAD`) en un solo envío; 5 MB
+  inclusivo por archivo; JPG/PNG re-codificados sin metadatos (máx. 40 MP) y
+  PDF sin cambios; el reenvío reemplaza filas y archivos; solo se envía desde
+  `NO_INICIADA` o `RECHAZADA`; el arrendador ve sus documentos vigentes con
+  URL firmada; acceso del admin diferido a HU-06; sin rate limiting ni correo;
+  el `aviso` de sesión gana textos para `EN_REVISION` y `RECHAZADA`
+  (reemplaza HU-03 R5 para esos estados); 403 para rol no arrendador o correo
+  no verificado; retención fuera de alcance (HU-22); migración `V2_1`.
+- **Cambios:** `comun/` (`AccesoDenegadoException`,
+  `RecursoNoEncontradoException`, `ValidacionException` con handlers
+  403/404/400 y `MaxUploadSizeExceededException`/`MultipartException`;
+  `CifradorArchivos`; `FirmadorUrl` y `UrlFirmada`; `ValidadorArchivo` con
+  magic bytes, tope de píxeles y re-codificación; `AlmacenamientoArchivos`,
+  `AlmacenamientoLocal`, `ArchivosPrivados`; `ArchivoController` con
+  `permitAll`); propiedades multipart/Tomcat/almacenamiento, `.env.example`
+  y `.gitignore` (`2_Backend/almacenamiento/`); migración
+  `V2_1__documento_identidad.sql`; `cuentas/` (`TipoDocumentoIdentidad`,
+  `DocumentoIdentidad`, `PerfilArrendador.enviarDocumentos/
+  puedeEnviarDocumentos/avisoIdentidad`, `DocumentoIdentidadRepository`,
+  `findParaActualizar` con bloqueo pesimista, `IdentidadArrendadorService`,
+  `IdentidadArrendadorController` con `POST` y `GET
+  /api/arrendadores/actual/identidad`, DTOs `IdentidadDTO` y
+  `DocumentoIdentidadDTO`; auditoría de cada carga y rechazo). Frontend:
+  `Campo tipo="archivo"`, `EtiquetaEstado`, `cliente.js` con `FormData`,
+  `cuentas.js` (`enviarDocumentosIdentidad`, `obtenerIdentidad`), pantalla
+  `/panel/identidad` (`VerificarIdentidad.jsx`) y enlace desde `Panel.jsx`.
+  Docs: `modelo-datos.md` y `frontend.md`.
+- **Resultado:** `./init.sh` completo en verde (173 unitarias + 119 IT con
+  Testcontainers, lint y build OK). Reviewer: APPROVED
+  (`progress/review_HU-05.md`). Trazabilidad R1–R42 en `progress/impl_HU-05.md`.
+  Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):**
+  1. (HU-06/HU-07) `ArchivoController` solo convierte `IllegalStateException`
+     en 404; un `UncheckedIOException` de `AlmacenamientoLocal.leer` da 500
+     genérico, y el design § 4 dice "cualquier fallo → 404". Unificarlo al
+     reutilizar el componente.
+  2. (UAT) `AlmacenamientoLocal` usa `ATOMIC_MOVE`: si el volumen de
+     `ALMACENAMIENTO_DIRECTORIO` no admite movimientos atómicos, lanzará
+     `AtomicMoveNotSupportedException` (500). Tenerlo en cuenta al configurarlo.
+  - Además: probar a mano en UAT un archivo de más de 6 MB para confirmar el
+    400 de R13 a través de Tomcat; avisar en el PR que DT-12 reemplaza HU-03 R5
+    para `EN_REVISION` y `RECHAZADA`; avisar a Ariel Enriquez (HU-06) que
+    `V2_1` ya está ocupada. Todo está sin commitear: el dueño revisa y abre el
+    PR hacia `develop`.

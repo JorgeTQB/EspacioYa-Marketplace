@@ -2,7 +2,7 @@ package pe.edu.ulima.espacioya.comun.cifrado;
 
 import java.util.Base64;
 
-final class LlaveCifrado {
+public final class LlaveCifrado {
 
     static final int BYTES_LLAVE = 32;
 
@@ -10,7 +10,7 @@ final class LlaveCifrado {
     }
 
     // El mensaje nombra la variable de entorno y nunca muestra su valor.
-    static byte[] decodificar(String llaveBase64, String variable) {
+    public static byte[] decodificar(String llaveBase64, String variable) {
         if (llaveBase64 == null || llaveBase64.isBlank()) {
             throw llaveInvalida(variable);
         }
