@@ -42,23 +42,38 @@ Levanta una base vacía en `localhost:5432` (base, usuario y contraseña:
 
 ### 2. Backend (Spring Boot, puerto 8080)
 
-**Solo la primera vez: crea tus llaves de cifrado.** El backend cifra datos
-sensibles (desde la HU-02) y no arranca sin dos llaves: `CIFRADO_LLAVE` y
-`CIFRADO_LLAVE_HUELLA`. Si faltan, el log muestra
-`Falta CIFRADO_LLAVE o no es una llave de 32 bytes en base64`. Cada
+**Solo la primera vez: crea tus llaves.** El backend no arranca sin tres
+llaves de 32 bytes en base64, todas distintas:
+
+| Variable | Para qué | Desde |
+|---|---|---|
+| `CIFRADO_LLAVE` | Cifra datos sensibles en la base | HU-02 |
+| `CIFRADO_LLAVE_HUELLA` | Huella para buscar datos cifrados | HU-02 |
+| `ALMACENAMIENTO_LLAVE_FIRMA` | Firma las URL de 5 min de documentos y fotos | HU-05 |
+
+Si falta alguna, el log termina con
+`Falta <VARIABLE> o no es una llave de 32 bytes en base64`. Cada
 desarrollador genera las suyas: tu base local es solo tuya, así que no
 necesitas las llaves de nadie más. Desde Git Bash:
 
 ```bash
 echo "export CIFRADO_LLAVE=$(openssl rand -base64 32)" >> ~/.bashrc
 echo "export CIFRADO_LLAVE_HUELLA=$(openssl rand -base64 32)" >> ~/.bashrc
+echo "export ALMACENAMIENTO_LLAVE_FIRMA=$(openssl rand -base64 32)" >> ~/.bashrc
 source ~/.bashrc
 ```
 
 Así quedan guardadas en `~/.bashrc` y cada terminal nueva de Git Bash ya las
-trae. No las cambies después: lo que ya se cifró en tu base no se podría leer.
-Si las pierdes, borra tu base (`down -v`, paso 4) y genera otras. Nunca las
-subas al repo.
+trae. Corre cada línea **una sola vez**: si una variable aparece dos veces en
+`~/.bashrc`, vale la última. Para ver cuáles tienes sin mostrar los valores:
+`grep -o '^export [A-Z_]*' ~/.bashrc`.
+
+Si ya tenías las dos de cifrado y el backend dejó de arrancar al traer la
+HU-05, agrega solo la tercera línea. No cambies las de cifrado: lo que ya se
+cifró en tu base no se podría leer. Si las pierdes, borra tu base (`down -v`,
+paso 4) y genera otras. La de firma sí puedes regenerarla cuando quieras: solo
+invalida las URL de archivos emitidas en los últimos 5 minutos. Nunca subas
+ninguna al repo.
 
 Luego, cada vez:
 

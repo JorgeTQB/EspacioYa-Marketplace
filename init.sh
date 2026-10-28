@@ -77,6 +77,28 @@ else
   EXIT_CODE=1
 fi
 
+# Llaves que exige ./mvnw spring-boot:run (README, "2. Backend"). Las pruebas traen las suyas en
+# src/test/resources, así que solo se avisa. Mismo criterio que LlaveCifrado; nunca se muestran.
+declare -A LLAVES=()
+LLAVES_MAL=""
+for v in CIFRADO_LLAVE CIFRADO_LLAVE_HUELLA ALMACENAMIENTO_LLAVE_FIRMA; do
+  valor=$(printf '%s' "${!v:-}" | tr -d '[:space:]')
+  if [[ "$valor" =~ ^[A-Za-z0-9+/]{43}=?$ ]]; then
+    LLAVES[$v]=${valor%=}
+  else
+    LLAVES_MAL="$LLAVES_MAL $v"
+  fi
+done
+if [ -n "$LLAVES_MAL" ]; then
+  warn "Faltan o no son de 32 bytes en base64:$LLAVES_MAL. El backend no arrancará; ver README, \"2. Backend\""
+elif [ "${LLAVES[CIFRADO_LLAVE]}" = "${LLAVES[CIFRADO_LLAVE_HUELLA]}" ] \
+  || [ "${LLAVES[ALMACENAMIENTO_LLAVE_FIRMA]}" = "${LLAVES[CIFRADO_LLAVE]}" ] \
+  || [ "${LLAVES[ALMACENAMIENTO_LLAVE_FIRMA]}" = "${LLAVES[CIFRADO_LLAVE_HUELLA]}" ]; then
+  warn "Las llaves del backend deben ser distintas entre sí. El backend no arrancará; ver README, \"2. Backend\""
+else
+  ok "Llaves del backend definidas (CIFRADO_LLAVE, CIFRADO_LLAVE_HUELLA, ALMACENAMIENTO_LLAVE_FIRMA)"
+fi
+
 echo ""
 echo "── 2. Verificando archivos base del arnés ──────────────"
 
