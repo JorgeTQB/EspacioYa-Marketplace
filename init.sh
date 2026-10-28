@@ -107,7 +107,7 @@ for f in AGENTS.md CHECKPOINTS.md feature_list.json \
          docs/architecture.md docs/conventions.md docs/specs.md docs/verification.md \
          docs/requerimientos.md docs/modelo-datos.md docs/frontend.md \
          3_frontend/src/styles/tokens.css \
-         .claude/agents/orquestador.md .claude/agents/spec_author.md \
+         .claude/agents/orquestador.md .claude/agents/spec-author.md \
          .claude/agents/implementer.md .claude/agents/reviewer.md; do
   if [ ! -f "$f" ]; then
     fail "Falta archivo base: $f"

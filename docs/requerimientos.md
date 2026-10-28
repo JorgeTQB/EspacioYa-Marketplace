@@ -278,7 +278,7 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 | Manejador global de errores con mensajes genéricos | RNF-SEG-13 | Sprint 1 | Todo el backend |
 | Gestión de sesión y tokens (invalidación, 30 min) | RNF-SEG-01, 02 | HU-03 (Sprint 1) | HU-04, HU-09, HU-17 |
 | Envío de correo detrás de una interfaz propia | RNF-ARQ-08, USA-04 | HU-01 (Sprint 1, verificación) | HU-02, 04, 06, 09, 13, 15, 18, 20, 25, 26, 27. HU-25 formaliza Factory Method + Adapter. |
-| Almacenamiento privado cifrado con URL firmada | RNF-SEG-08, 14, 15 | HU-05 (Sprint 2) | HU-06, HU-07 (fotos) |
+| Almacenamiento privado cifrado con URL firmada | RNF-SEG-08, 14, 15 | HU-05 (Sprint 2) | HU-06. HU-07 reutiliza solo la validación y re-codificación (sin EXIF/GPS) y el adaptador de disco: las fotos de espacios son públicas, sin cifrar y con URL estable (las de borradores, solo para su dueño). |
 | Cálculo de disponibilidad (horario − bloqueos − reservas) | RN-04 | HU-08 (Sprint 2) | HU-10, 11, 12 |
 | Adaptador de la pasarela de pago | RNF-SEG-11, CUM-01, 02 | HU-13 (Sprint 4) | HU-16, HU-26, HU-28 |
 | Cifrado de campos sensibles en reposo | RNF-SEG-14 | HU-02 (Sprint 1, facturación) | HU-05, 17, 18 |

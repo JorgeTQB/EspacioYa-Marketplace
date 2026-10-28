@@ -1,0 +1,27 @@
+.recuadro,
+.foto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+}
+
+.recuadro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espacio-3);
+  background: var(--color-superficie);
+  text-align: center;
+}
+
+.texto {
+  font-size: var(--texto-sm);
+  color: var(--color-texto-secundario);
+}
+
+.foto {
+  object-fit: cover;
+  background: var(--color-gris-suave);
+}

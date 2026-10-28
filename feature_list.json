@@ -150,7 +150,7 @@
       "historia": "docs/historias/HU-07.md",
       "notes": "Dependencia de visibilidad: visible tras HU-06",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-08",

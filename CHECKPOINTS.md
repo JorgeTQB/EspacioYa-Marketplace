@@ -13,7 +13,7 @@
       `docs/specs.md`, `docs/verification.md`, `docs/requerimientos.md`,
       `docs/modelo-datos.md`.
 - [ ] ⚙ Toda historia de `feature_list.json` tiene su `docs/historias/HU-XX.md`.
-- [ ] ⚙ Existen los 4 subagentes en `.claude/agents/`: `orquestador`, `spec_author`,
+- [ ] ⚙ Existen los 4 subagentes en `.claude/agents/`: `orquestador`, `spec-author`,
       `implementer`, `reviewer`.
 - [ ] ⚙ `./init.sh` (sin `--rapido`) termina con exit code 0.
 

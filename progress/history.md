@@ -361,3 +361,73 @@
 - 2026-10-28 — (orquestador, sdd:false) `./mvnw spring-boot:run` fallaba en local con `Falta ALMACENAMIENTO_LLAVE_FIRMA o no es una llave de 32 bytes en base64`: HU-05 hizo obligatoria esa llave, pero el README solo documentaba las dos de cifrado de HU-02 y `2_Backend/.env.example` decía que en local no hacía falta nada. `README.md` (paso "2. Backend"): tabla con las tres llaves, comando para generar la de firma, aviso de no duplicar variables en `~/.bashrc` y qué hacer si ya se tenían las de cifrado. `2_Backend/.env.example`: aclara que las tres llaves también son obligatorias en local. Verificado: con la llave definida el backend llega a `Started EspacioYaApplication`. Pedido por SebGarate.
 
 - 2026-10-28 — (orquestador, sdd:false) `init.sh`, bloque 1: nuevo chequeo de `CIFRADO_LLAVE`, `CIFRADO_LLAVE_HUELLA` y `ALMACENAMIENTO_LLAVE_FIRMA` (definidas, 32 bytes en base64 y distintas entre sí, el mismo criterio que `LlaveCifrado`, `CifradorCampos` y `FirmadorUrl`). Es `[WARN]` y no `[FAIL]`: las pruebas traen sus llaves en `src/test/resources`, así que solo avisa que `./mvnw spring-boot:run` no arrancará. Nunca muestra los valores. Probado con 5 casos (ninguna, falta la de firma, 16 bytes, repetida, todas bien) y con `./init.sh --rapido` (exit 0, 204 unitarias OK). Pedido por SebGarate.
+
+- 2026-10-28 — (orquestador, sdd:false) Subagente `spec_author` renombrado a `spec-author`: Claude Code no lo registraba (era el único de `.claude/agents/` con guion bajo en `name:`; los nombres de subagente admiten solo minúsculas, números y guiones), así que `subagent_type: "spec_author"` fallaba con "Agent type not found". `git mv .claude/agents/spec_author.md .claude/agents/spec-author.md` y referencias actualizadas en `CLAUDE.md`, `AGENTS.md`, `CHECKPOINTS.md`, `README.md`, `docs/specs.md`, `.claude/agents/orquestador.md` e `init.sh`. Los registros históricos (`progress/` y `specs/` de HU-01–05) quedan sin tocar. Hay que reiniciar la sesión de Claude Code para que cargue el agente. Pedido por Sebastian Garate.
+
+- 2026-10-28 — (orquestador, sdd:false) `docs/requerimientos.md` §8, fila "Almacenamiento privado cifrado con URL firmada": HU-07 ya no reutiliza el cifrado ni la URL firmada para las fotos de espacios. Las fotos son públicas (no sensibles): se guardan sin cifrar en el adaptador de disco, con URL estable y cacheable; las de espacios en borrador solo las ve su dueño. Se mantiene la validación y re-codificación de `ValidadorArchivo` (elimina EXIF/GPS). Simplifica HU-10 y HU-11 (no firman URLs en cada consulta). Decisión de Sebastian Garate al revisar P4 del spec de HU-07.
+
+## 2026-10-28 — HU-07 Publicar y editar un espacio (done)
+- **Agente:** orquestador → explorador → spec-author → implementer → reviewer (dueño: Sebastian Garate).
+- **Rama:** `feature/HU-07-publicar-editar-espacio` (desde `develop` en `a90508b`).
+- **Spec:** `specs/HU-07/` con R1–R55, DT-1…DT-19 y T1–T16 (más T1b, T1c, T9b y
+  T11b). Explorador en `progress/explore_HU-07.md`. Spec aprobado por Sebastian
+  Garate el 2026-10-28. Decisiones del dueño: **P4** fotos de espacios públicas,
+  guardadas sin cifrar detrás del adaptador (`ArchivosPublicos`, clave
+  `espacios/<UUID>`), con URL estable `GET /api/fotos/{uuid}` (sin URL firmada);
+  las de un `PUBLICADO` las ve cualquiera (`Cache-Control: public, max-age=3600`)
+  y las de un borrador u otro estado solo su dueño con sesión (`no-store`); el
+  resto recibe el mismo 404 genérico. Se mantiene `ValidadorArchivo` (5 MiB,
+  magic bytes, 40 MP, re-codificación sin EXIF/GPS). **P5** `descripcion`
+  obligatoria de 10 a 2000 caracteres tras recortar. P1–P16 restantes aceptadas
+  con los valores por defecto: zona como lista cerrada (tabla `zona`, 43 distritos
+  de Lima + 7 del Callao), una foto por solicitud y hasta 5, al menos 1 foto para
+  publicar, editar un `PUBLICADO` lo deja `PUBLICADO`, interfaz `CuentaService`
+  en `cuentas`, precio de reservas pagadas a cargo de HU-12 (P13), migración `V2_2`.
+- **Cambios:** `comun/` (`web/ArchivoMultipart` compartido con
+  `IdentidadArrendadorController`; `almacenamiento/ArchivosPublicos`; `permitAll`
+  solo para `GET /api/fotos/*` en `ConfiguracionSeguridad`); `cuentas/`
+  (`CuentaService`, `CuentaServiceImpl`, `HabilitacionArrendadorDTO`); migración
+  `V2_2__espacio.sql` (`zona` con 50 filas, `espacio` con `precio_hora
+  NUMERIC(8,2)`, `foto_espacio` con CHECK de orden 1–5 y UNIQUE diferido); módulo
+  `espacios/` (dominio `Espacio`, `FotoEspacio`, `Zona`, `EstadoEspacio`,
+  `TipoEspacio`, `DatosEspacio`; repositorios con bloqueo pesimista; DTO `record`;
+  `EspacioService`, `FotoEspacioService`; `EspacioController`, `ZonaController`,
+  `FotoEspacioController`, `FotoPublicaController`; auditoría de creación,
+  edición con campos cambiados, publicación, foto agregada/quitada/rechazada).
+  Frontend: `Campo tipo="textarea"`, `Tarjeta`, estados de `Espacio` en
+  `EtiquetaEstado`, `peticionArchivo` en `api/cliente.js`, `api/espacios.js`,
+  `textosEspacios.js`, pantallas `MisEspacios`, `EditarEspacio` y
+  `FotoDelEspacio` (blob con `Bearer`), enlace en `Panel.jsx` y rutas
+  `/panel/espacios`, `/panel/espacios/nuevo` y `/panel/espacios/:id`. Docs:
+  `modelo-datos.md`, `frontend.md`, `architecture.md` (fila Archivos y excepción
+  de las fotos en "Qué NO hacer").
+- **Desvíos aceptados por el reviewer:** `Cache-Control` como texto literal
+  (`public, max-age=3600` / `no-store`); zonas ordenadas con `Collator` es-PE en
+  Java en vez de `ORDER BY`; `errorDe` y `avisarSiPerdioSesion` extraídos en
+  `api/cliente.js` sin cambio de conducta; `<EditarEspacio key="nuevo" />` para
+  remontar al pasar a `:id`; casos con `..` de R55 probados como `a..b` (un
+  segmento `..` lo corta antes el firewall de Spring Security con 400 genérico).
+- **Corrección tras la revisión (observación 1):** un JSON con `"capacidad": 20.7`
+  se aceptaba truncado a `20` (201), contra R4 ("entero de 1 a 100 000").
+  Corregido solo en `FichaEspacioDTO`: el componente `capacidad` usa el
+  deserializador `FichaEspacioDTO.SoloEntero`, que acepta únicamente un número JSON
+  entero; un decimal, texto (`"20"`), booleano, objeto, arreglo o entero fuera de
+  `int` queda `null` y `@NotNull` responde 400 con el campo `capacidad` y el
+  mensaje de R4. Sin cambios en la configuración global de Jackson ni en el
+  frontend (ya muestra el error por campo). Tests: `EspacioControllerIT.
+  capacidadNoEntera` (crear y editar, fila intacta) y `FichaEspacioDTOTest.
+  capacidadDesdeJson`; trazabilidad de R4 actualizada en `design.md`.
+- **Resultado:** `./init.sh` completo en verde tras la corrección (273 unitarias +
+  196 IT con Testcontainers, lint y build OK; único `[WARN]` las llaves locales
+  ausentes, previo a HU-07). Reviewer: APPROVED (`progress/review_HU-07.md`).
+  Trazabilidad R1–R55 en `progress/impl_HU-07.md`. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):**
+  2. (HU-09) `FotoEspacioService.ver` no oculta las fotos de un arrendador
+     `SUSPENDIDA` (`docs/architecture.md`: "sus espacios no se muestran"). Fuera de
+     los R de HU-07: avisar a Jorge Quispe, dueño de HU-09, para que lo cubra al
+     implementar la suspensión.
+  3. `FotoEspacioService.registrar` y `quitar` llaman a `espacio.tocar(...)`, que
+     actualiza `actualizado_en` al agregar o quitar fotos. El spec no lo pide ni lo
+     prohíbe; reflejarlo en `specs/HU-07/design.md` si se vuelve a tocar.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+- 2026-10-28 — HU-07, observación 3 del review: documentado en `specs/HU-07/design.md` (DT-20, `Espacio.tocar` y flujos de agregar/quitar foto) que agregar o quitar una foto actualiza `espacio.actualizado_en`. Sin cambios de código, tests, requirements ni tasks.

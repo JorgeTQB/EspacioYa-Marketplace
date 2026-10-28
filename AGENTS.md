@@ -35,7 +35,7 @@
 | `docs/specs.md`              | Proceso SDD: EARS notation, los 3 archivos, puerta de aprobación humana     | Antes de redactar o leer un spec |
 | `docs/verification.md`       | Cómo verificar que tu trabajo funciona (incluye trazabilidad requirements)  | Antes de declarar una historia como `done` |
 | `CHECKPOINTS.md`             | Criterios objetivos de "estado final correcto"                              | Para auto-evaluarte |
-| `.claude/agents/`            | Definiciones de subagentes (`orquestador`, `spec_author`, `implementer`, `reviewer`) | Si orquestas trabajo |
+| `.claude/agents/`            | Definiciones de subagentes (`orquestador`, `spec-author`, `implementer`, `reviewer`) | Si orquestas trabajo |
 
 ## 3. Reglas duras (no negociables)
 
@@ -45,7 +45,7 @@
 - **No declares una historia `done` sin pruebas verdes.** Ejecuta `./init.sh` y
   asegúrate de que el bloque de tests pasa al 100%.
 - **No saltes la fase de spec.** Toda historia con `"sdd": true` debe pasar
-  por `spec_author` y obtener aprobación humana antes de tocar código.
+  por `spec-author` y obtener aprobación humana antes de tocar código.
 - **No saltes la puerta de aprobación humana.** El orquestador detiene el flujo
   en `spec_ready` y espera.
 - **Documenta lo que haces** en `progress/HU-XX.md` mientras trabajas, no al final.
@@ -55,11 +55,11 @@
 ## 4. Flujo de trabajo (SDD)
 
 ```
-pending → [spec_author] → spec_ready → ⏸ DUEÑO → in_progress → [implementer → reviewer] → done
+pending → [spec-author] → spec_ready → ⏸ DUEÑO → in_progress → [implementer → reviewer] → done
 ```
 
 1. El orquestador detecta la primera historia `pending` con `"sdd": true` del dueño.
-2. El orquestador lanza `spec_author`, que crea
+2. El orquestador lanza `spec-author`, que crea
    `specs/HU-XX/{requirements,design,tasks}.md` y marca el status como
    `spec_ready`.
 3. **Pausa.** El dueño de la historia lee el spec en `specs/HU-XX/` y aprueba

@@ -162,10 +162,10 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`) |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad | `estado` |
-| `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas" | `titulo`, `children`, `acciones` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`) | `estado` |
+| `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Modal` | Confirmar acciones irreversibles (cancelar, suspender, dar de baja) | `abierto`, `titulo`, `onConfirmar`, `onCerrar` |
 | `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |
 
@@ -200,7 +200,10 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   minúsculas y con guiones: `/registro`, `/espacios/:id`, `/mis-reservas`.
 - **Cliente HTTP:** un solo `src/api/cliente.js` (sobre `fetch`) que pone la
   URL base (`import.meta.env.VITE_API_URL`), el JSON y convierte las
-  respuestas de error en el `ErrorDTO`. Cada módulo tiene su archivo
+  respuestas de error en el `ErrorDTO`. Para descargar un archivo con el token
+  (p. ej. la foto de un borrador, que un `<img src>` no puede pedir con el
+  encabezado `Authorization`) está `peticionArchivo(ruta)`, que devuelve un
+  `Blob` con el mismo manejo de errores (HU-07). Cada módulo tiene su archivo
   (`api/reservas.js`) con una función por endpoint. Los componentes nunca
   llaman a `fetch` directamente.
 - **Cómo viaja la sesión (HU-03):** token opaco en el encabezado
