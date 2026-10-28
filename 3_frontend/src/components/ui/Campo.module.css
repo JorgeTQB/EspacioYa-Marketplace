@@ -1,0 +1,72 @@
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+  margin-bottom: var(--espacio-4);
+}
+
+.etiqueta {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  color: var(--color-texto-secundario);
+}
+
+.control {
+  padding: var(--espacio-2) var(--espacio-3);
+  border: 1px solid var(--color-borde-control);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  font: inherit;
+}
+
+.control::placeholder {
+  color: var(--color-texto-deshabilitado);
+}
+
+.control:focus-visible {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 2px var(--color-primario-suave);
+}
+
+.conError {
+  border-color: var(--color-error-texto);
+}
+
+.casilla {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-2);
+}
+
+.marca {
+  margin: var(--espacio-1) 0 0;
+  accent-color: var(--color-primario);
+}
+
+.marca.conError {
+  outline: 2px solid var(--color-error-texto);
+  outline-offset: 1px;
+}
+
+.etiquetaCasilla {
+  color: var(--color-texto);
+}
+
+.ayuda,
+.error {
+  margin: 0;
+  font-size: var(--texto-sm);
+}
+
+.ayuda {
+  color: var(--color-texto-secundario);
+}
+
+.error {
+  color: var(--color-error-texto);
+}
+
+.archivo {
+  cursor: pointer;
+}

@@ -289,7 +289,7 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 2. ~~**Estado "correo pendiente"**~~ **Resuelto:** ya está en la tabla de estados de `architecture.md`.
 3. **Respuesta del arrendador en reclamos** (HU-26 CA1): se menciona que "el arrendador puede responder", pero no hay un criterio que diga cómo se ve ni qué se valida. Aclararlo con el PO antes del Sprint 8.
 4. **Control compensatorio de IPs del panel admin** (HU-06, HU-09) hasta HU-17. Decidir si se retira o se mantiene junto con MFA.
-5. **Política de contraseña** (HU-01): no hay reglas concretas (longitud, complejidad). Definirlas antes de programar HU-01.
+5. ~~**Política de contraseña**~~ **Resuelto (Jorge Quispe, 2026-10-27):** longitud de 8 a 64 caracteres, al menos una letra y un dígito, sin otras reglas de composición; se rechaza una contraseña igual al correo.
 6. **Plazo legal de conservación contable** (HU-22 CA2): falta el plazo concreto.
-7. **Límite de registros por IP** (HU-01 (D)) y **límite de intentos MFA** (HU-17 (D)): las historias no dan el número; definirlo en el diseño.
+7. ~~**Límite de registros por IP**~~ **Resuelto (Jorge Quispe, 2026-10-27):** 5 intentos de registro por IP por hora (ventana deslizante), contando todos los intentos, no solo los exitosos; al superarlo, 429 con mensaje genérico. **Límite de intentos MFA** (HU-17 (D)): sigue pendiente; definirlo en el diseño.
 8. **Expiración de reservas y envío de recordatorios** (RF-D-02, RF-D-10): requieren un proceso programado. La simplificación de §5 solo descarta jobs para la disponibilidad y la liquidación, no para estos casos; confirmarlo en el diseño.

@@ -1,0 +1,140 @@
+package pe.edu.ulima.espacioya.cuentas.domain;
+
+import java.time.Instant;
+import java.util.Locale;
+import java.util.Optional;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "usuario")
+public class Usuario {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 254)
+    private String correo;
+
+    @Column(name = "hash_contrasena", nullable = false, length = 100)
+    private String hashContrasena;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Rol rol;
+
+    @Column(name = "correo_verificado", nullable = false)
+    private boolean correoVerificado;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EstadoUsuario estado;
+
+    @Column(name = "version_politica", nullable = false, length = 20)
+    private String versionPolitica;
+
+    @Column(name = "fecha_consentimiento", nullable = false)
+    private Instant fechaConsentimiento;
+
+    @Column(length = 100)
+    private String nombre;
+
+    @Column(length = 9)
+    private String telefono;
+
+    protected Usuario() {
+    }
+
+    public static Usuario registrar(String correoNormalizado, String hashContrasena,
+                                    String versionPolitica, Instant ahora) {
+        var usuario = new Usuario();
+        usuario.correo = correoNormalizado;
+        usuario.hashContrasena = hashContrasena;
+        usuario.rol = Rol.USUARIO;
+        usuario.estado = EstadoUsuario.ACTIVA;
+        // Sin correo real hasta HU-25: la cuenta nace con el correo verificado (decisión S5 de HU-01).
+        usuario.correoVerificado = true;
+        usuario.versionPolitica = versionPolitica;
+        usuario.fechaConsentimiento = ahora;
+        return usuario;
+    }
+
+    public static Usuario registrarArrendador(String correoNormalizado, String hashContrasena, String nombre,
+                                              String telefono, String versionPolitica, Instant ahora) {
+        var usuario = registrar(correoNormalizado, hashContrasena, versionPolitica, ahora);
+        usuario.rol = Rol.ARRENDADOR;
+        usuario.nombre = nombre.trim();
+        usuario.telefono = telefono;
+        return usuario;
+    }
+
+    public static String normalizarCorreo(String correo) {
+        return correo == null ? null : correo.trim().toLowerCase(Locale.ROOT);
+    }
+
+    // Orden fijo: el motivo solo va a la auditoría; al cliente siempre le llega el mismo 401 genérico.
+    public Optional<MotivoRechazoInicioSesion> motivoRechazoInicioSesion() {
+        if (rol == Rol.ADMIN) {
+            return Optional.of(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
+        }
+        if (!correoVerificado) {
+            return Optional.of(MotivoRechazoInicioSesion.CORREO_NO_VERIFICADO);
+        }
+        if (estado != EstadoUsuario.ACTIVA) {
+            return Optional.of(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
+        }
+        return Optional.empty();
+    }
+
+    public void cambiarContrasena(String nuevoHash) {
+        hashContrasena = nuevoHash;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getCorreo() {
+        return correo;
+    }
+
+    public String getHashContrasena() {
+        return hashContrasena;
+    }
+
+    public Rol getRol() {
+        return rol;
+    }
+
+    public EstadoUsuario getEstado() {
+        return estado;
+    }
+
+    public boolean isCorreoVerificado() {
+        return correoVerificado;
+    }
+
+    public String getVersionPolitica() {
+        return versionPolitica;
+    }
+
+    public Instant getFechaConsentimiento() {
+        return fechaConsentimiento;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getTelefono() {
+        return telefono;
+    }
+}

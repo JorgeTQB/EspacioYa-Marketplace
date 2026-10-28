@@ -34,7 +34,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-01.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-02",
@@ -53,7 +53,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-02.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-03",
@@ -73,7 +73,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-03.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-04",
@@ -92,7 +92,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-04.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-05",
@@ -111,7 +111,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-05.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-06",

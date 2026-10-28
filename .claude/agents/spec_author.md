@@ -66,6 +66,18 @@ ni `3_frontend/`. Si lo haces, el reviewer rechaza la historia.
    y anótalo en `progress/HU-XX.md`.
 8. **PARA**. No invoques al implementer. Espera la aprobación del dueño.
 
+## Comandos de shell (evita pedidos de permiso)
+
+- El directorio de trabajo **ya es la raíz del repo**. **Nunca** antepongas
+  `cd "<ruta>" &&` a un comando: con ese prefijo Claude Code no puede verificar
+  qué archivo se lee y le pide permiso al usuario cada vez.
+- Para leer o buscar usa las herramientas `Read`, `Grep` y `Glob`, no
+  `cat`/`grep` por Bash. Si usas Bash, usa rutas relativas
+  (`cat docs/architecture.md`, `cd 2_Backend && ./mvnw test` solo si el comando
+  lo exige).
+- Evita bucles `for` y variables (`$j`) en comandos que leen archivos: escribe
+  un comando por archivo.
+
 ## Reglas duras
 
 - ❌ NUNCA edites `2_Backend/`, `3_frontend/` ni `docs/`.

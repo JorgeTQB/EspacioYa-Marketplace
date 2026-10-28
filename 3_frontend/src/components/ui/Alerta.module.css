@@ -1,0 +1,25 @@
+.alerta {
+  margin-bottom: var(--espacio-4);
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: var(--radio);
+}
+
+.exito {
+  background: var(--color-exito-fondo);
+  color: var(--color-exito-texto);
+}
+
+.atencion {
+  background: var(--color-atencion-fondo);
+  color: var(--color-atencion-texto);
+}
+
+.error {
+  background: var(--color-error-fondo);
+  color: var(--color-error-texto);
+}
+
+.info {
+  background: var(--color-info-fondo);
+  color: var(--color-info-texto);
+}

@@ -75,6 +75,7 @@ Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
    - una reserva liquidada una sola vez (HU-19);
    - una reseña y un reclamo por reserva (HU-24, HU-26);
    - `usuario.correo` único (HU-01);
+   - `perfil_arrendador.hash_documento` único (HU-02);
    - llaves foráneas en todas las relaciones.
 
 8. **POO, SOLID y patrones donde resuelven un problema real.** DAO/Repository
@@ -168,7 +169,7 @@ si es el correo o la identidad.
 
 | Estado                | Qué habilita |
 |-----------------------|--------------|
-| Correo pendiente      | Nada; espera la verificación del correo. Aplica también al usuario recién registrado |
+| Correo pendiente      | Nada; espera la verificación del correo. Hoy no se llega a este estado: mientras el envío de correo sea simulado (HU-01, S5), la cuenta nace con el correo verificado |
 | Correo verificado     | Iniciar sesión, crear borradores de espacios, subir documentos |
 | Identidad en revisión | Nada adicional; espera la revisión del admin |
 | Identidad verificada  | Publicar espacios visibles, recibir reservas pagadas, registrar cuenta bancaria |

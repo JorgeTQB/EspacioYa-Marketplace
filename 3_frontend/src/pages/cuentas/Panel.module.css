@@ -1,0 +1,8 @@
+.pantalla {
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.descripcion {
+  color: var(--color-texto-secundario);
+}
