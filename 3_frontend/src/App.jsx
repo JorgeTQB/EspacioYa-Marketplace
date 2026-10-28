@@ -13,6 +13,8 @@ import Registro from './pages/cuentas/Registro.jsx'
 import RegistroArrendador from './pages/cuentas/RegistroArrendador.jsx'
 import RestablecerContrasena from './pages/cuentas/RestablecerContrasena.jsx'
 import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
+import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
+import MisEspacios from './pages/espacios/MisEspacios.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
 import estilos from './App.module.css'
@@ -106,6 +108,31 @@ function App() {
             element={
               <RutaProtegida>
                 <VerificarIdentidad />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/panel/espacios"
+            element={
+              <RutaProtegida>
+                <MisEspacios />
+              </RutaProtegida>
+            }
+          />
+          {/* La clave distinta hace que pasar de "nuevo" a ":id" monte la pantalla de cero. */}
+          <Route
+            path="/panel/espacios/nuevo"
+            element={
+              <RutaProtegida>
+                <EditarEspacio key="nuevo" />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/panel/espacios/:id"
+            element={
+              <RutaProtegida>
+                <EditarEspacio />
               </RutaProtegida>
             }
           />

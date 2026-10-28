@@ -17,7 +17,7 @@ specs/HU-XX/
 
 El nombre de la carpeta coincide con el id de la historia (`HU-01`, `HU-13`…).
 
-**Fuentes del spec** (el `spec_author` las lee antes de escribir):
+**Fuentes del spec** (el `spec-author` las lee antes de escribir):
 
 - `docs/historias/HU-XX.md` — historia, criterios de aceptación (CA) y STRIDE.
 - Los archivos de las historias de las que depende.
@@ -29,7 +29,7 @@ El nombre de la carpeta coincide con el id de la historia (`HU-01`, `HU-13`…).
 
 | Estado         | Significado                                                    |
 |----------------|----------------------------------------------------------------|
-| `pending`      | Sin spec. El `spec_author` es el primero en actuar.            |
+| `pending`      | Sin spec. El `spec-author` es el primero en actuar.            |
 | `spec_ready`   | Spec redactado. Esperando aprobación del dueño. NO se toca código. |
 | `in_progress`  | Spec aprobado. `implementer` trabajando.                       |
 | `done`         | Código terminado: pruebas verdes, `reviewer` aprobó, sesión cerrada. |
@@ -46,7 +46,7 @@ no en `feature_list.json`. Si en UAT aparece un defecto, la historia vuelve a
 
 ## La puerta de aprobación humana
 
-El flujo automático se detiene **una vez**: cuando el `spec_author` termina
+El flujo automático se detiene **una vez**: cuando el `spec-author` termina
 sus tres archivos, marca la historia como `spec_ready` y para. El **dueño de la
 historia** lee `specs/HU-XX/` y dice "aprobado" (o pide cambios).
 
@@ -54,7 +54,7 @@ Solo entonces el `orquestador` transiciona `spec_ready → in_progress` y lanza
 el `implementer`.
 
 ```
-pending → [spec_author] → spec_ready → ⏸ DUEÑO → in_progress → [implementer → reviewer] → done
+pending → [spec-author] → spec_ready → ⏸ DUEÑO → in_progress → [implementer → reviewer] → done
 ```
 
 ## requirements.md — EARS estricto

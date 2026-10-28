@@ -7,6 +7,12 @@ const ESTADOS = {
   EN_REVISION: { texto: 'Identidad en revisión', tipo: 'atencion' },
   RECHAZADA: { texto: 'Identidad rechazada', tipo: 'error' },
   NO_INICIADA: { texto: 'Identidad sin verificar', tipo: 'neutro' },
+  // Espacio (HU-07)
+  PUBLICADO: { texto: 'Publicado', tipo: 'exito' },
+  PAUSADO: { texto: 'Pausado', tipo: 'atencion' },
+  OCULTO: { texto: 'Oculto', tipo: 'error' },
+  BORRADOR: { texto: 'Borrador', tipo: 'neutro' },
+  BAJA: { texto: 'De baja', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

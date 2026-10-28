@@ -47,6 +47,9 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/confirmaciones").permitAll()
                         // La URL firmada es la autorización (HU-05, DT-3): el navegador la abre sin token.
                         .requestMatchers(HttpMethod.GET, "/api/archivos").permitAll()
+                        // Fotos de espacios (HU-07, DT-4): públicas si el espacio está publicado; si no, el servicio
+                        // exige ser el dueño. El filtro de sesión igual autentica si llega un Bearer válido.
+                        .requestMatchers(HttpMethod.GET, "/api/fotos/*").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

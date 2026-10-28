@@ -19,6 +19,22 @@ export function alPerderSesion(callback) {
   return () => suscriptoresSesionPerdida.delete(callback)
 }
 
+function avisarSiPerdioSesion(error, token) {
+  if (error.estado === NO_AUTENTICADO && token) {
+    borrarToken()
+    suscriptoresSesionPerdida.forEach((callback) => callback(error.mensaje))
+  }
+}
+
+async function errorDe(respuesta) {
+  const datos = await leerJson(respuesta)
+  return {
+    estado: respuesta.status,
+    mensaje: datos?.mensaje ?? ERROR_GENERICO,
+    errores: Array.isArray(datos?.errores) ? datos.errores : [],
+  }
+}
+
 async function leerJson(respuesta) {
   try {
     return await respuesta.json()
@@ -51,18 +67,34 @@ export async function peticion(ruta, { metodo = 'GET', cuerpo, autenticada = tru
   if (respuesta.status === SIN_CONTENIDO) {
     return null
   }
-  const datos = await leerJson(respuesta)
   if (!respuesta.ok) {
-    const error = {
-      estado: respuesta.status,
-      mensaje: datos?.mensaje ?? ERROR_GENERICO,
-      errores: Array.isArray(datos?.errores) ? datos.errores : [],
-    }
-    if (respuesta.status === NO_AUTENTICADO && token) {
-      borrarToken()
-      suscriptoresSesionPerdida.forEach((callback) => callback(error.mensaje))
-    }
+    const error = await errorDe(respuesta)
+    avisarSiPerdioSesion(error, token)
     throw error
   }
-  return datos
+  return leerJson(respuesta)
+}
+
+// Descarga binaria con el token (p. ej. la foto de un borrador, que solo ve su dueño): un <img src> no envía
+// el encabezado Authorization. Los errores tienen la misma forma que los de peticion.
+export async function peticionArchivo(ruta) {
+  const opciones = { method: 'GET', headers: {} }
+  const token = leerToken()
+  if (token) {
+    opciones.headers.Authorization = `Bearer ${token}`
+  }
+
+  let respuesta
+  try {
+    respuesta = await fetch(`${URL_BASE}${ruta}`, opciones)
+  } catch {
+    throw ERROR_RED
+  }
+
+  if (!respuesta.ok) {
+    const error = await errorDe(respuesta)
+    avisarSiPerdioSesion(error, token)
+    throw error
+  }
+  return respuesta.blob()
 }

@@ -35,9 +35,14 @@ function Panel() {
       {sesion.aviso && <Alerta tipo="atencion">{sesion.aviso}</Alerta>}
       <p className={estilos.descripcion}>{textos.descripcion}</p>
       {sesion.rol === 'ARRENDADOR' && (
-        <p>
-          <Link to="/panel/identidad">Verificar mi identidad</Link>
-        </p>
+        <>
+          <p>
+            <Link to="/panel/espacios">Mis espacios</Link>
+          </p>
+          <p>
+            <Link to="/panel/identidad">Verificar mi identidad</Link>
+          </p>
+        </>
       )}
     </section>
   )
