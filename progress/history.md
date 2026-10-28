@@ -355,3 +355,5 @@
     enlace solo se lee del log en una máquina de desarrollo. El límite de
     solicitudes vive en memoria: una sola instancia del backend (S11).
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-28 — (orquestador, sdd:false) `docs/conventions.md`: nueva sección "Migraciones que llegan tarde (`out-of-order`)" con la regla de `spring.flyway.out-of-order=true` (S1 de HU-04), cómo elegir el número, qué hacer si choca y que una migración no depende de otra de número mayor. Pedido por Eduardo Saldaña.
