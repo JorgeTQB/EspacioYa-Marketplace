@@ -36,4 +36,26 @@ class TokenAleatorioTest {
 
         assertThat(TokenAleatorio.hash(token)).isNotEqualTo(token).doesNotContain(token);
     }
+
+    @Test
+    @DisplayName("HU-04 R17: un token generado tiene forma válida")
+    void tokenGeneradoTieneFormato() {
+        assertThat(TokenAleatorio.tieneFormato(TokenAleatorio.generar())).isTrue();
+        assertThat(TokenAleatorio.tieneFormato("A".repeat(21) + "-_" + "z9".repeat(10))).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-04 R17: nulo, vacío, 42 o 44 caracteres y los caracteres +, / y = no tienen forma válida")
+    void formasInvalidas() {
+        var valido = TokenAleatorio.generar();
+
+        assertThat(TokenAleatorio.tieneFormato(null)).isFalse();
+        assertThat(TokenAleatorio.tieneFormato("")).isFalse();
+        assertThat(TokenAleatorio.tieneFormato(valido.substring(1))).isFalse();
+        assertThat(TokenAleatorio.tieneFormato(valido + "A")).isFalse();
+        assertThat(TokenAleatorio.tieneFormato("+" + valido.substring(1))).isFalse();
+        assertThat(TokenAleatorio.tieneFormato("/" + valido.substring(1))).isFalse();
+        assertThat(TokenAleatorio.tieneFormato(valido.substring(1) + "=")).isFalse();
+        assertThat(TokenAleatorio.tieneFormato(" " + valido.substring(1))).isFalse();
+    }
 }

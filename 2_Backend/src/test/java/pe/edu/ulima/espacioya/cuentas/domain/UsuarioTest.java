@@ -93,4 +93,17 @@ class UsuarioTest {
 
         assertThat(admin.motivoRechazoInicioSesion()).contains(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
     }
+
+    @Test
+    @DisplayName("HU-04 R18: cambiarContrasena reemplaza el hash de la contraseña sin tocar el resto de la cuenta")
+    void cambiarContrasenaReemplazaElHash() {
+        var usuario = usuarioActivo();
+
+        usuario.cambiarContrasena("$2a$12$nuevohash");
+
+        assertThat(usuario.getHashContrasena()).isEqualTo("$2a$12$nuevohash");
+        assertThat(usuario.getCorreo()).isEqualTo("ana@correo.pe");
+        assertThat(usuario.getRol()).isEqualTo(Rol.USUARIO);
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+    }
 }
