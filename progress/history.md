@@ -197,3 +197,43 @@
 - **Cambios:** `README.md` § "2. Backend": cada desarrollador genera sus propias
   llaves con `openssl rand -base64 32` y las guarda en `~/.bashrc` (Git Bash).
   Sin cambios en código ni en `application.properties`.
+
+## 2026-10-28 — HU-03 Inicio y cierre de sesión (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Jorge Quispe).
+- **Rama:** `feature/HU-03-inicio-cierre-sesion`.
+- **Spec:** `specs/HU-03/` con R1–R36, DT-1…DT-15 y T1–T19. Explorador en
+  `progress/explore_HU-03.md`. Spec aprobado por Jorge Quispe el 2026-10-28
+  aceptando P1–P7 con los valores por defecto: el ADMIN no inicia sesión aún
+  (llega con HU-06); token opaco en `Authorization: Bearer` guardado en
+  `sessionStorage` y solo su SHA-256 en BD; bloqueo temporal por correo
+  normalizado (5 fallos en ventana deslizante de 15 min, en memoria, se
+  reinicia con login exitoso); mensajes genéricos "Correo o contraseña
+  incorrectos." y "Tu sesión no es válida o expiró. Inicia sesión de nuevo.";
+  aviso de identidad solo para `ARRENDADOR` con `NO_INICIADA`; inactividad
+  deslizante de 30 min sin tope absoluto; sesiones concurrentes permitidas.
+- **Cambios:** `comun/` (`TokenAleatorio`, `LimitadorIntentos.superaLimite/
+  registrar/limpiar`, `CredencialesInvalidasException` y
+  `DemasiadosIntentosException` con handlers 401/429 y mensajes en `ErrorDTO`,
+  puerto `ValidadorSesion`, `UsuarioAutenticado`, `FiltroAutenticacionSesion`,
+  `PuntoEntradaNoAutenticado`, `ConfiguracionSeguridad` STATELESS con CORS que
+  admite `Authorization`); migración `V1_4__sesion.sql`; `cuentas/` (`Sesion`,
+  `MotivoRechazoInicioSesion`, `Usuario.motivoRechazoInicioSesion`,
+  `PerfilArrendador.AVISO_IDENTIDAD`, `SesionRepository`, `InicioSesionService`
+  con hash señuelo, `SesionService` que implementa `ValidadorSesion`,
+  `SesionController` con `POST /api/sesiones`, `GET /api/sesiones/actual` y
+  `DELETE /api/sesiones/actual`; auditoría `LOGIN_EXITOSO`, `LOGIN_FALLIDO`,
+  `LOGIN_BLOQUEADO` y `CIERRE_SESION`). Frontend: `api/tokenSesion.js`,
+  `api/cliente.js` con Bearer y manejo de 401, `api/cuentas.js`, carpeta
+  `sesion/` (`ProveedorSesion`, `useSesion`, `RutaProtegida`), pantallas
+  `/iniciar-sesion` y `/panel`, encabezado de `App.jsx` con "Iniciar sesión" /
+  "Mi panel" y "Cerrar sesión". Docs: `modelo-datos.md` y `frontend.md`.
+- **Resultado:** `./init.sh` completo en verde (118 unitarias + 89 IT con
+  Testcontainers, lint y build OK). Reviewer: APPROVED
+  (`progress/review_HU-03.md`). Trazabilidad R1–R36 en `progress/impl_HU-03.md`.
+  Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):** `SesionService.validar`
+  no revisa `usuario.estado`; HU-09 debe revocar las sesiones al suspender una
+  cuenta. En `App.jsx` el error de red al cerrar sesión sigue visible al cambiar
+  de ruta, y un 401 al cerrar sesión provoca dos navegaciones seguidas (estético).
+  HTTPS y una sola instancia (contador en memoria) son del despliegue. Todo está
+  sin commitear: el dueño revisa y abre el PR hacia `develop`.

@@ -8,6 +8,8 @@ public record ErrorDTO(String mensaje, List<ErrorCampoDTO> errores) {
     public static final String MENSAJE_INESPERADO = "Ocurrió un problema. Intenta de nuevo más tarde.";
     public static final String MENSAJE_DEMASIADOS_INTENTOS =
             "Hiciste demasiados intentos. Espera un momento e inténtalo de nuevo.";
+    public static final String MENSAJE_CREDENCIALES_INVALIDAS = "Correo o contraseña incorrectos.";
+    public static final String MENSAJE_SESION_INVALIDA = "Tu sesión no es válida o expiró. Inicia sesión de nuevo.";
 
     public ErrorDTO {
         errores = errores == null ? List.of() : List.copyOf(errores);

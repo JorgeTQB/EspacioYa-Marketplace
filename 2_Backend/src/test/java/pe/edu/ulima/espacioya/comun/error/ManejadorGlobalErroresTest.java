@@ -49,8 +49,37 @@ class ManejadorGlobalErroresTest {
                 .andExpect(jsonPath("$.errores[0].mensaje").value("Ingresa un correo válido."));
     }
 
+    @Test
+    @DisplayName("HU-03 R9: credenciales inválidas responde 401 con el mensaje genérico")
+    void credencialesInvalidasResponde401() throws Exception {
+        mvc.perform(get("/prueba/credenciales"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje").value("Correo o contraseña incorrectos."))
+                .andExpect(jsonPath("$.errores").isEmpty());
+    }
+
+    @Test
+    @DisplayName("HU-03 R16: demasiados intentos responde 429 con el mensaje de bloqueo")
+    void demasiadosIntentosResponde429() throws Exception {
+        mvc.perform(get("/prueba/intentos"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("Hiciste demasiados intentos. Espera un momento e inténtalo de nuevo."))
+                .andExpect(jsonPath("$.errores").isEmpty());
+    }
+
     @RestController
     static class ControladorDePrueba {
+
+        @GetMapping("/prueba/credenciales")
+        String credenciales() {
+            throw new CredencialesInvalidasException();
+        }
+
+        @GetMapping("/prueba/intentos")
+        String intentos() {
+            throw new DemasiadosIntentosException();
+        }
 
         @GetMapping("/prueba/falla")
         String falla() {

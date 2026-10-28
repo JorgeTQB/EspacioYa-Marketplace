@@ -27,6 +27,18 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.badRequest().body(new ErrorDTO(ErrorDTO.MENSAJE_VALIDACION, List.of(error)));
     }
 
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<ErrorDTO> credencialesInvalidas(CredencialesInvalidasException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_CREDENCIALES_INVALIDAS));
+    }
+
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    public ResponseEntity<ErrorDTO> demasiadosIntentos(DemasiadosIntentosException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_DEMASIADOS_INTENTOS));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorDTO> validacion(MethodArgumentNotValidException ex) {
         List<ErrorCampoDTO> errores = ex.getBindingResult().getFieldErrors().stream()

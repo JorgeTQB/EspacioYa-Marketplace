@@ -33,7 +33,8 @@
 ├── components/
 │   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques
 ├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
-└── api/                  # cliente.js + un archivo por módulo: api/cuentas.js
+├── sesion/               # ProveedorSesion, useSesion, RutaProtegida (HU-03)
+└── api/                  # cliente.js, tokenSesion.js + un archivo por módulo: api/cuentas.js
 ```
 
 - Las páginas se agrupan por el mismo módulo del backend (`cuentas`,
@@ -202,7 +203,15 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   respuestas de error en el `ErrorDTO`. Cada módulo tiene su archivo
   (`api/reservas.js`) con una función por endpoint. Los componentes nunca
   llaman a `fetch` directamente.
-- Cómo viaja la sesión (cookie o token) lo decide el spec de HU-03.
+- **Cómo viaja la sesión (HU-03):** token opaco en el encabezado
+  `Authorization: Bearer <token>`, que `cliente.js` agrega solo si hay token.
+  El token se guarda en `sessionStorage` (`api/tokenSesion.js`, clave
+  `espacioya.token`), nunca en `localStorage` ni en cookies. Si una solicitud
+  con token recibe 401, `cliente.js` borra el token y avisa a
+  `alPerderSesion`; `ProveedorSesion` lleva entonces a `/iniciar-sesion` con el
+  mensaje. El frontend no tiene temporizador de inactividad: decide el backend.
+- **Rutas con sesión:** se envuelven en `<RutaProtegida>`; el estado
+  `{ rol, aviso }` se lee con `useSesion()`. El rol solo elige qué mostrar.
 
 ## Accesibilidad mínima
 
@@ -230,5 +239,5 @@ Toda historia con interfaz la incluye (ver `docs/specs.md`). Por cada pantalla:
 - No crear un botón, campo o alerta propio dentro de una pantalla.
 - No instalar librerías de componentes ni de CSS.
 - No calcular en el cliente nada que decida el servidor (montos, estados, roles).
-- No guardar datos personales ni tokens en `localStorage` sin que el spec de
-  HU-03 lo decida.
+- No guardar datos personales ni tokens en `localStorage`: el token de sesión va
+  solo en `sessionStorage` (HU-03).

@@ -23,6 +23,8 @@ import pe.edu.ulima.espacioya.comun.cifrado.ConvertidorCifrado;
 @Table(name = "perfil_arrendador")
 public class PerfilArrendador implements Persistable<Long> {
 
+    public static final String AVISO_IDENTIDAD = "Para publicar tus espacios, primero debes verificar tu identidad.";
+
     @Id
     @Column(name = "usuario_id")
     private Long usuarioId;

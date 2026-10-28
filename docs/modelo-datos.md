@@ -15,7 +15,7 @@
 | | `documento_identidad` | id, arrendador_id, tipo, ruta_archivo, tipo_mime, tamano, subido_en | HU-05 |
 | | `revision_identidad` | id, arrendador_id, admin_id, decision, motivo, fecha | HU-06 |
 | | `token` | id, usuario_id, tipo (VERIFICACION, RECUPERACION), hash_token, expira_en, usado_en | HU-01, HU-04 |
-| | `sesion` | id, usuario_id, creada_en, expira_en, revocada | HU-03, HU-04, HU-09 |
+| | `sesion` | id, usuario_id, hash_token (único, SHA-256 hex del token; el token nunca se guarda en claro), creada_en, expira_en (se mueve a ahora + 30 min en cada solicitud autenticada), revocada | HU-03, HU-04, HU-09 |
 | | `mfa` / `codigo_respaldo` | usuario_id, secreto (cifrado), activo / hash_codigo, usado | HU-17 |
 | Espacios | `espacio` | id, arrendador_id, nombre, tipo (CANCHA, ESTADIO, AUDITORIO), direccion, zona, capacidad, precio_hora, descripcion, estado (BORRADOR, PUBLICADO, PAUSADO, BAJA, OCULTO) | HU-07, HU-21, HU-27 |
 | | `foto_espacio` | id, espacio_id, ruta_archivo, orden (máximo 5) | HU-07 |

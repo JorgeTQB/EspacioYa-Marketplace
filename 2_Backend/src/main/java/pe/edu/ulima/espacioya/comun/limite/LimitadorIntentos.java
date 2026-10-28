@@ -25,10 +25,7 @@ public class LimitadorIntentos {
         intentosPorClave.compute(clave, (k, intentos) -> {
             var ahora = Instant.now(reloj);
             var vigentes = intentos == null ? new ArrayDeque<Instant>() : intentos;
-            var limite = ahora.minus(ventana);
-            while (!vigentes.isEmpty() && !vigentes.peekFirst().isAfter(limite)) {
-                vigentes.pollFirst();
-            }
+            purgar(vigentes, ahora.minus(ventana));
             // Un intento rechazado no se registra: si contara, quien insiste nunca saldría del bloqueo.
             aceptado[0] = vigentes.size() < maximo;
             if (aceptado[0]) {
@@ -37,5 +34,33 @@ public class LimitadorIntentos {
             return vigentes.isEmpty() ? null : vigentes;
         });
         return aceptado[0];
+    }
+
+    public boolean superaLimite(String clave, int maximo, Duration ventana) {
+        var supera = new boolean[1];
+        intentosPorClave.computeIfPresent(clave, (k, intentos) -> {
+            purgar(intentos, Instant.now(reloj).minus(ventana));
+            supera[0] = intentos.size() >= maximo;
+            return intentos.isEmpty() ? null : intentos;
+        });
+        return supera[0];
+    }
+
+    public void registrar(String clave) {
+        intentosPorClave.compute(clave, (k, intentos) -> {
+            var vigentes = intentos == null ? new ArrayDeque<Instant>() : intentos;
+            vigentes.addLast(Instant.now(reloj));
+            return vigentes;
+        });
+    }
+
+    public void limpiar(String clave) {
+        intentosPorClave.remove(clave);
+    }
+
+    private static void purgar(Deque<Instant> intentos, Instant limite) {
+        while (!intentos.isEmpty() && !intentos.peekFirst().isAfter(limite)) {
+            intentos.pollFirst();
+        }
     }
 }
