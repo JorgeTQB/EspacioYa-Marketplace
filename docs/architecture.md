@@ -75,6 +75,7 @@ Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
    - una reserva liquidada una sola vez (HU-19);
    - una reseña y un reclamo por reserva (HU-24, HU-26);
    - `usuario.correo` único (HU-01);
+   - `perfil_arrendador.hash_documento` único (HU-02);
    - llaves foráneas en todas las relaciones.
 
 8. **POO, SOLID y patrones donde resuelven un problema real.** DAO/Repository

@@ -5,9 +5,7 @@ import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Campo from '../../components/ui/Campo.jsx'
 import estilos from './Registro.module.css'
-
-const REQUISITOS_CONTRASENA =
-  'La contraseña debe tener entre 8 y 64 caracteres, al menos una letra y un número, y no puede ser igual a tu correo.'
+import { REQUISITOS_CONTRASENA } from './textosCuentas.js'
 
 function erroresPorCampo(errores) {
   return Object.fromEntries(errores.map(({ campo, mensaje }) => [campo, mensaje]))
@@ -112,6 +110,9 @@ function Registro() {
           Crear cuenta
         </Boton>
       </form>
+      <p className={estilos.otraCuenta}>
+        <Link to="/registro-arrendador">¿Tienes un espacio? Regístrate como arrendador</Link>
+      </p>
     </section>
   )
 }

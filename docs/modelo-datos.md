@@ -11,7 +11,7 @@
 | Grupo | Entidad | Atributos clave | Historias |
 | --- | --- | --- | --- |
 | Cuentas | `usuario` | id, nombre, correo (único), hash_contrasena, telefono, foto_url, rol (USUARIO, ARRENDADOR, ADMIN), correo_verificado, estado (ACTIVA, SUSPENDIDA, ELIMINADA), version_politica, fecha_consentimiento, recordatorios_activos | HU-01, HU-02, HU-09, HU-20, HU-25 |
-| | `perfil_arrendador` | usuario_id, tipo_documento (DNI, RUC), numero_documento (cifrado), datos_facturacion (cifrados), estado_identidad (NO_INICIADA, EN_REVISION, VERIFICADA, RECHAZADA), motivo_rechazo | HU-02, HU-05, HU-06 |
+| | `perfil_arrendador` | usuario_id, tipo_documento (DNI, RUC), numero_documento (cifrado), hash_documento (único, HMAC), razon_social (cifrada), direccion_fiscal (cifrada), estado_identidad (NO_INICIADA, EN_REVISION, VERIFICADA, RECHAZADA), motivo_rechazo | HU-02, HU-05, HU-06 |
 | | `documento_identidad` | id, arrendador_id, tipo, ruta_archivo, tipo_mime, tamano, subido_en | HU-05 |
 | | `revision_identidad` | id, arrendador_id, admin_id, decision, motivo, fecha | HU-06 |
 | | `token` | id, usuario_id, tipo (VERIFICACION, RECUPERACION), hash_token, expira_en, usado_en | HU-01, HU-04 |
@@ -44,6 +44,7 @@
 | `resena.reserva_id` único y calificación entre 1 y 5 (`CHECK`) | Una reseña por reserva | HU-24 |
 | `reclamo.reserva_id` único | Un reclamo por reserva | HU-26 |
 | `usuario.correo` único | No hay dos cuentas con el mismo correo | HU-01 |
+| `perfil_arrendador.hash_documento` único (HMAC-SHA256 del número, que va cifrado) | No hay dos arrendadores con el mismo RUC o DNI | HU-02 |
 | Llaves foráneas en todas las relaciones | No hay reservas, pagos ni reseñas huérfanas | Todas |
 
 ## Diagrama entidad-relación (núcleo)

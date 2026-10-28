@@ -10,3 +10,32 @@ export function registrarUsuario({ correo, contrasena, aceptaPrivacidad, version
     cuerpo: { correo, contrasena, aceptaPrivacidad, versionPolitica },
   })
 }
+
+export function registrarArrendador({
+  correo,
+  contrasena,
+  aceptaPrivacidad,
+  versionPolitica,
+  nombre,
+  telefono,
+  tipoDocumento,
+  numeroDocumento,
+  razonSocial,
+  direccionFiscal,
+}) {
+  return peticion('/api/arrendadores', {
+    metodo: 'POST',
+    cuerpo: {
+      correo,
+      contrasena,
+      aceptaPrivacidad,
+      versionPolitica,
+      nombre,
+      telefono,
+      tipoDocumento,
+      numeroDocumento,
+      razonSocial,
+      direccionFiscal,
+    },
+  })
+}

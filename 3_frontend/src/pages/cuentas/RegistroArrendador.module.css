@@ -1,0 +1,25 @@
+.pantalla {
+  max-width: calc(var(--ancho-contenido) / 2);
+  margin: var(--espacio-8) auto;
+}
+
+.formulario {
+  padding: var(--espacio-6);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-superficie);
+}
+
+.seccion {
+  margin: 0 0 var(--espacio-4);
+  padding: 0;
+  border: 0;
+}
+
+.seccion legend {
+  margin-bottom: var(--espacio-3);
+  padding: 0;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-negrita);
+  color: var(--color-texto);
+}
