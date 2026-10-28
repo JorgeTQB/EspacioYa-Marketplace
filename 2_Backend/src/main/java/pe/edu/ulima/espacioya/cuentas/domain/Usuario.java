@@ -43,6 +43,12 @@ public class Usuario {
     @Column(name = "fecha_consentimiento", nullable = false)
     private Instant fechaConsentimiento;
 
+    @Column(length = 100)
+    private String nombre;
+
+    @Column(length = 9)
+    private String telefono;
+
     protected Usuario() {
     }
 
@@ -57,6 +63,15 @@ public class Usuario {
         usuario.correoVerificado = true;
         usuario.versionPolitica = versionPolitica;
         usuario.fechaConsentimiento = ahora;
+        return usuario;
+    }
+
+    public static Usuario registrarArrendador(String correoNormalizado, String hashContrasena, String nombre,
+                                              String telefono, String versionPolitica, Instant ahora) {
+        var usuario = registrar(correoNormalizado, hashContrasena, versionPolitica, ahora);
+        usuario.rol = Rol.ARRENDADOR;
+        usuario.nombre = nombre.trim();
+        usuario.telefono = telefono;
         return usuario;
     }
 
@@ -94,5 +109,13 @@ public class Usuario {
 
     public Instant getFechaConsentimiento() {
         return fechaConsentimiento;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getTelefono() {
+        return telefono;
     }
 }

@@ -161,7 +161,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda` |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas" | `titulo`, `children`, `acciones` |

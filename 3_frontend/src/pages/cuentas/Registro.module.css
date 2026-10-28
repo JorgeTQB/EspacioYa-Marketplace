@@ -9,3 +9,8 @@
   border-radius: var(--radio-tarjeta);
   background: var(--color-superficie);
 }
+
+.otraCuenta {
+  margin-top: var(--espacio-4);
+  font-size: var(--texto-sm);
+}

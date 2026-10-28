@@ -31,6 +31,7 @@ public class ConfiguracionSeguridad {
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.GET, "/api/politicas-privacidad/vigente").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/arrendadores").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

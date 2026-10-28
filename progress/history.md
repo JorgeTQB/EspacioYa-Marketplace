@@ -149,3 +149,42 @@
 - 2026-10-27 — (orquestador, sdd:false) `docs/architecture.md`: el estado "Correo pendiente" ya no aplica al usuario recién registrado (correo simulado, HU-01 S5). `README.md`: nueva sección "Cómo levantar el proyecto para probarlo", con las pruebas manuales de HU-01.
 
 - 2026-10-27 — (orquestador, sdd:false) Menos pedidos de permiso: `.claude/settings.json` permite comandos de solo lectura (`ls`, `cat`, `grep`, `head`, `tail`, `find`…), `./mvnw *`, `npm run *` y lectura de `~/.m2/repository` (agregado como directorio adicional). Los cuatro agentes tienen una sección "Comandos de shell": no anteponer `cd "<ruta>" &&`, preferir `Read`/`Grep`/`Glob`, sin bucles ni variables al leer archivos.
+
+## 2026-10-27 — HU-02 Registro de arrendador (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueña: Adriana Callupe).
+- **Rama:** `feature/HU-02-registro-arrendador`.
+- **Spec:** `specs/HU-02/` con R1–R44, DT-1…DT-16 y T1–T17. Explorador en
+  `progress/explore_HU-02.md` (13 huecos). Decisiones de la dueña: nombre
+  completo y teléfono obligatorio (9 dígitos, empieza con 9) en `usuario`;
+  facturación = tipo y número de documento, razón social o nombre y dirección
+  fiscal, en columnas cifradas separadas; validación completa de DNI (8
+  dígitos) y RUC (11 dígitos, prefijo 10/15/17/20, dígito verificador módulo
+  11); unicidad del documento con `hash_documento` (HMAC) e índice único, y un
+  duplicado responde igual que un registro exitoso (anti-enumeración). D1
+  (alcance CA3): nace con `correo_verificado = true` como HU-01, el aviso de
+  verificar identidad va en la confirmación y el aviso tras login queda para
+  HU-03. Spec (incluida D1) aprobado por Adriana Callupe el 2026-10-27.
+- **Cambios:** `comun/cifrado/` (`CifradorCampos` AES-256-GCM con formato `v1:`,
+  `HuellaCampos` HMAC-SHA256, `LlaveCifrado`, `ConvertidorCifrado`); llaves
+  `CIFRADO_LLAVE` y `CIFRADO_LLAVE_HUELLA` (default vacío; llaves solo de
+  prueba en `src/test/resources/config/`); `ReglaLimite` con grupo (cupo de 5/h
+  compartido entre `/api/usuarios` y `/api/arrendadores`); `permitAll` para
+  `POST /api/arrendadores`; migración `V1_3__perfil_arrendador.sql`;
+  `cuentas/` (`TipoDocumento`, `EstadoIdentidad`, `ValidadorDocumento`,
+  `PerfilArrendador`, `Usuario.registrarArrendador`, `PerfilArrendadorRepository`,
+  `RegistroArrendadorService`, `ArrendadorController`, DTOs con `toString`
+  enmascarado). Frontend: `Campo` con `tipo="select"`, `api/cuentas.js`
+  `registrarArrendador`, `textosCuentas.js`, pantalla `/registro-arrendador` y
+  enlaces desde `/` y `/registro`. Docs: `modelo-datos.md`, `architecture.md`
+  (principio 7) y `frontend.md`.
+- **Resultado:** `./init.sh` completo en verde: unitarias 71/71 (29 HU-01 + 42
+  HU-02), IT 64/64 (29 HU-01 + 35 `ArrendadorControllerIT`, Testcontainers),
+  lint y build OK. Reviewer: APPROVED (`progress/review_HU-02.md`). Trazabilidad
+  R1–R44 en `progress/impl_HU-02.md`. Encabezado de D1 en `requirements.md`
+  actualizado a "confirmada por Adriana Callupe el 2026-10-27" (observación 2).
+  Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):** descartar los
+  `package-lock.json` ajenos (el de `3_frontend/` modificado y el vacío de la
+  raíz) antes del PR; revisar la rama destino del PR (`develop` vs `master`);
+  HTTPS y llaves de cifrado son del despliegue (DT-10); estético en `App.jsx:24`;
+  posible IT de arranque sin llaves para R38.
