@@ -103,8 +103,14 @@ CHANGES_REQUESTED -> progress/review_HU-XX.md
   qué archivo se lee y le pide permiso al usuario cada vez.
 - Para leer o buscar usa las herramientas `Read`, `Grep` y `Glob`, no
   `cat`/`grep` por Bash. Si usas Bash, usa rutas relativas
-  (`cat docs/architecture.md`, `cd 2_Backend && ./mvnw test` solo si el comando
-  lo exige).
+  (`cat docs/architecture.md`).
+- Tampoco `cd 2_Backend` ni `cd 3_frontend`. Corre todo desde la raíz:
+  - Backend: `./2_Backend/mvnw -f 2_Backend/pom.xml test` (o `verify`,
+    `spring-boot:run`, etc.).
+  - Frontend: `npm --prefix 3_frontend run lint` (o `build`, `test`, `ci`).
+- No antepongas `timeout N` a los comandos: usa el parámetro `timeout` de la
+  herramienta Bash o `run_in_background` para procesos largos como
+  `spring-boot:run`.
 - Evita bucles `for` y variables (`$j`) en comandos que leen archivos: escribe
   un comando por archivo.
 

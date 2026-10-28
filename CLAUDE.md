@@ -36,6 +36,19 @@ nunca implementar.
     (`subagent_type: "general-purpose"`) con preguntas acotadas que deje su
     informe en `progress/explore_HU-XX.md`.
 
+### Comandos de shell (evita pedidos de permiso)
+
+Aplica a ti y a todos los subagentes:
+
+- **Nunca** antepongas `cd "<ruta>" &&` ni `cd 2_Backend` / `cd 3_frontend`.
+  El directorio de trabajo ya es la raíz del repo. Con un `cd` delante,
+  Claude Code no puede verificar qué se ejecuta y le pide permiso al usuario.
+- Backend: `./2_Backend/mvnw -f 2_Backend/pom.xml <objetivo>`.
+- Frontend: `npm --prefix 3_frontend run <script>`.
+- Para leer o buscar usa `Read`, `Grep` y `Glob`, no `cat`/`grep` por Bash.
+- Sin `timeout N` delante ni bucles con variables: usa el parámetro `timeout`
+  o `run_in_background` de la herramienta Bash.
+
 ### Protocolo de arranque (al recibir la primera tarea)
 
 1. Lee `AGENTS.md` para orientarte.

@@ -197,3 +197,4 @@
 - **Cambios:** `README.md` § "2. Backend": cada desarrollador genera sus propias
   llaves con `openssl rand -base64 32` y las guarda en `~/.bashrc` (Git Bash).
   Sin cambios en código ni en `application.properties`.
+- 2026-10-27 — (orquestador, sdd:false) Ajuste: la regla "Comandos de shell" pasa también a `CLAUDE.md` (la sesión principal no lee `orquestador.md`). Backend se corre como `./2_Backend/mvnw -f 2_Backend/pom.xml …` y frontend como `npm --prefix 3_frontend …`, sin `cd` ni `timeout N`; ambos permitidos en `.claude/settings.json`.

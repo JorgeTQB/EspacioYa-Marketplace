@@ -38,7 +38,9 @@
       "Bash(./mvnw *)",
       "Bash(npm run *)",
       "Bash(npx vitest *)",
-      "Read(~/.m2/**)"
+      "Read(~/.m2/**)",
+      "Bash(./2_Backend/mvnw *)",
+      "Bash(npm --prefix 3_frontend *)"
     ],
     "additionalDirectories": [
       "~/.m2/repository"
