@@ -1,0 +1,41 @@
+# HU-05 — Tasks: Envío de documentos de identidad del arrendador
+
+> Orden de ejecución. El implementer marca `[x]` al completar cada una. Firmas, SQL,
+> mensajes y plan de pruebas están en `design.md`. Cada test lleva
+> `@DisplayName("HU-05 R<n>: …")`. Antes de empezar, confirmar que el dueño aceptó
+> **P1–P16** (`requirements.md`) y las decisiones DT-1…DT-17 (`design.md` § 1), en especial
+> DT-1 (disco local detrás de un Adapter), DT-3 (URL firmada propia de 5 min con llave nueva),
+> DT-7 (re-codificar imágenes), DT-8 (el reenvío reemplaza) y DT-12 (aviso con el motivo).
+> Regla: las unitarias e IT de HU-01, HU-02 y HU-03 no se modifican y deben seguir verdes en
+> cada paso. Ningún archivo de prueba queda en el repo: se generan en el test y se escriben
+> en el directorio temporal.
+
+## Backend — `comun`
+
+- [x] T1 — `comun/error/`: `AccesoDenegadoException`, `RecursoNoEncontradoException`, `ValidacionException(List<ErrorCampoDTO>)`; `ErrorDTO` (+`MENSAJE_ACCESO_DENEGADO`, +`MENSAJE_RECURSO_NO_ENCONTRADO`, +`MENSAJE_ARCHIVO_DEMASIADO_GRANDE`); `ManejadorGlobalErrores` (403, 404, 400 con errores, 400 `MaxUploadSizeExceededException`, 400 `MultipartException`, antes del handler genérico). Cubre: R13, R15, R17, R18, R36, R37. Test: `ManejadorGlobalErroresTest` (nuevos casos; los existentes intactos).
+- [x] T2 — `comun/cifrado/LlaveCifrado` (M, pasa a `public`) y `comun/cifrado/CifradorArchivos` (N). Cubre: R30. Test: `CifradorArchivosTest` (ida y vuelta; dos cifrados del mismo contenido difieren; prefijo `EYA1`; un byte alterado → `IllegalStateException` sin datos; llave inválida → mensaje con `CIFRADO_LLAVE` y sin el valor). `CifradorCamposTest` sigue verde.
+- [x] T3 — `comun/almacenamiento/FirmadorUrl` y `UrlFirmada`. Cubre: R36, R37, R38, R39. Test: `FirmadorUrlTest` (`Clock` fijo: `expira` = ahora + 5 min; firma válida → true; `clave`, `tipo`, `expira` o `firma` alterados → false; `expira == ahora` → false; llave vacía, de otro largo o igual a una de cifrado → `IllegalStateException` que nombra `ALMACENAMIENTO_LLAVE_FIRMA` sin el valor).
+- [x] T4 — `comun/almacenamiento/`: `TipoArchivo`, `MotivoRechazoArchivo`, `ArchivoRecibido`, `ArchivoValidado`, `ValidadorArchivo` (orden del design § 5; `ImageReader` para dimensiones antes de decodificar; re-codificación con `ImageIO`). Cubre: R6, R8, R9, R10, R11, R12, R32, R33. Test: `ValidadorArchivoTest` (vacío; 5 242 880 aceptado y 5 242 881 rechazado; contenido `null` con tamaño > 0 → `TAMANO_EXCEDIDO`; texto y ZIP → `TIPO_NO_PERMITIDO`; PDF, PNG y JPEG detectados por firma; cabecera PNG + basura → `IMAGEN_ILEGIBLE`; PNG de 8000 × 6000 → `IMAGEN_ILEGIBLE`; JPEG con `APP1 Exif` y PNG con `tEXt` → salida sin esas marcas; PDF → salida idéntica).
+- [x] T5 — `comun/almacenamiento/AlmacenamientoArchivos` (interfaz), `AlmacenamientoLocal` (escritura atómica, `eliminar` idempotente) y `ArchivosPrivados` (clave `<carpeta>/<UUID>`, `claveValida`, cifrado, `urlFirmada`). Cubre: R27, R30, R31. Test: `AlmacenamientoLocalTest` (`@TempDir`: guardar/leer/eliminar; leer inexistente → vacío), `ArchivosPrivadosTest` (clave con formato `identidad/<uuid>`; lo guardado en el adaptador ≠ claro; `leer` descifra; clave con `..`, `/` inicial o mayúsculas → `leer` vacío y adaptador sin llamar).
+- [x] T6 — `comun/almacenamiento/ArchivoController` (`GET /api/archivos`) y `ConfiguracionSeguridad` (M, `permitAll` de `GET /api/archivos`). Cubre: R34, R35, R36, R37. Test: en `IdentidadArrendadorControllerIT` (T12) o `ArchivoControllerIT`; las IT de HU-01/02/03 siguen verdes.
+- [x] T7 — `application.properties` (multipart, Tomcat, almacenamiento, design § 10), `src/test/resources/config/application.properties` (llave de firma de prueba y directorio temporal), `2_Backend/.env.example` (`ALMACENAMIENTO_LLAVE_FIRMA`, `ALMACENAMIENTO_DIRECTORIO` con comentario) y `.gitignore` (`2_Backend/almacenamiento/`). Cubre: R13, R39. Test: `EspacioYaApplicationIT` arranca; T12.
+
+## Backend — `cuentas`
+
+- [x] T8 — Migración `V2_1__documento_identidad.sql` (design § 9). Cubre: R3, R5, R31. Test: `EspacioYaApplicationIT` (Flyway + `ddl-auto=validate`).
+- [x] T9 — `cuentas/domain/`: `TipoDocumentoIdentidad`, entidad `DocumentoIdentidad` (`registrar`), `PerfilArrendador` (M: `puedeEnviarDocumentos`, `enviarDocumentos`, `avisoIdentidad`, constantes de aviso). Cubre: R2, R3, R4, R16, R24, R28, R29. Test: `PerfilArrendadorTest` (nuevos: `puedeEnviarDocumentos` por estado; `enviarDocumentos` desde `NO_INICIADA` y `RECHAZADA` → `EN_REVISION` y motivo nulo; desde `EN_REVISION`/`VERIFICADA` lanza; `avisoIdentidad` por estado, con el motivo en `RECHAZADA`), `DocumentoIdentidadTest` (`registrar`).
+- [x] T10 — `cuentas/repository/DocumentoIdentidadRepository` y `PerfilArrendadorRepository.findParaActualizar` (`PESSIMISTIC_WRITE`). `cuentas/service/AvisoCuenta` (M) delega en `perfil.avisoIdentidad()`. Cubre: R5, R25, R28, R29. Test: T12 y `SesionControllerIT` intacto y verde.
+- [x] T11 — `cuentas/service/IdentidadArrendadorService` (`enviar` según design § 6; `consultar`) y `cuentas/dto/IdentidadDTO`, `DocumentoIdentidadDTO`. Cubre: R1, R2, R3, R4, R5, R7, R8, R14, R15, R16, R17, R18, R20, R21, R22, R23, R24, R25, R26, R27, R38, R40, R41, R42. Test: `IdentidadArrendadorServiceTest` (Mockito, `Clock` fijo, `TransactionTemplate` que ejecuta el callback): rol `USUARIO` y correo no verificado → `AccesoDenegadoException` sin tocar `validador` ni `archivos` (R17, R18, R20); `EN_REVISION` → `ReglaNegocioException` y auditoría `estado=EN_REVISION` (R16, R41); dos partes inválidas → `ValidacionException` con 2 errores y auditoría `documentoIdentidad=…;documentoPropiedad=…` (R15, R41); `VACIO` usa el mensaje propio de cada parte (R8); falla en la transacción → `eliminar` de las dos claves nuevas (R14); éxito → 2 `CARGA_DOCUMENTO_IDENTIDAD` con detalle `tipo=…;mime=…;tamano=…` (R40, R42); `consultar` con `RECHAZADA` devuelve motivo y en otro estado nulo (R22, R23).
+- [x] T12 — `cuentas/controller/IdentidadArrendadorController` (`POST /api/arrendadores/actual/documentos` multipart 201, `GET /api/arrendadores/actual/identidad`; conversión `MultipartFile` → `ArchivoRecibido` sin leer bytes si excede; IP con `IpCliente`). Cubre: R1–R42. Test: `IdentidadArrendadorControllerIT` (Testcontainers; `RelojControlable` `@Primary`; `@BeforeEach` borra `documento_identidad`, `sesion`, `auditoria`, `perfil_arrendador`, `usuario` y vacía el directorio de almacenamiento; IP `10.5.x.x`): casos de design § 14 para R1–R5, R7–R12, R14–R31, R33–R38, R40–R42.
+
+## Frontend
+
+- [x] T13 — Kit: `components/ui/Campo.jsx` (M, `tipo="archivo"` no controlado con `accept`, `onChange(file | null)`) y `components/ui/EtiquetaEstado.jsx` (N, + `.module.css`, estados de identidad con texto y colores de `tokens.css`). Cubre: pantalla Verificar identidad (CA1, CA2, CA3).
+- [x] T14 — `src/api/cliente.js` (M: `FormData` sin `Content-Type` ni `JSON.stringify`; `urlApi(ruta)`) y `src/api/cuentas.js` (M: `enviarDocumentosIdentidad`, `obtenerIdentidad`). Cubre: pantalla Verificar identidad (CA1, CA2, CA3). Las llamadas JSON existentes no cambian.
+- [x] T15 — `pages/cuentas/VerificarIdentidad.jsx` (+ `.module.css`) en `/panel/identidad` dentro de `RutaProtegida` (design § 13). Cubre: CA1 (`Alerta` éxito + `EtiquetaEstado` `EN_REVISION` + sesión refrescada), CA2 (`Alerta` error + error bajo cada `Campo`; ayuda de cliente con `accept` y 5 MB), CA3 (`Alerta` error con el motivo y formulario visible si `puedeEnviar`), documentos vigentes con enlace "Ver".
+- [x] T16 — `pages/cuentas/Panel.jsx` (M: enlace "Verificar mi identidad" para `ARRENDADOR`) y `App.jsx` (M: ruta `/panel/identidad`). Cubre: CA3 (el panel muestra el aviso con el motivo y lleva a volver a subir).
+
+## Docs y cierre
+
+- [x] T17 — `docs/modelo-datos.md` (`documento_identidad`: `tipo` IDENTIDAD/PROPIEDAD, `UNIQUE (arrendador_id, tipo)`, `ruta_archivo` = clave aleatoria, `tamano` = bytes recibidos) y `docs/frontend.md` (kit: `Campo tipo="archivo"` con `accept`; `EtiquetaEstado` construido por HU-05). Cubre: R3, R27 (DT-17).
+- [x] T18 — Verificación: `./init.sh` en verde (unitarias, IT con Docker, `npm run lint && npm run build`, revisión de colores y secretos) y `progress/impl_HU-05.md` con el mapa R → test (`@DisplayName`). Cubre: R1–R42.

@@ -162,9 +162,9 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`) |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior) | `estado` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas" | `titulo`, `children`, `acciones` |
 | `Modal` | Confirmar acciones irreversibles (cancelar, suspender, dar de baja) | `abierto`, `titulo`, `onConfirmar`, `onCerrar` |
 | `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |

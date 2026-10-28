@@ -42,6 +42,8 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/arrendadores").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sesiones").permitAll()
+                        // La URL firmada es la autorización (HU-05, DT-3): el navegador la abre sin token.
+                        .requestMatchers(HttpMethod.GET, "/api/archivos").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }
