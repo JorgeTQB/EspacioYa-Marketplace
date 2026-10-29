@@ -128,7 +128,7 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
 | `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
-| `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21 |
+| `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: obtener la reserva vigente con su monto y confirmarla |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19 |
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
@@ -142,6 +142,53 @@ sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. HU-06 le
 `rechazarIdentidad` (bloquean el perfil, cambian el estado y avisan por correo después del commit); cada uno exige el
 rol `ADMIN` aunque `administracion` ya lo haya comprobado. No es un puerto: la dirección `administracion → cuentas` está
 permitida. Si una historia necesita un puerto nuevo, lo justifica en su `design.md` y lo agrega a esta tabla.
+
+`espacios.service.DisponibilidadService` es la interfaz pública de `espacios` (la creó HU-08):
+`horasLibres(espacioId, fecha)` devuelve las horas de inicio de los bloques libres (horario − bloqueos − reservas −
+horas ya empezadas) de un espacio `PUBLICADO` en una fecha de las próximas 8 semanas, o una lista vacía. La reutilizan
+`busqueda` (HU-10, HU-11) y `reservas` (HU-12); no hace falta otro puerto porque esas direcciones están permitidas.
+
+**Zona horaria.** El bean `Clock` sigue en UTC (`creado_en`, auditoría). Todo lo que depende del calendario local
+("hoy", la hora actual, la ventana de 8 semanas) se calcula en `America/Lima` con
+`comun/configuracion/ZonaHoraria` (`hoy(reloj)`, `ahora(reloj)`), creada por HU-08.
+
+### Disponibilidad: qué deja HU-08 y qué falta (HU-10, HU-11, HU-12, HU-21)
+
+Lo que ya existe en `espacios` y se reutiliza tal cual:
+
+| Pieza | Qué hace |
+|-------|----------|
+| `service.DisponibilidadService.horasLibres(espacioId, fecha)` | Única entrada pública. Horas de inicio (0–23) `LIBRE`, ascendentes; lista vacía si el espacio no existe, no está `PUBLICADO` o la fecha está fuera de la ventana. Transacción de solo lectura; no bloquea nada |
+| `domain.VentanaReserva` | `VentanaReserva.desde(ZonaHoraria.hoy(reloj))` → `desde` = hoy, `hasta` = hoy + 55 (`DIAS = 56`); `contiene(fecha)`. Usarla para validar la fecha de una búsqueda, de la ficha o de una reserva, en vez de repetir la regla |
+| `domain.CalculoDisponibilidad.bloquesDelDia(...)` | Cálculo puro (horario − bloqueo − horas reservadas − horas ya empezadas) → `Bloque(horaInicio, estado)` con `EstadoBloque` `LIBRE`, `BLOQUEADO`, `RESERVADO` o `PASADO` |
+| Puerto `service.puertos.ReservasDelEspacio` | Ver la tabla de puertos. Las horas que devuelva quedan `RESERVADO` y salen de `horasLibres` |
+| Rutas `/api/arrendadores/actual/espacios/{id}/horario`, `/bloqueos`, `/disponibilidad` | Solo para el **dueño** (rol `ARRENDADOR`). No sirven para la ficha ni la búsqueda públicas |
+
+Lo que **no** existe y le toca a cada historia decidirlo en su `design.md` (agregando el método a
+`DisponibilidadService`, no leyendo repositorios de `espacios` desde otro módulo):
+
+- **HU-10 (búsqueda por fecha):** `horasLibres` es de a un espacio. Filtrar "al menos un bloque libre" llamándolo por
+  cada candidato y paginando después es N+1 y rompe las páginas de 20. Lo previsto es un método en lote, p. ej.
+  `conBloquesLibres(Collection<Long> espacioIds, LocalDate fecha) → Set<Long>`, que reutilice `CalculoDisponibilidad`
+  y consulte horario, bloqueos y el puerto una sola vez por lote.
+- **HU-11 (ficha pública):** necesita su propia ruta pública de disponibilidad (bajo `busqueda`, con el rate limiting
+  de HU-10). Con `horasLibres` basta para el CA2 ("veo los bloques libres"); si además quiere mostrar los ocupados,
+  agrega un método que devuelva los `Bloque` con su estado, sin `PASADO`/`BLOQUEADO`/`RESERVADO` distinguidos hacia
+  afuera (todos "no disponible", RNF-SEG-16). Cómo alimentar `SelectorBloques`: ver `docs/frontend.md` § Bloques
+  horarios.
+- **HU-12 (reservar):** el contrato DT-10 pide bloquear la fila de `espacio` antes de reservar, pero
+  `EspacioRepository.findParaActualizar(id, arrendadorId)` exige ser el dueño y además es un repositorio de otro
+  módulo. HU-12 agrega a `DisponibilidadService` un método transaccional que tome ese bloqueo **sin** filtrar por
+  dueño y compruebe dentro de la misma transacción que las horas pedidas siguen en `horasLibres` (p. ej.
+  `retenerSiLibres(espacioId, fecha, horas)` con `@Transactional(propagation = MANDATORY)`), y lo llama desde su
+  propia transacción antes de insertar en `reserva_bloque`. La restricción única de `reserva_bloque` sigue siendo la
+  última defensa (CA3 de HU-12). Su implementación de `ReservasDelEspacio` debe incluir las `PENDIENTE_PAGO` aún no
+  expiradas, o un bloque retenido aparecería libre.
+- **HU-12, pruebas:** `EspaciosControllerSoporte` registra un `ReservasDelEspacioFalso` con `@Primary`, así que las
+  IT de `espacios` siguen usando el doble aunque exista el bean real. `DisponibilidadServiceImplIT` prueba R21 (sin
+  bean); cuando HU-12 agregue su implementación, esa IT pasa a usar la real y debe seguir verde con la base vacía.
+- **HU-21 (baja con reservas):** usa el mismo puerto `ReservasDelEspacio` con la ventana completa
+  (`desde`, `hasta` de `VentanaReserva`).
 
 ## Seguridad transversal (STRIDE)
 
@@ -210,7 +257,8 @@ En el modelo de datos se reparten en `usuario.correo_verificado`,
   si cancela el arrendador → 100 %.
 - El checkout expira junto con la reserva.
 - La liquidación la genera el admin con un botón y la transferencia es manual.
-- Los bloques libres se calculan al consultar: horario − bloqueos − reservas.
+- Los bloques libres se calculan al consultar: horario − bloqueos − reservas
+  (`CalculoDisponibilidad`, HU-08); ventana de 8 semanas = hoy + 55 días (`VentanaReserva`).
 
 ## Patrones por historia
 

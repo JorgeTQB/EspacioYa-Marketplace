@@ -13,11 +13,13 @@ import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -46,6 +48,8 @@ import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.espacios.service.puertos.BloqueReservado;
+import pe.edu.ulima.espacioya.espacios.service.puertos.ReservasDelEspacio;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -90,6 +94,8 @@ abstract class EspaciosControllerSoporte {
     PasswordEncoder encoder;
     @Autowired
     JsonMapper json;
+    @Autowired
+    ReservasDelEspacioFalso reservasFalsas;
     @Value("${espacioya.almacenamiento.directorio}")
     Path directorio;
 
@@ -103,6 +109,33 @@ abstract class EspaciosControllerSoporte {
         RelojControlable relojControlable() {
             return new RelojControlable(Instant.parse("2026-10-28T15:00:00Z"));
         }
+
+        // HU-08: el módulo reservas aún no existe; este doble del puerto permite probar CA3.
+        @Bean
+        ReservasDelEspacioFalso reservasDelEspacioFalso() {
+            return new ReservasDelEspacioFalso();
+        }
+    }
+
+    /** Devuelve los bloques que el test le cargue; vacío por defecto. */
+    static class ReservasDelEspacioFalso implements ReservasDelEspacio {
+
+        private final List<BloqueReservado> bloques = new CopyOnWriteArrayList<>();
+
+        void cargar(BloqueReservado... nuevos) {
+            bloques.addAll(List.of(nuevos));
+        }
+
+        void limpiar() {
+            bloques.clear();
+        }
+
+        @Override
+        public List<BloqueReservado> bloquesReservados(Long espacioId, LocalDate desde, LocalDate hasta) {
+            return bloques.stream()
+                    .filter(bloque -> !bloque.fecha().isBefore(desde) && !bloque.fecha().isAfter(hasta))
+                    .toList();
+        }
     }
 
     @BeforeEach
@@ -115,6 +148,7 @@ abstract class EspaciosControllerSoporte {
         jdbc.update("DELETE FROM perfil_arrendador");
         jdbc.update("DELETE FROM usuario");
         vaciarDirectorio();
+        reservasFalsas.limpiar();
         reloj.avanzar(Duration.ofHours(1));
         ip = siguienteIp();
         if (hashContrasena == null) {

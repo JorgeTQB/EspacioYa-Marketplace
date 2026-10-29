@@ -40,3 +40,28 @@ export function eliminarFotoEspacio(id, fotoId) {
 export function descargarFotoEspacio(url) {
   return peticionArchivo(url)
 }
+
+// HU-08: horario semanal, fechas bloqueadas y bloques de un día.
+export function obtenerHorario(id) {
+  return peticion(`${MIS_ESPACIOS}/${id}/horario`)
+}
+
+export function guardarHorario(id, franjas) {
+  return peticion(`${MIS_ESPACIOS}/${id}/horario`, { metodo: 'PUT', cuerpo: { franjas } })
+}
+
+export function listarBloqueos(id) {
+  return peticion(`${MIS_ESPACIOS}/${id}/bloqueos`)
+}
+
+export function bloquearFecha(id, fecha) {
+  return peticion(`${MIS_ESPACIOS}/${id}/bloqueos`, { metodo: 'POST', cuerpo: { fecha } })
+}
+
+export function desbloquearFecha(id, fecha) {
+  return peticion(`${MIS_ESPACIOS}/${id}/bloqueos/${encodeURIComponent(fecha)}`, { metodo: 'DELETE' })
+}
+
+export function consultarDisponibilidad(id, fecha) {
+  return peticion(`${MIS_ESPACIOS}/${id}/disponibilidad?fecha=${encodeURIComponent(fecha)}`)
+}
