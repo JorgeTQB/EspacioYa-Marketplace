@@ -494,3 +494,5 @@
     `ADMIN_CONTRASENA` solo para correr una vez el comando de creación de admin (README).
   - Antes del merge: si `develop` ya tiene una `V2_3`, renombrar `V2_3__revision_identidad.sql` a la siguiente libre.
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-28 — Arnés: corregido frontmatter de `.claude/agents/spec-author.md` (la `description` contenía `"sdd": true` sin comillas envolventes → YAML inválido y el tipo `spec-author` no se cargaba). Se envolvió la descripción en comillas simples.
