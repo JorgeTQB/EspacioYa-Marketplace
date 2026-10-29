@@ -12,6 +12,8 @@ function Campo({
   opciones = [],
   accept,
   filas = 4,
+  min,
+  max,
 }) {
   const id = useId()
   const idAyuda = `${id}-ayuda`
@@ -112,6 +114,8 @@ function Campo({
       <input
         {...comunes}
         type={tipo}
+        min={min}
+        max={max}
         className={claseControl}
         value={valor}
         onChange={(evento) => onChange(evento.target.value)}

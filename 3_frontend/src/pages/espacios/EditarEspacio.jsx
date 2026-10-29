@@ -223,6 +223,7 @@ function EditarEspacio() {
       <div className={estilos.encabezado}>
         <h2>{esNuevo ? 'Nuevo espacio' : (actual?.nombre ?? '')}</h2>
         {actual && <EtiquetaEstado estado={actual.estado} />}
+        {actual && <Link to={`/panel/espacios/${actual.id}/disponibilidad`}>Definir disponibilidad</Link>}
       </div>
 
       {alerta && (

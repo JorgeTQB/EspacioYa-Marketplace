@@ -496,3 +496,44 @@
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
 
 - 2026-10-28 — Arnés: corregido frontmatter de `.claude/agents/spec-author.md` (la `description` contenía `"sdd": true` sin comillas envolventes → YAML inválido y el tipo `spec-author` no se cargaba). Se envolvió la descripción en comillas simples.
+
+## 2026-10-28 — HU-08 Disponibilidad del espacio (done)
+
+- **Dueño:** Sebastian Garate · **Tester:** Adriana Callupe · **Rama:** `feature/HU-08-disponibilidad-espacio`
+- **Agentes:** orquestador → explorador (`progress/explore_HU-08.md`) → spec-author (`specs/HU-08/`, R1–R45, T1–T15,
+  P1–P12, DT-1…DT-14) → aprobación de Sebastian Garate (2026-10-28, valores por defecto de P1–P12 y DT-1…DT-14) →
+  implementer → reviewer (APPROVED) → implementer (cierre).
+- **Cambios:** backend: `comun/configuracion/ZonaHoraria`; dominio de `espacios` (`FranjaHoraria`, `ReglasHorario`,
+  `VentanaReserva`, `EstadoBloque`, `Bloque`, `CalculoDisponibilidad`, `HorarioSemanal`, `BloqueoFecha`);
+  `HorarioSemanalRepository`, `BloqueoFechaRepository`; puerto `service/puertos/ReservasDelEspacio` + `BloqueReservado`
+  (contrato de bloqueo DT-10, lo implementará HU-12); `DisponibilidadService` + `Impl` (`ObjectProvider` del puerto),
+  `CalendarioEspacioService`; DTO `HorarioDTO`, `FranjaDTO`, `BloqueoFechaDTO`, `BloqueosDTO`, `DisponibilidadDiaDTO`,
+  `BloqueDTO`; `CalendarioEspacioController` (6 endpoints); migración `V2_4__disponibilidad.sql`. Tests: 4 de dominio,
+  `ZonaHorariaTest`, 2 de DTO, `DisponibilidadServiceImplTest`/`IT`, `CalendarioEspacioServiceTest`,
+  `CalendarioEspacioControllerIT` (36 casos); en `EspaciosControllerSoporte` el doble `ReservasDelEspacioFalso` y su
+  limpieza. Frontend: `SelectorBloques` nuevo en el kit, `Campo` con `min`/`max`, `api/espacios.js`,
+  `textosEspacios.js`, página `DisponibilidadEspacio`, ruta en `App.jsx` y enlaces en `MisEspacios` y `EditarEspacio`.
+  Docs: `modelo-datos.md`, `architecture.md` (puerto nuevo), `frontend.md`.
+- **Cierre:** aplicada la recomendación opcional 2 del review: `DisponibilidadServiceImplIT.prepararBase()` limpia las
+  mismas tablas que `EspaciosControllerSoporte.prepararBase()` (`foto_espacio`, `documento_identidad`, `sesion`,
+  `auditoria`), para no depender del orden de las IT.
+- **Desvíos aceptados:** en `BAJA`/`OCULTO` solo se deshabilitan los botones (el kit no tiene `deshabilitado` en
+  `Campo`); `DisponibilidadServiceImplIT` usa su propio contexto sin doble del puerto (prueba R21 como en producción);
+  `ErrorDTO` sin campo trae `errores: []`.
+- **Resultado:** `./init.sh` completo en verde (385 unitarias + 262 IT con Testcontainers, lint y build OK). Reviewer:
+  APPROVED (`progress/review_HU-08.md`). Trazabilidad R1–R45 en `progress/impl_HU-08.md`. Status → `done`.
+- **Pendientes:**
+  1. Confirmar con Eduardo Saldaña (dueño de HU-12) la firma del puerto `ReservasDelEspacio` / `BloqueReservado`
+     (DT-7), antes de que HU-12 lo implemente.
+  2. Antes del merge: si otra migración `V2_4` llega antes a `develop`, renombrar `V2_4__disponibilidad.sql` a la
+     siguiente versión libre (`docs/conventions.md`).
+  3. Revisar con Adriana Callupe (dueña de HU-11) los props de `SelectorBloques` (`docs/frontend.md`) antes de su
+     spec.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-28 — (orquestador, sdd:false) Guía de integración de la disponibilidad para HU-10, HU-11, HU-12 y HU-21:
+  `docs/architecture.md`, nueva subsección "Disponibilidad: qué deja HU-08 y qué falta" (piezas reutilizables y los
+  huecos que cada historia resuelve en su `design.md`: método en lote para HU-10, ruta pública para HU-11, bloqueo del
+  espacio sin filtrar por dueño para HU-12, porque `findParaActualizar` exige ser dueño y es un repositorio de
+  `espacios`); `docs/frontend.md` § Bloques horarios: cómo armar el prop `bloques` de `SelectorBloques`. Pedido por
+  Sebastian Garate.

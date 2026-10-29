@@ -62,7 +62,12 @@ function MisEspacios() {
             <li key={espacio.id}>
               <Tarjeta
                 titulo={espacio.nombre}
-                acciones={<Link to={`/panel/espacios/${espacio.id}`}>Editar</Link>}
+                acciones={
+                  <div className={estilos.acciones}>
+                    <Link to={`/panel/espacios/${espacio.id}`}>Editar</Link>
+                    <Link to={`/panel/espacios/${espacio.id}/disponibilidad`}>Disponibilidad</Link>
+                  </div>
+                }
               >
                 <p className={estilos.dato}>
                   {nombreTipo(espacio.tipo)} · {espacio.zonaNombre}

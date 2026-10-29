@@ -153,6 +153,14 @@ Son la pantalla central de HU-11 y HU-12 (`SelectorBloques`). Tres estilos fijos
 | Seleccionado | Fondo `--color-primario`, texto blanco (`--bloque-seleccionado-*`) |
 | Ocupado | Fondo `--color-gris-suave`, texto `--color-texto-secundario` tachado, sin clic (`--bloque-ocupado-*`) |
 
+**Cómo alimentar `SelectorBloques` (HU-08 lo construyó).** El prop `bloques` es
+`[{ horaInicio, horaFin, libre, detalle }]`; el componente no llama a la API.
+
+- Desde una lista de horas libres (lo que devuelve `horasLibres`): `horas.map(h => ({ horaInicio: h, horaFin: h + 1, libre: true }))`. Solo se ven los libres.
+- Desde bloques con estado (como `GET …/disponibilidad` del dueño, que usa `DisponibilidadEspacio.jsx`): `libre = estado === 'LIBRE'` y `detalle` con un texto de `textosEspacios.js`. En la ficha pública el `detalle` es genérico ("No disponible"), sin decir si está reservado o bloqueado.
+- HU-11 lo usa **sin** `onCambiar` (solo lectura) o con `onCambiar` si la selección empieza en la ficha; HU-12 lo usa **con** `onCambiar` y `seleccionados`. Que los bloques elegidos sean consecutivos (HU-12) lo valida la pantalla y el servidor, no el componente.
+- Fecha elegible: de hoy a hoy + 55 días en hora de Lima. El servidor responde 400 fuera de esa ventana; el `Campo tipo="date"` acepta `min`/`max` (HU-08) para limitarla en el cliente.
+
 ## Kit de componentes (`src/components/ui/`)
 
 Las pantallas solo usan estos componentes para estos elementos. **Si falta uno,
@@ -162,12 +170,12 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4) |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` "Cancelar" y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `variante` (`primario` o `peligro-confirmar`), `cargando` |
-| `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |
+| `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) o mostrarlos. Construido por HU-08: cada bloque muestra `HH:00–HH:00`; el ocupado va tachado, sin clic y con su `detalle` como texto. Sin `onCambiar` es **solo lectura** (los bloques no son botones); con `onCambiar`, cada bloque libre es un `<button aria-pressed>` y al pulsarlo llama `onCambiar` con el arreglo nuevo de horas. Lista vacía: no renderiza nada | `bloques` (`[{ horaInicio, horaFin, libre, detalle }]`), `seleccionados` (horas de inicio, por defecto `[]`), `onCambiar` (opcional) |
 
 **Quién los construye.** Igual que los componentes transversales de `comun`:
 los construye la primera historia que los necesita (la de menor sprint y, a

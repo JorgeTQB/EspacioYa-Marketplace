@@ -15,6 +15,7 @@ import Registro from './pages/cuentas/Registro.jsx'
 import RegistroArrendador from './pages/cuentas/RegistroArrendador.jsx'
 import RestablecerContrasena from './pages/cuentas/RestablecerContrasena.jsx'
 import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
+import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
@@ -135,6 +136,14 @@ function App() {
             element={
               <RutaProtegida>
                 <EditarEspacio />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/panel/espacios/:id/disponibilidad"
+            element={
+              <RutaProtegida>
+                <DisponibilidadEspacio />
               </RutaProtegida>
             }
           />

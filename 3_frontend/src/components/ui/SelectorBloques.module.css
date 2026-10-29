@@ -1,0 +1,53 @@
+.bloques {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--espacio-8) * 4), 1fr));
+  gap: var(--espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bloque {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espacio-1);
+  width: 100%;
+  padding: var(--espacio-2) var(--espacio-3);
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  font: inherit;
+  font-size: var(--texto-sm);
+}
+
+.libre {
+  border-color: var(--bloque-libre-texto);
+  background: var(--bloque-libre-fondo);
+  color: var(--bloque-libre-texto);
+}
+
+button.libre,
+button.seleccionado {
+  cursor: pointer;
+}
+
+.seleccionado {
+  border-color: var(--bloque-seleccionado-fondo);
+  background: var(--bloque-seleccionado-fondo);
+  color: var(--bloque-seleccionado-texto);
+}
+
+.ocupado {
+  background: var(--bloque-ocupado-fondo);
+  color: var(--bloque-ocupado-texto);
+  cursor: default;
+}
+
+.tachado {
+  text-decoration: line-through;
+}
+
+.detalle {
+  font-size: var(--texto-xs);
+}
