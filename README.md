@@ -87,6 +87,39 @@ ya apunta a la base del paso 1 y permite peticiones desde
 `http://localhost:5173`. Está listo cuando el log dice
 `Started EspacioYaApplication`.
 
+**Cuenta de administrador (HU-06).** No hay registro de admins por la API ni
+admins en las migraciones: se crean con un comando interno del backend, que
+aplica la política de contraseña, guarda el hash bcrypt, audita
+`CREACION_ADMIN` y termina. Con la base levantada, desde la raíz del repo:
+
+```bash
+read -r -p "Correo del admin: " ADMIN_CORREO
+read -r -s -p "Contraseña del admin: " ADMIN_CONTRASENA; echo
+ADMIN_CREAR=true ADMIN_CORREO="$ADMIN_CORREO" ADMIN_CONTRASENA="$ADMIN_CONTRASENA"   ./2_Backend/mvnw -f 2_Backend/pom.xml spring-boot:run -Dspring-boot.run.arguments=--server.port=0
+unset ADMIN_CORREO ADMIN_CONTRASENA
+```
+
+`read -s` evita que la contraseña quede en el historial de la terminal. El log
+dice `Cuenta admin creada` y la aplicación se cierra. Si la contraseña no
+cumple la política, el correo no tiene forma de correo o ya existe una cuenta
+con ese correo, el comando falla nombrando la variable (nunca su valor) y no
+crea ni modifica nada. En UAT se corre igual, como tarea única del contenedor.
+
+**Panel admin e IPs permitidas (HU-06).** Hasta que exista MFA (HU-17), las
+rutas `/api/admin/**` y el inicio de sesión del admin solo funcionan desde las
+IPs de `ADMIN_IPS_PERMITIDAS` (por defecto `127.0.0.1,::1`, es decir, tu
+máquina). En UAT:
+
+| Variable | Valor | Si se deja vacía |
+|---|---|---|
+| `ADMIN_IPS_PERMITIDAS` | IPs o rangos CIDR de quienes administran, separados por comas (p. ej. `190.12.34.56,10.20.0.0/16`) | Nadie entra al panel |
+| `PROXIES_CONFIANZA` | Expresión regular con las IPs internas del balanceador (y de CloudFront si llega directo), p. ej. `10\.0\.\d{1,3}\.\d{1,3}` | La IP del cliente es la de la conexión: detrás del balanceador sería la del balanceador |
+
+El backend solo cree al encabezado `X-Forwarded-For` si la conexión viene de
+`PROXIES_CONFIANZA`; así un cliente no puede hacerse pasar por una IP
+permitida. Un valor de `ADMIN_IPS_PERMITIDAS` mal escrito impide el arranque
+con un error que nombra la variable.
+
 ### 3. Frontend (React + Vite, puerto 5173)
 
 La primera vez, crea el `.env` del frontend con la URL de la API:

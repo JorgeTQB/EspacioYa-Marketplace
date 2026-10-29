@@ -129,6 +129,16 @@ class RecuperacionContrasenaControllerIT {
             envios.add(new Envio(correoNormalizado, enlace));
         }
 
+        @Override
+        public void notificarIdentidadAprobada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
         List<Envio> envios() {
             return envios;
         }
@@ -314,6 +324,21 @@ class RecuperacionContrasenaControllerIT {
 
         assertThat(filas("token")).isZero();
         assertThat(notificador.envios()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-06 R6: un admin desde una IP permitida tampoco recupera la contraseña (sin token ni correo)")
+    void adminDesdeIpPermitidaSinRecuperacion() throws Exception {
+        var admin = crearUsuario("admin@correo.pe");
+        jdbc.update("UPDATE usuario SET rol = 'ADMIN' WHERE id = ?", admin.getId());
+        ip = "127.0.0.1";
+
+        esperaSolicitudRecibida(solicitar("admin@correo.pe"));
+
+        assertThat(filas("token")).isZero();
+        assertThat(notificador.envios()).isEmpty();
+        assertThat(auditorias("RECUPERACION_NO_EMITIDA")).extracting(fila -> fila.get("detalle"))
+                .containsExactly("motivo=ROL_NO_PERMITIDO");
     }
 
     @Test

@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.comun.almacenamiento;
 
+import java.io.UncheckedIOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
@@ -44,6 +46,10 @@ public class ArchivoController {
             contenido = archivos.leer(clave).orElseThrow(RecursoNoEncontradoException::new);
         } catch (IllegalStateException e) {
             log.warn("Un archivo privado con firma válida no se pudo descifrar");
+            throw new RecursoNoEncontradoException();
+        } catch (UncheckedIOException e) {
+            // Mismo 404 que cualquier otro fallo (HU-06, R44); la clave no va al log.
+            log.warn("Un archivo privado con firma válida no se pudo leer del almacenamiento");
             throw new RecursoNoEncontradoException();
         }
         var disposicion = "inline; filename=\"documento." + tipoArchivo.extension() + "\"";

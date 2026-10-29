@@ -5,5 +5,6 @@ public enum MotivoRechazoInicioSesion {
     CORREO_DESCONOCIDO,
     CORREO_NO_VERIFICADO,
     CUENTA_NO_ACTIVA,
-    ROL_NO_PERMITIDO
+    ROL_NO_PERMITIDO,
+    IP_NO_PERMITIDA
 }

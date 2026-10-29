@@ -103,4 +103,56 @@ class PerfilArrendadorTest {
                 .isEqualTo("Tu identidad fue rechazada. Vuelve a subir tus documentos. Motivo: "
                         + "El documento está borroso.");
     }
+
+    @Test
+    @DisplayName("HU-06 R28: aprobar desde EN_REVISION deja VERIFICADA, sin motivo y sin aviso")
+    void aprobarDesdeEnRevision() {
+        var perfil = perfilEn(EstadoIdentidad.EN_REVISION, null);
+
+        perfil.aprobarIdentidad();
+
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.VERIFICADA);
+        assertThat(perfil.getMotivoRechazo()).isNull();
+        assertThat(perfil.avisoIdentidad()).isNull();
+    }
+
+    @Test
+    @DisplayName("HU-06 R32: rechazar desde EN_REVISION deja RECHAZADA con el motivo recortado en el aviso")
+    void rechazarDesdeEnRevision() {
+        var perfil = perfilEn(EstadoIdentidad.EN_REVISION, null);
+
+        perfil.rechazarIdentidad("  El documento está borroso.  ");
+
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.RECHAZADA);
+        assertThat(perfil.getMotivoRechazo()).isEqualTo("El documento está borroso.");
+        assertThat(perfil.avisoIdentidad()).isEqualTo("Tu identidad fue rechazada. Vuelve a subir tus documentos. "
+                + "Motivo: El documento está borroso.");
+    }
+
+    @Test
+    @DisplayName("HU-06 R38: aprobar o rechazar fuera de EN_REVISION lanza y no cambia el estado ni el motivo")
+    void decidirFueraDeEnRevisionLanza() {
+        for (var estado : new EstadoIdentidad[] {EstadoIdentidad.NO_INICIADA, EstadoIdentidad.VERIFICADA,
+                EstadoIdentidad.RECHAZADA}) {
+            var motivo = estado == EstadoIdentidad.RECHAZADA ? "Ilegible" : null;
+            var perfil = perfilEn(estado, motivo);
+
+            assertThatThrownBy(perfil::aprobarIdentidad).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> perfil.rechazarIdentidad("Otro motivo")).isInstanceOf(IllegalStateException.class);
+            assertThat(perfil.getEstadoIdentidad()).isEqualTo(estado);
+            assertThat(perfil.getMotivoRechazo()).isEqualTo(motivo);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-06 R32: rechazar con el motivo nulo o en blanco lanza y deja el perfil EN_REVISION")
+    void rechazarSinMotivoLanza() {
+        for (var motivo : new String[] {null, "", "   "}) {
+            var perfil = perfilEn(EstadoIdentidad.EN_REVISION, null);
+
+            assertThatThrownBy(() -> perfil.rechazarIdentidad(motivo)).isInstanceOf(IllegalStateException.class);
+            assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.EN_REVISION);
+            assertThat(perfil.getMotivoRechazo()).isNull();
+        }
+    }
 }

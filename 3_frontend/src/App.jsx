@@ -5,6 +5,8 @@ import { cerrarSesion } from './api/cuentas.js'
 import { borrarToken } from './api/tokenSesion.js'
 import Alerta from './components/ui/Alerta.jsx'
 import Boton from './components/ui/Boton.jsx'
+import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
+import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
@@ -133,6 +135,23 @@ function App() {
             element={
               <RutaProtegida>
                 <EditarEspacio />
+              </RutaProtegida>
+            }
+          />
+          {/* Panel admin (HU-06): la API exige IP permitida y rol ADMIN; la pantalla solo elige qué mostrar. */}
+          <Route
+            path="/admin/identidades"
+            element={
+              <RutaProtegida>
+                <ColaIdentidades />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/identidades/:id"
+            element={
+              <RutaProtegida>
+                <RevisarIdentidad />
               </RutaProtegida>
             }
           />

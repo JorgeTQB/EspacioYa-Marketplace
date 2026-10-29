@@ -84,14 +84,54 @@ class UsuarioTest {
         assertThat(eliminada.motivoRechazoInicioSesion()).contains(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
     }
 
+    // HU-06 reemplaza HU-03 R13: el rol ADMIN ya no es motivo de rechazo del inicio de sesión (la IP la mira el
+    // servicio), pero sí de la recuperación de contraseña hasta HU-17.
     @Test
-    @DisplayName("HU-03 R13: una cuenta ADMIN da el motivo ROL_NO_PERMITIDO antes que cualquier otro")
+    @DisplayName("HU-06 R6: una cuenta ADMIN da el motivo de recuperación ROL_NO_PERMITIDO antes que cualquier otro")
     void adminNoPermitido() {
         var admin = usuarioActivo();
         ReflectionTestUtils.setField(admin, "rol", Rol.ADMIN);
         ReflectionTestUtils.setField(admin, "correoVerificado", false);
 
-        assertThat(admin.motivoRechazoInicioSesion()).contains(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
+        assertThat(admin.esAdmin()).isTrue();
+        assertThat(admin.motivoRechazoRecuperacion()).contains(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
+    }
+
+    @Test
+    @DisplayName("HU-06 R6: fuera del admin, la regla de recuperación es la misma que la de inicio de sesión")
+    void recuperacionSinAdminIgualQueInicioSesion() {
+        var suspendida = usuarioActivo();
+        ReflectionTestUtils.setField(suspendida, "estado", EstadoUsuario.SUSPENDIDA);
+
+        assertThat(usuarioActivo().esAdmin()).isFalse();
+        assertThat(usuarioActivo().motivoRechazoRecuperacion()).isEmpty();
+        assertThat(suspendida.motivoRechazoRecuperacion()).contains(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
+    }
+
+    @Test
+    @DisplayName("HU-06 R1: un ADMIN activo y con correo verificado no tiene motivo de rechazo del inicio de sesión")
+    void adminActivoSinMotivoDeInicioSesion() {
+        var admin = Usuario.registrarAdmin("admin@correo.pe", "$2a$12$hash", "2026-10", AHORA);
+        var suspendido = Usuario.registrarAdmin("admin2@correo.pe", "$2a$12$hash", "2026-10", AHORA);
+        ReflectionTestUtils.setField(suspendido, "estado", EstadoUsuario.SUSPENDIDA);
+
+        assertThat(admin.motivoRechazoInicioSesion()).isEmpty();
+        assertThat(suspendido.motivoRechazoInicioSesion()).contains(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
+    }
+
+    @Test
+    @DisplayName("HU-06 R15: registrarAdmin crea un ADMIN ACTIVA con correo verificado, versión y fecha")
+    void registrarAdminFijaRolYDatos() {
+        var admin = Usuario.registrarAdmin("admin@correo.pe", "$2a$12$hash", "2026-10", AHORA);
+
+        assertThat(admin.getRol()).isEqualTo(Rol.ADMIN);
+        assertThat(admin.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+        assertThat(admin.isCorreoVerificado()).isTrue();
+        assertThat(admin.getCorreo()).isEqualTo("admin@correo.pe");
+        assertThat(admin.getHashContrasena()).isEqualTo("$2a$12$hash");
+        assertThat(admin.getVersionPolitica()).isEqualTo("2026-10");
+        assertThat(admin.getFechaConsentimiento()).isEqualTo(AHORA);
+        assertThat(admin.getNombre()).isNull();
     }
 
     @Test

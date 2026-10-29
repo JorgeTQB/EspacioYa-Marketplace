@@ -298,6 +298,8 @@ class SesionControllerIT {
 
     // ── CA2: mensaje genérico ────────────────────────────────────────────
 
+    // HU-06 reemplaza HU-03 R13: el admin desde una IP no permitida (10.3.x.x) recibe el mismo 401, ahora con el
+    // motivo IP_NO_PERMITIDA en la auditoría.
     @Test
     @DisplayName("HU-03 R9, R10, R11, R12, R13: los cinco rechazos responden 401 con el mismo cuerpo y sin sesión")
     void rechazosConCuerpoIdentico() throws Exception {
@@ -323,7 +325,73 @@ class SesionControllerIT {
         assertThat(sesiones()).isZero();
         assertThat(auditorias("LOGIN_FALLIDO")).extracting(fila -> fila.get("detalle")).containsExactly(
                 "motivo=CONTRASENA_INCORRECTA", "motivo=CORREO_DESCONOCIDO", "motivo=CORREO_NO_VERIFICADO",
-                "motivo=CUENTA_NO_ACTIVA", "motivo=ROL_NO_PERMITIDO");
+                "motivo=CUENTA_NO_ACTIVA", "motivo=IP_NO_PERMITIDA");
+    }
+
+    // ── HU-06: acceso del administrador ──────────────────────────────────
+
+    private Usuario crearAdmin(String correo) {
+        return usuarios.save(Usuario.registrarAdmin(correo, hashContrasena, "2026-10", reloj.instant()));
+    }
+
+    @Test
+    @DisplayName("HU-06 R1: un admin desde 127.0.0.1 inicia sesión con rol ADMIN y aviso nulo")
+    void adminDesdeIpPermitida() throws Exception {
+        var admin = crearAdmin("admin@correo.pe");
+        ip = "127.0.0.1";
+
+        var cuerpo = iniciar("admin@correo.pe", CONTRASENA)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.rol").value("ADMIN"))
+                .andExpect(jsonPath("$.aviso").isEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(mapa(cuerpo).keySet()).containsExactlyInAnyOrder("token", "rol", "aviso");
+        assertThat(sesiones()).isEqualTo(1);
+        assertThat(auditorias("LOGIN_EXITOSO")).extracting(fila -> ((Number) fila.get("usuario_id")).longValue())
+                .containsExactly(admin.getId());
+        actual((String) mapa(cuerpo).get("token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rol").value("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("HU-06 R2, R3: un admin con la contraseña correcta desde una IP no permitida recibe el 401 "
+            + "genérico, sin sesión, y se audita IP_NO_PERMITIDA")
+    void adminDesdeIpNoPermitida() throws Exception {
+        var admin = crearAdmin("admin@correo.pe");
+        crearUsuario(CORREO);
+        var generico = iniciar(CORREO, ERRADA).andExpect(status().isUnauthorized())
+                .andReturn().getResponse().getContentAsString();
+
+        var cuerpo = iniciar("admin@correo.pe", CONTRASENA)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje").value(CREDENCIALES_INVALIDAS))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(cuerpo).isEqualTo(generico);
+        assertThat(sesiones()).isZero();
+        var fallo = auditorias("LOGIN_FALLIDO").getLast();
+        assertThat(((Number) fallo.get("usuario_id")).longValue()).isEqualTo(admin.getId());
+        assertThat(fallo.get("ip")).isEqualTo(ip);
+        assertThat(instante(fallo.get("fecha"))).isEqualTo(reloj.instant());
+        assertThat(fallo.get("detalle")).isEqualTo("motivo=IP_NO_PERMITIDA");
+    }
+
+    @Test
+    @DisplayName("HU-06 R4: 5 intentos del admin con la contraseña correcta desde una IP no permitida bloquean el 6.º")
+    void adminDesdeIpNoPermitidaCuentaFallos() throws Exception {
+        crearAdmin("admin@correo.pe");
+        for (int i = 0; i < 5; i++) {
+            iniciar("admin@correo.pe", CONTRASENA).andExpect(status().isUnauthorized());
+        }
+
+        iniciar("admin@correo.pe", CONTRASENA)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.mensaje").value(DEMASIADOS_INTENTOS));
+        ip = "127.0.0.1";
+        iniciar("admin@correo.pe", CONTRASENA).andExpect(status().isTooManyRequests());
+        assertThat(sesiones()).isZero();
     }
 
     @Test

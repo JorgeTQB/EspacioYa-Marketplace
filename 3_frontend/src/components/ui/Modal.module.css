@@ -1,0 +1,36 @@
+.modal {
+  width: min(calc(100% - var(--espacio-8)), calc(var(--ancho-contenido) / 2));
+  padding: var(--espacio-6);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-superficie);
+  color: var(--color-texto);
+}
+
+/* Sin colores literales: el fondo oscurecido sale del color del texto (docs/frontend.md, Tokens). */
+.modal::backdrop {
+  background: color-mix(in srgb, var(--color-texto) 50%, transparent);
+}
+
+.titulo {
+  margin: 0 0 var(--espacio-4);
+  font-size: var(--texto-lg);
+}
+
+.contenido {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+}
+
+.contenido p {
+  margin: 0;
+}
+
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--espacio-3);
+  margin-top: var(--espacio-6);
+}

@@ -14,6 +14,7 @@ import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.error.CredencialesInvalidasException;
 import pe.edu.ulima.espacioya.comun.error.DemasiadosIntentosException;
 import pe.edu.ulima.espacioya.comun.limite.LimitadorIntentos;
+import pe.edu.ulima.espacioya.comun.seguridad.IpsPermitidasAdmin;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
 import pe.edu.ulima.espacioya.cuentas.domain.MotivoRechazoInicioSesion;
 import pe.edu.ulima.espacioya.cuentas.domain.Sesion;
@@ -45,11 +46,13 @@ public class InicioSesionService {
     private final AuditoriaService auditoria;
     private final TransactionTemplate transacciones;
     private final Clock reloj;
+    private final IpsPermitidasAdmin ipsAdmin;
     private final String hashSenuelo;
 
     public InicioSesionService(UsuarioRepository usuarios, PerfilArrendadorRepository perfiles,
                                SesionRepository sesiones, PasswordEncoder encoder, LimitadorIntentos limitador,
-                               AuditoriaService auditoria, TransactionTemplate transacciones, Clock reloj) {
+                               AuditoriaService auditoria, TransactionTemplate transacciones, Clock reloj,
+                               IpsPermitidasAdmin ipsAdmin) {
         this.usuarios = usuarios;
         this.perfiles = perfiles;
         this.sesiones = sesiones;
@@ -58,6 +61,7 @@ public class InicioSesionService {
         this.auditoria = auditoria;
         this.transacciones = transacciones;
         this.reloj = reloj;
+        this.ipsAdmin = ipsAdmin;
         this.hashSenuelo = encoder.encode(TokenAleatorio.generar());
     }
 
@@ -71,7 +75,7 @@ public class InicioSesionService {
         }
 
         var usuario = usuarios.findByCorreo(correo);
-        var motivo = motivoRechazo(usuario, solicitud.contrasena());
+        var motivo = motivoRechazo(usuario, solicitud.contrasena(), ip);
         if (motivo.isPresent()) {
             var usuarioId = usuario.map(Usuario::getId).orElse(null);
             limitador.registrar(clave);
@@ -89,7 +93,8 @@ public class InicioSesionService {
         return new SesionIniciadaDTO(token, cuenta.getRol().name(), AvisoCuenta.para(cuenta, perfiles));
     }
 
-    private Optional<MotivoRechazoInicioSesion> motivoRechazo(Optional<Usuario> usuario, String contrasena) {
+    private Optional<MotivoRechazoInicioSesion> motivoRechazo(Optional<Usuario> usuario, String contrasena,
+                                                              String ip) {
         if (usuario.isEmpty()) {
             // Comparación contra un hash señuelo para que el tiempo de respuesta no revele si el correo existe.
             encoder.matches(contrasena, hashSenuelo);
@@ -97,6 +102,11 @@ public class InicioSesionService {
         }
         if (!encoder.matches(contrasena, usuario.get().getHashContrasena())) {
             return Optional.of(MotivoRechazoInicioSesion.CONTRASENA_INCORRECTA);
+        }
+        // Hasta HU-17 (MFA), el admin solo entra desde una IP permitida (HU-06, D1). Se mira después de la
+        // contraseña: una contraseña incorrecta se sigue auditando como tal.
+        if (usuario.get().esAdmin() && !ipsAdmin.permite(ip)) {
+            return Optional.of(MotivoRechazoInicioSesion.IP_NO_PERMITIDA);
         }
         return usuario.get().motivoRechazoInicioSesion();
     }

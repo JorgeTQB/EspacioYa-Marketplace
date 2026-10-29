@@ -137,8 +137,11 @@ Solo los servicios que usan otros módulos llevan interfaz pública
 (`CuentaService`, `ReservaService`, `PagoService`); los internos son clases
 concretas (YAGNI). `CuentaService` la creó HU-07 con
 `habilitacionArrendador` (correo e identidad verificados del arrendador de la
-sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. Si una historia necesita un puerto nuevo, lo justifica en
-su `design.md` y lo agrega a esta tabla.
+sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. HU-06 le agregó, para `administracion`,
+`arrendadoresEnRevision`, `expedienteIdentidad` (datos y documentos con URL firmada), `aprobarIdentidad` y
+`rechazarIdentidad` (bloquean el perfil, cambian el estado y avisan por correo después del commit); cada uno exige el
+rol `ADMIN` aunque `administracion` ya lo haya comprobado. No es un puerto: la dirección `administracion → cuentas` está
+permitida. Si una historia necesita un puerto nuevo, lo justifica en su `design.md` y lo agrega a esta tabla.
 
 ## Seguridad transversal (STRIDE)
 
@@ -148,6 +151,13 @@ Además, en todo el sistema:
 - **(S) Suplantación:** la identidad se toma siempre de la sesión en el backend,
   nunca de un ID enviado por el cliente. Los tokens se invalidan al cerrar
   sesión o tras 30 minutos de inactividad.
+- **(S) Panel admin hasta HU-17 (MFA):** toda ruta `/api/admin/**` pasa primero
+  por `comun/seguridad/FiltroIpsAdmin`, que solo deja pasar las IPs de
+  `ADMIN_IPS_PERMITIDAS` (IPs o rangos CIDR; vacía = nadie) y si no responde 403
+  genérico; el admin además solo inicia sesión desde esas IPs (HU-06). La IP del
+  cliente la resuelve Tomcat (`server.forward-headers-strategy=native`) y solo
+  cree a `X-Forwarded-For` si la conexión viene de `PROXIES_CONFIANZA`; nunca se
+  lee ese encabezado a mano. HU-09 y HU-27 ponen sus rutas bajo el mismo prefijo.
 - **(T) Manipulación:** contraseñas con hash y sal (bcrypt o argon2). Todo lo
   que viene del cliente se valida en el servidor; los montos se calculan solo ahí.
 - **(R) Repudio:** las acciones sensibles se registran en la auditoría con
@@ -158,7 +168,8 @@ Además, en todo el sistema:
   Los límites están en RNF-SEG-17 de `docs/requerimientos.md`.
 - **(E) Elevación de privilegios:** roles asignados y validados en el backend en
   cada solicitud; la propiedad del recurso se valida antes de cada edición o
-  consulta. Las cuentas de administrador solo se crean por script interno.
+  consulta. Las cuentas de administrador solo se crean por script interno
+  (`cuentas/service/CreadorAdmin`, activado con `ADMIN_CREAR=true`; HU-06).
 - **PCI DSS:** la plataforma nunca recibe ni guarda datos de tarjeta. El estado
   del pago cambia solo por un webhook con firma verificada e idempotente.
 - **Datos personales (Ley 29733):** consentimiento registrado con versión de la

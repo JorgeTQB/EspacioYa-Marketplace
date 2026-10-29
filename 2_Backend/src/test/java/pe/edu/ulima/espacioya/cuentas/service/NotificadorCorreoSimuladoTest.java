@@ -62,4 +62,32 @@ class NotificadorCorreoSimuladoTest {
                 .doesNotContain("ana.secreta");
         assertThat(salida.getErr()).doesNotContain("ana.secreta");
     }
+
+    @Test
+    @DisplayName("HU-06 R45: el aviso simulado de identidad aprobada no escribe el correo del arrendador")
+    void identidadAprobadaSinCorreo(CapturedOutput salida) {
+        new NotificadorCorreoSimulado(true).notificarIdentidadAprobada("ana.secreta@correo.pe");
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de identidad aprobada simulado: no se envió ningún correo (HU-06).")
+                .doesNotContain("ana.secreta");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-06 R45: el aviso simulado de identidad rechazada no escribe el correo ni el motivo")
+    void identidadRechazadaSinCorreoNiMotivo(CapturedOutput salida) {
+        var motivo = "El DNI 44556677 no coincide con la foto";
+
+        new NotificadorCorreoSimulado(true).notificarIdentidadRechazada("ana.secreta@correo.pe", motivo);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de identidad rechazada simulado: no se envió ningún correo (HU-06).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("44556677")
+                .doesNotContain(motivo);
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("44556677");
+    }
 }

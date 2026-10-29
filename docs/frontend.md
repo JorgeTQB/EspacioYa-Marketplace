@@ -166,7 +166,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
-| `Modal` | Confirmar acciones irreversibles (cancelar, suspender, dar de baja) | `abierto`, `titulo`, `onConfirmar`, `onCerrar` |
+| `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` "Cancelar" y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `variante` (`primario` o `peligro-confirmar`), `cargando` |
 | `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |
 
 **Quién los construye.** Igual que los componentes transversales de `comun`:
