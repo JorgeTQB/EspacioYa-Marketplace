@@ -288,7 +288,7 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 1. ~~**Base de datos por confirmar**~~ **Resuelto:** PostgreSQL 17 (índices únicos parciales para RNF-SEG-09 y transacciones ACID para RF-D-03).
 2. ~~**Estado "correo pendiente"**~~ **Resuelto:** ya está en la tabla de estados de `architecture.md`.
 3. **Respuesta del arrendador en reclamos** (HU-26 CA1): se menciona que "el arrendador puede responder", pero no hay un criterio que diga cómo se ve ni qué se valida. Aclararlo con el PO antes del Sprint 8.
-4. **Control compensatorio de IPs del panel admin** (HU-06, HU-09) hasta HU-17. Decidir si se retira o se mantiene junto con MFA.
+4. ~~**Control compensatorio de IPs del panel admin**~~ **Resuelto (Ariel Enriquez, 2026-10-28, HU-06 D2):** filtro del backend sobre `/api/admin/**` con la lista `ADMIN_IPS_PERMITIDAS` (IPs o rangos CIDR; vacía = nadie entra) y el inicio de sesión del admin solo desde esas IPs. Se mantiene hasta HU-17; HU-17 decide si se retira o se mantiene junto con MFA. HU-09 y HU-27 reutilizan el mismo filtro.
 5. ~~**Política de contraseña**~~ **Resuelto (Jorge Quispe, 2026-10-27):** longitud de 8 a 64 caracteres, al menos una letra y un dígito, sin otras reglas de composición; se rechaza una contraseña igual al correo.
 6. **Plazo legal de conservación contable** (HU-22 CA2): falta el plazo concreto.
 7. ~~**Límite de registros por IP**~~ **Resuelto (Jorge Quispe, 2026-10-27):** 5 intentos de registro por IP por hora (ventana deslizante), contando todos los intentos, no solo los exitosos; al superarlo, 429 con mensaje genérico. **Límite de intentos MFA** (HU-17 (D)): sigue pendiente; definirlo en el diseño.

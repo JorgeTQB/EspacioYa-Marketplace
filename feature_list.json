@@ -130,7 +130,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-06.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-07",

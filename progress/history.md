@@ -432,3 +432,65 @@
      prohíbe; reflejarlo en `specs/HU-07/design.md` si se vuelve a tocar.
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
 - 2026-10-28 — HU-07, observación 3 del review: documentado en `specs/HU-07/design.md` (DT-20, `Espacio.tocar` y flujos de agregar/quitar foto) que agregar o quitar una foto actualiza `espacio.actualizado_en`. Sin cambios de código, tests, requirements ni tasks.
+
+## 2026-10-28 — HU-06 Revisión de identidad de arrendadores (done)
+- **Agente:** orquestador → explorador → spec_author → implementer → reviewer (dueño: Ariel Enriquez).
+  Ariel Enriquez trabajó desde la laptop de Eduardo Saldaña (su máquina no estaba disponible), a pedido suyo.
+- **Rama:** `feature/HU-06-revision-identidad` (desde `develop` en `02a83b6`).
+- **Spec:** `specs/HU-06/` con R1–R45, DT-1…DT-13 y T1–T20. Explorador en `progress/explore_HU-06.md`
+  (15 decisiones abiertas). Aprobado por Ariel Enriquez el 2026-10-28. Decisiones del dueño: **D1** el admin inicia
+  sesión por el mismo `POST /api/sesiones` solo desde una IP permitida (si no, el 401 genérico y auditoría
+  `motivo=IP_NO_PERMITIDA`) y sigue sin recuperar contraseña hasta HU-17 (reemplaza HU-03 R13); **D2** filtro del
+  backend en `comun/seguridad` sobre `/api/admin/**` con `ADMIN_IPS_PERMITIDAS` (CIDR, local `127.0.0.1,::1`, vacía =
+  nadie entra), reutilizable por HU-09 y HU-27; **D3** IP real detrás de CloudFront/ALB por configuración de Tomcat
+  (`server.forward-headers-strategy=native` + `PROXIES_CONFIANZA`), sin leer `X-Forwarded-For` a mano; **D4** cuentas
+  admin por un `ApplicationRunner` de `cuentas` activado solo con `ADMIN_CREAR=true`, credenciales por variables de
+  entorno, política de HU-01, bcrypt y auditoría. Supuestos S1–S16 aceptados tal cual: tabla `revision_identidad` en
+  `administracion` con estado en `perfil_arrendador` y todo en una transacción (S1); 4 métodos nuevos en
+  `CuentaService` con rol `ADMIN` validado en ambos módulos, 404 / 400 *ya revisada* (S2); correos de aprobación y
+  rechazo en `NotificadorCorreo`, después del commit (S3); cola por `documento_identidad.subido_en` y desempate por id
+  (S4); datos completos con `no-store` (S5); cola resumida + expediente sin paginación (S6); rutas `/api/admin/` con
+  dos `POST` de decisión que responden 201 (S7); `GET /api/archivos` sin filtro de IPs y error de E/S → 404 (S8);
+  `Modal` en el kit (S9); solo cuentas `ACTIVA` (S10); migración `V2_3` (S11); el filtro responde 403 *acceso
+  denegado* (S12) y no audita (S13); proxies vacíos por defecto (S14); el comando no modifica cuentas existentes y
+  cierra la app (S15); auditoría `decision=…;revision=…` sin motivo (S16).
+- **Cambios:** `comun/seguridad` (`IpsPermitidasAdmin`, `FiltroIpsAdmin` antes de `FiltroAutenticacionSesion`);
+  `comun/almacenamiento/ArchivoController` (`UncheckedIOException` → 404); `cuentas/` (`Usuario.registrarAdmin`,
+  `esAdmin`, `motivoRechazoRecuperacion`; `IP_NO_PERMITIDA`; `PerfilArrendador.aprobarIdentidad/rechazarIdentidad`;
+  `PerfilArrendadorRepository.findEnRevision`; `ArrendadorEnRevisionDTO`, `ExpedienteIdentidadDTO`; 4 métodos de
+  `CuentaService` con bloqueo pesimista y aviso `afterCommit`; IP del admin en `InicioSesionService`; regla de
+  recuperación separada en `RecuperacionContrasenaService`; 2 avisos de identidad en `NotificadorCorreo` y el simulado;
+  `CreacionAdminService` + `CreadorAdmin`); módulo nuevo `administracion/` (`RevisionIdentidad`,
+  `DecisionIdentidad`, repositorio, `RevisionIdentidadService`, `MotivoRechazoDTO`, `RevisionIdentidadDTO`,
+  `RevisionIdentidadController`); migración `V2_3__revision_identidad.sql`; `application.properties` (IPs, proxies,
+  comando admin). Frontend: `Modal` en el kit, `api/administracion.js`, `pages/administracion/ColaIdentidades.jsx` y
+  `RevisarIdentidad.jsx`, textos y enlace de `ADMIN` en `Panel.jsx`, rutas `/admin/identidades` y
+  `/admin/identidades/:id`. Docs: `modelo-datos.md`, `architecture.md`, `frontend.md`, `requerimientos.md` (§9-4
+  resuelto), `README.md` (comando de creación de admin con `read -s`, IPs y proxies para UAT), `2_Backend/.env.example`.
+  Tests de HU-03 actualizados por D1: `InicioSesionServiceTest.adminNoPermitido`,
+  `SesionControllerIT.rechazosConCuerpoIdentico` (detalle `IP_NO_PERMITIDA`) y `UsuarioTest.adminNoPermitido`.
+- **Desvíos aceptados por el reviewer:** el caso de R5 (lista de IPs vacía) vive en `comun/seguridad/FiltroIpsAdminIT`
+  y no como `@Nested` del IT del controlador (un `@Nested` con otra configuración inyecta la clase externa con el
+  contexto del anidado); `FiltroIpsAdmin` usa `PathPatternRequestMatcher` para que una ruta codificada no lo esquive;
+  `IpsPermitidasAdmin` solo acepta literales (sin DNS).
+- **Resultado:** `./init.sh` completo en verde (329 unitarias + 225 IT con Testcontainers, lint y build OK; único
+  `[WARN]` las llaves locales ausentes, previo a HU-06). Reviewer: APPROVED (`progress/review_HU-06.md`), sin cambios
+  requeridos. Trazabilidad R1–R45 en `progress/impl_HU-06.md`. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review y avisos):**
+  1. `specs/HU-03/requirements.md` (R13) sigue diciendo que el `ADMIN` recibe siempre el 401, y
+     `SesionControllerIT.rechazosConCuerpoIdentico` conserva "HU-03 … R13" en su `@DisplayName` por la trazabilidad
+     que exige `init.sh`. Anotar en ese R13 "Reemplazado por HU-06 R1–R4 (solo aplica desde una IP no permitida)".
+  2. `specs/HU-06/design.md` § 3: la tabla tiene dos filas de encabezado; la segunda se ve como fila de datos
+     (cosmético).
+  3. `CreacionAdminService.crear`: si dos comandos crean el mismo admin a la vez, PostgreSQL/Hibernate escriben en el
+     log el detalle de la violación de unicidad con el correo. Aceptable; tenerlo en cuenta al revisar logs de UAT.
+  - **Avisar a Jorge Quispe** (dueño de HU-03 y de HU-09): HU-03 R13 queda reemplazado por D1 (el admin entra desde
+    una IP permitida; `MotivoRechazoInicioSesion.IP_NO_PERMITIDA`), y D3 cambia la IP de toda la aplicación: con
+    `PROXIES_CONFIANZA` configurado, la IP de auditoría y del límite de intentos pasa a ser la del cliente real. HU-09
+    debe poner sus rutas bajo `/api/admin/` para heredar el filtro de IPs.
+  - **Variables de entorno nuevas para UAT:** `ADMIN_IPS_PERMITIDAS` (IPs o CIDR de quienes administran; vacía = nadie
+    entra al panel) y `PROXIES_CONFIANZA` (regex de las IPs internas del ALB/CloudFront; vacía = se usa la IP de la
+    conexión, que detrás del balanceador sería la del balanceador). `ADMIN_CREAR`, `ADMIN_CORREO` y
+    `ADMIN_CONTRASENA` solo para correr una vez el comando de creación de admin (README).
+  - Antes del merge: si `develop` ya tiene una `V2_3`, renombrar `V2_3__revision_identidad.sql` a la siguiente libre.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.

@@ -33,4 +33,15 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
         }
         log.info("Envío de correo de recuperación simulado: no se envió ningún correo (HU-04).");
     }
+
+    // Ni el correo ni el motivo van al log: son datos personales del arrendador (Ley 29733).
+    @Override
+    public void notificarIdentidadAprobada(String correoNormalizado) {
+        log.info("Envío de correo de identidad aprobada simulado: no se envió ningún correo (HU-06).");
+    }
+
+    @Override
+    public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
+        log.info("Envío de correo de identidad rechazada simulado: no se envió ningún correo (HU-06).");
+    }
 }

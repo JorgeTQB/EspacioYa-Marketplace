@@ -76,15 +76,25 @@ public class Usuario {
         return usuario;
     }
 
+    // Solo por el comando interno de creación de admins (HU-06, D4): nunca desde la API.
+    public static Usuario registrarAdmin(String correoNormalizado, String hashContrasena, String versionPolitica,
+                                         Instant ahora) {
+        var usuario = registrar(correoNormalizado, hashContrasena, versionPolitica, ahora);
+        usuario.rol = Rol.ADMIN;
+        return usuario;
+    }
+
     public static String normalizarCorreo(String correo) {
         return correo == null ? null : correo.trim().toLowerCase(Locale.ROOT);
     }
 
-    // Orden fijo: el motivo solo va a la auditoría; al cliente siempre le llega el mismo 401 genérico.
+    public boolean esAdmin() {
+        return rol == Rol.ADMIN;
+    }
+
+    // Orden fijo: el motivo solo va a la auditoría; al cliente siempre le llega el mismo 401 genérico. La IP
+    // permitida del admin (HU-06, D1) la comprueba InicioSesionService: es un dato de la solicitud, no de la cuenta.
     public Optional<MotivoRechazoInicioSesion> motivoRechazoInicioSesion() {
-        if (rol == Rol.ADMIN) {
-            return Optional.of(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
-        }
         if (!correoVerificado) {
             return Optional.of(MotivoRechazoInicioSesion.CORREO_NO_VERIFICADO);
         }
@@ -92,6 +102,14 @@ public class Usuario {
             return Optional.of(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
         }
         return Optional.empty();
+    }
+
+    // El admin no recupera su contraseña por correo hasta que exista MFA (HU-04 S2, se mantiene en HU-06 D1).
+    public Optional<MotivoRechazoInicioSesion> motivoRechazoRecuperacion() {
+        if (esAdmin()) {
+            return Optional.of(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);
+        }
+        return motivoRechazoInicioSesion();
     }
 
     public void cambiarContrasena(String nuevoHash) {

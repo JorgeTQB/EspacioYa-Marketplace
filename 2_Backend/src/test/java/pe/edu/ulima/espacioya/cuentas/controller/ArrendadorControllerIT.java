@@ -119,6 +119,16 @@ class ArrendadorControllerIT {
             throw new UnsupportedOperationException("HU-04 no se prueba en esta clase");
         }
 
+        @Override
+        public void notificarIdentidadAprobada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
         void reiniciar() {
             correos.clear();
             fallar.set(false);

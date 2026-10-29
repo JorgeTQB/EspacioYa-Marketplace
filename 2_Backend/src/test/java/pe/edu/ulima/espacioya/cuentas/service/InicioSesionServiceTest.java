@@ -34,6 +34,7 @@ import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.error.CredencialesInvalidasException;
 import pe.edu.ulima.espacioya.comun.error.DemasiadosIntentosException;
 import pe.edu.ulima.espacioya.comun.limite.LimitadorIntentos;
+import pe.edu.ulima.espacioya.comun.seguridad.IpsPermitidasAdmin;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
 import pe.edu.ulima.espacioya.cuentas.domain.EstadoIdentidad;
 import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
@@ -52,6 +53,8 @@ class InicioSesionServiceTest {
 
     private static final Instant AHORA = Instant.parse("2026-10-28T15:00:00Z");
     private static final String IP = "10.0.0.1";
+    private static final String IP_ADMIN = "127.0.0.1";
+    private static final IpsPermitidasAdmin IPS_ADMIN = new IpsPermitidasAdmin(IP_ADMIN + ",::1");
     private static final String CORREO = "ana@correo.pe";
     private static final String CONTRASENA = "Segura123!";
     private static final String HASH = "$2a$12$hashdeprueba";
@@ -80,7 +83,7 @@ class InicioSesionServiceTest {
         limitador = new LimitadorIntentos(reloj);
         when(encoder.encode(anyString())).thenReturn(SENUELO);
         servicio = new InicioSesionService(usuarios, perfiles, sesiones, encoder, limitador, auditoria,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)), reloj);
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), reloj, IPS_ADMIN);
     }
 
     private static InicioSesionDTO solicitud(String correo, String contrasena) {
@@ -267,15 +270,62 @@ class InicioSesionServiceTest {
         esperaRechazo("CUENTA_NO_ACTIVA", ID_USUARIO);
     }
 
+    // HU-06 reemplaza HU-03 R13: el admin ya no se rechaza por su rol, sino por la IP desde la que llega.
     @Test
-    @DisplayName("HU-03 R13, R31: cuenta ADMIN con contraseña correcta lanza 401 y audita ROL_NO_PERMITIDO")
+    @DisplayName("HU-06 R2, R3, R4: cuenta ADMIN con contraseña correcta desde una IP no permitida lanza 401, "
+            + "cuenta el fallo y audita IP_NO_PERMITIDA")
     void adminNoPermitido() {
         var usuario = usuario();
         ReflectionTestUtils.setField(usuario, "rol", Rol.ADMIN);
         when(usuarios.findByCorreo(CORREO)).thenReturn(Optional.of(usuario));
         when(encoder.matches(CONTRASENA, HASH)).thenReturn(true);
 
-        esperaRechazo("ROL_NO_PERMITIDO", ID_USUARIO);
+        esperaRechazo("IP_NO_PERMITIDA", ID_USUARIO);
+    }
+
+    @Test
+    @DisplayName("HU-06 R1: cuenta ADMIN con contraseña correcta desde una IP permitida inicia sesión con rol ADMIN")
+    void adminDesdeIpPermitida() {
+        var usuario = usuario();
+        ReflectionTestUtils.setField(usuario, "rol", Rol.ADMIN);
+        prepararLoginCorrecto(usuario);
+
+        var respuesta = servicio.iniciar(solicitud(CORREO, CONTRASENA), IP_ADMIN);
+
+        assertThat(respuesta.rol()).isEqualTo("ADMIN");
+        assertThat(respuesta.aviso()).isNull();
+        verify(sesiones).save(any(Sesion.class));
+        assertThat(unicoEvento().accion()).isEqualTo("LOGIN_EXITOSO");
+    }
+
+    @Test
+    @DisplayName("HU-06 R2, R3: un ADMIN con contraseña incorrecta audita CONTRASENA_INCORRECTA aunque la IP no "
+            + "esté permitida")
+    void adminContrasenaIncorrectaAntesQueIp() {
+        var usuario = usuario();
+        ReflectionTestUtils.setField(usuario, "rol", Rol.ADMIN);
+        when(usuarios.findByCorreo(CORREO)).thenReturn(Optional.of(usuario));
+        when(encoder.matches(CONTRASENA, HASH)).thenReturn(false);
+
+        esperaRechazo("CONTRASENA_INCORRECTA", ID_USUARIO);
+    }
+
+    @Test
+    @DisplayName("HU-06 R5: con la lista de IPs vacía un ADMIN no inicia sesión ni desde 127.0.0.1")
+    void adminConListaVacia() {
+        var usuario = usuario();
+        ReflectionTestUtils.setField(usuario, "rol", Rol.ADMIN);
+        when(usuarios.findByCorreo(CORREO)).thenReturn(Optional.of(usuario));
+        when(encoder.matches(CONTRASENA, HASH)).thenReturn(true);
+        var sinIps = new InicioSesionService(usuarios, perfiles, sesiones, encoder, limitador, auditoria,
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), Clock.fixed(AHORA, ZoneOffset.UTC),
+                new IpsPermitidasAdmin(""));
+
+        assertThatThrownBy(() -> sinIps.iniciar(solicitud(CORREO, CONTRASENA), IP_ADMIN))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(sesiones, never()).save(any());
+        assertThat(unicoEvento().detalle()).isEqualTo("motivo=IP_NO_PERMITIDA");
     }
 
     @Test
@@ -331,7 +381,8 @@ class InicioSesionServiceTest {
         var limitadorEspia = mock(LimitadorIntentos.class);
         when(limitadorEspia.superaLimite(eq(CLAVE), eq(5), eq(Duration.ofMinutes(15)))).thenReturn(true);
         var conEspia = new InicioSesionService(usuarios, perfiles, sesiones, encoder, limitadorEspia, auditoria,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)), Clock.fixed(AHORA, ZoneOffset.UTC));
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), Clock.fixed(AHORA, ZoneOffset.UTC),
+                IPS_ADMIN);
 
         assertThatThrownBy(() -> conEspia.iniciar(solicitud(CORREO, CONTRASENA), IP))
                 .isInstanceOf(DemasiadosIntentosException.class);

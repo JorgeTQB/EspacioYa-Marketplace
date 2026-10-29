@@ -26,8 +26,8 @@ public class ConfiguracionSeguridad {
     private static final int COSTO_BCRYPT = 12;
 
     @Bean
-    public SecurityFilterChain cadenaSeguridad(HttpSecurity http, ValidadorSesion validador, JsonMapper json)
-            throws Exception {
+    public SecurityFilterChain cadenaSeguridad(HttpSecurity http, ValidadorSesion validador, JsonMapper json,
+                                               IpsPermitidasAdmin ipsAdmin) throws Exception {
         // El token viaja en el encabezado Authorization: el navegador no lo envía solo, así que CSRF no aplica
         // (HU-03, DT-3). Tampoco hay sesión HTTP: cada solicitud se autentica con su token.
         http.csrf(AbstractHttpConfigurer::disable)
@@ -37,6 +37,9 @@ public class ConfiguracionSeguridad {
                 .cors(Customizer.withDefaults())
                 .exceptionHandling(errores -> errores.authenticationEntryPoint(new PuntoEntradaNoAutenticado(json)))
                 .addFilterBefore(new FiltroAutenticacionSesion(validador), UsernamePasswordAuthenticationFilter.class)
+                // Antes de autenticar (HU-06, DT-1): desde una IP no permitida el panel admin ni siquiera
+                // revela si la sesión es válida.
+                .addFilterBefore(new FiltroIpsAdmin(ipsAdmin, json), FiltroAutenticacionSesion.class)
                 .authorizeHttpRequests(autorizacion -> autorizacion
                         .requestMatchers(HttpMethod.GET, "/api/politicas-privacidad/vigente").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
