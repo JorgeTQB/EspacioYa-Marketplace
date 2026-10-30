@@ -21,6 +21,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -145,5 +147,96 @@ class CatalogoEspaciosServiceImplTest {
                 .isEqualTo(Map.of(1L, "/api/fotos/3f0c1e2a-0000-4000-8000-000000000001"));
         assertThat(servicio.fotosPrincipales(List.of())).isEmpty();
         verify(fotos, never()).findByEspacioIdInAndOrden(List.of(), (short) 1);
+    }
+
+    private static Espacio enEstado(long id, EstadoEspacio estado) {
+        var espacio = espacio(id, "80.00");
+        ReflectionTestUtils.setField(espacio, "estado", estado);
+        return espacio;
+    }
+
+    private static FotoEspacio foto(long espacioId, String uuid, int orden) {
+        return FotoEspacio.registrar(espacioId, "espacios/" + uuid, "image/jpeg", orden);
+    }
+
+    @Test
+    @DisplayName("HU-11 R31: publicado devuelve la ficha con zonaNombre y las URL de las fotos en orden ascendente")
+    void publicadoDevuelveLaFicha() {
+        when(espacios.findById(1L)).thenReturn(Optional.of(espacio(1L, "80.00")));
+        when(cuentas.cuentaActiva(7L)).thenReturn(true);
+        zonaLosOlivos();
+        when(fotos.findByEspacioIdOrderByOrdenAsc(1L)).thenReturn(List.of(
+                foto(1L, "3f0c1e2a-0000-4000-8000-000000000001", 1),
+                foto(1L, "3f0c1e2a-0000-4000-8000-000000000002", 2),
+                foto(1L, "3f0c1e2a-0000-4000-8000-000000000003", 3)));
+
+        var ficha = servicio.publicado(1L);
+
+        assertThat(ficha).contains(new FichaPublicada(1L, "Cancha 1", "CANCHA", "Av. Universitaria 1234",
+                "LOS_OLIVOS", "Los Olivos", 20, new BigDecimal("80.00"), "Cancha de grass sintético techada.",
+                List.of("/api/fotos/3f0c1e2a-0000-4000-8000-000000000001",
+                        "/api/fotos/3f0c1e2a-0000-4000-8000-000000000002",
+                        "/api/fotos/3f0c1e2a-0000-4000-8000-000000000003")));
+    }
+
+    @Test
+    @DisplayName("HU-11 R31: publicado sin fotos devuelve la lista de fotos vacía")
+    void publicadoSinFotos() {
+        when(espacios.findById(1L)).thenReturn(Optional.of(espacio(1L, "80.00")));
+        when(cuentas.cuentaActiva(7L)).thenReturn(true);
+        zonaLosOlivos();
+        when(fotos.findByEspacioIdOrderByOrdenAsc(1L)).thenReturn(List.of());
+
+        assertThat(servicio.publicado(1L)).hasValueSatisfying(ficha -> assertThat(ficha.fotos()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("HU-11 R32, R33: un id null da vacío y false sin consultar la base")
+    void idNulo() {
+        assertThat(servicio.publicado(null)).isEmpty();
+        assertThat(servicio.esVisible(null)).isFalse();
+        verifyNoInteractions(espacios, cuentas, fotos, zonas);
+    }
+
+    @Test
+    @DisplayName("HU-11 R32, R33: un espacio inexistente da vacío y false")
+    void inexistente() {
+        when(espacios.findById(99L)).thenReturn(Optional.empty());
+
+        assertThat(servicio.publicado(99L)).isEmpty();
+        assertThat(servicio.esVisible(99L)).isFalse();
+        verifyNoInteractions(cuentas, fotos, zonas);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoEspacio.class, names = "PUBLICADO", mode = EnumSource.Mode.EXCLUDE)
+    @DisplayName("HU-11 R32, R33: un espacio no PUBLICADO da vacío y false")
+    void noPublicado(EstadoEspacio estado) {
+        when(espacios.findById(1L)).thenReturn(Optional.of(enEstado(1L, estado)));
+
+        assertThat(servicio.publicado(1L)).isEmpty();
+        assertThat(servicio.esVisible(1L)).isFalse();
+        verifyNoInteractions(cuentas, fotos, zonas);
+    }
+
+    @Test
+    @DisplayName("HU-11 R32, R33: un PUBLICADO de arrendador no ACTIVA da vacío y false")
+    void arrendadorNoActivo() {
+        when(espacios.findById(1L)).thenReturn(Optional.of(espacio(1L, "80.00")));
+        when(cuentas.cuentaActiva(7L)).thenReturn(false);
+
+        assertThat(servicio.publicado(1L)).isEmpty();
+        assertThat(servicio.esVisible(1L)).isFalse();
+        verifyNoInteractions(fotos, zonas);
+    }
+
+    @Test
+    @DisplayName("HU-11 R33: esVisible es true para un PUBLICADO de arrendador ACTIVA, sin leer fotos")
+    void esVisibleSiPublicadoYActivo() {
+        when(espacios.findById(1L)).thenReturn(Optional.of(espacio(1L, "80.00")));
+        when(cuentas.cuentaActiva(7L)).thenReturn(true);
+
+        assertThat(servicio.esVisible(1L)).isTrue();
+        verifyNoInteractions(fotos, zonas);
     }
 }

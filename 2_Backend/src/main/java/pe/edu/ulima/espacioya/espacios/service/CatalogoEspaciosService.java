@@ -3,6 +3,7 @@ package pe.edu.ulima.espacioya.espacios.service;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Interfaz pública del catálogo de {@code espacios} para {@code busqueda} (HU-10, HU-11, HU-23). Sin sesión. */
 public interface CatalogoEspaciosService {
@@ -21,4 +22,13 @@ public interface CatalogoEspaciosService {
 
     /** Id del espacio → URL {@code /api/fotos/<UUID>} de su foto con orden 1; los que no la tienen no aparecen. */
     Map<Long, String> fotosPrincipales(Collection<Long> espacioIds);
+
+    /**
+     * Ficha de un espacio PUBLICADO de arrendador ACTIVA (HU-09 D1), con las URL de sus fotos por orden ascendente;
+     * vacío si el id es {@code null}, no existe o el espacio no es visible (HU-11 R31, R32).
+     */
+    Optional<FichaPublicada> publicado(Long espacioId);
+
+    /** {@code true} solo si el espacio existe, está PUBLICADO y su arrendador está ACTIVA (HU-11 R33). */
+    boolean esVisible(Long espacioId);
 }

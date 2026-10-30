@@ -31,7 +31,7 @@
 ├── styles/
 │   └── tokens.css        # ÚNICO archivo con colores literales
 ├── components/
-│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen
+│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen, Galeria
 ├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
 ├── sesion/               # ProveedorSesion, useSesion, RutaProtegida (HU-03)
 └── api/                  # cliente.js, tokenSesion.js + un archivo por módulo: api/cuentas.js
@@ -158,7 +158,8 @@ Son la pantalla central de HU-11 y HU-12 (`SelectorBloques`). Tres estilos fijos
 
 - Desde una lista de horas libres (lo que devuelve `horasLibres`): `horas.map(h => ({ horaInicio: h, horaFin: h + 1, libre: true }))`. Solo se ven los libres.
 - Desde bloques con estado (como `GET …/disponibilidad` del dueño, que usa `DisponibilidadEspacio.jsx`): `libre = estado === 'LIBRE'` y `detalle` con un texto de `textosEspacios.js`. En la ficha pública el `detalle` es genérico ("No disponible"), sin decir si está reservado o bloqueado.
-- HU-11 lo usa **sin** `onCambiar` (solo lectura) o con `onCambiar` si la selección empieza en la ficha; HU-12 lo usa **con** `onCambiar` y `seleccionados`. Que los bloques elegidos sean consecutivos (HU-12) lo valida la pantalla y el servidor, no el componente.
+- HU-11 (`pages/busqueda/FichaEspacio.jsx`) lo usa **sin** `onCambiar` (solo lectura) y solo con los libres de `GET /api/espacios/{id}/disponibilidad?fecha=` (`bloquesLibres.map(b => ({ ...b, libre: true }))`); con la lista vacía la pantalla muestra "No hay bloques libres este día. Prueba con otra fecha.". HU-12 lo usa **con** `onCambiar` y `seleccionados`. Que los bloques elegidos sean consecutivos (HU-12) lo valida la pantalla y el servidor, no el componente.
+- **Contrato para HU-12** (`specs/HU-11/design.md` § 13): la ficha es `/espacios/:id?fecha=AAAA-MM-DD` (destino de "vuelvo a la ficha" tras el login). HU-12 agrega en `FichaEspacio.jsx` el estado `seleccionados`, pasa `seleccionados` y `onCambiar` a `SelectorBloques`, vacía la selección al cambiar la fecha y pone el único botón primario "Reservar" debajo de "Bloques libres". `obtenerEspacio(id)` y `consultarBloquesLibres(id, fecha)` de `api/busqueda.js` no cambian de firma; los DTO de HU-11 solo se amplían.
 - Fecha elegible: de hoy a hoy + 55 días en hora de Lima. El servidor responde 400 fuera de esa ventana; el `Campo tipo="date"` acepta `min`/`max` (HU-08) para limitarla en el cliente.
 
 ## Kit de componentes (`src/components/ui/`)
@@ -175,6 +176,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
+| `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
 | `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` "Cancelar" y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `variante` (`primario` o `peligro-confirmar`), `cargando` |
 | `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) o mostrarlos. Construido por HU-08: cada bloque muestra `HH:00–HH:00`; el ocupado va tachado, sin clic y con su `detalle` como texto. Sin `onCambiar` es **solo lectura** (los bloques no son botones); con `onCambiar`, cada bloque libre es un `<button aria-pressed>` y al pulsarlo llama `onCambiar` con el arreglo nuevo de horas. Lista vacía: no renderiza nada | `bloques` (`[{ horaInicio, horaFin, libre, detalle }]`), `seleccionados` (horas de inicio, por defecto `[]`), `onCambiar` (opcional) |
 

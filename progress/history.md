@@ -629,3 +629,46 @@
   - HU-11 y HU-23 comparten el cupo agregando un `@Bean` con `limiteCatalogo.regla(...)`; HU-23 envuelve
     `BusquedaEspacios` (Decorator).
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+## 2026-10-30 — HU-11 Detalle del espacio (done)
+
+- **Dueña:** Adriana Callupe · **Rama:** `feature/HU-11-detalle-espacio` (desde `develop`)
+- **Agentes:** orquestador → explorador (`progress/explore_HU-11.md`, 11 huecos de producto y 11 técnicos; la dueña
+  prefirió no responder preguntas) → spec-author (`specs/HU-11/`, R1–R33, DT-1…DT-16, T1–T13, decisiones por
+  defecto D1–D8) → aprobación de la dueña (2026-10-30, D1–D8 confirmadas tal cual) → implementer
+  (`progress/impl_HU-11.md`) → reviewer vuelta 0 (CHANGES_REQUESTED) → implementer vuelta 1 → reviewer vuelta 1
+  (APPROVED, `progress/review_HU-11.md`).
+- **Decisiones D1–D8 (confirmadas por Adriana Callupe el 2026-10-30):** D1 solo bloques libres del día con
+  `DisponibilidadService.horasLibres` sin modificarlo, mostrados con `SelectorBloques` sin `onCambiar`; D2 ficha de
+  solo lectura, sin selección ni botón "Reservar" (los agrega HU-12); D3 ningún dato del arrendador; D4 componente
+  `Galeria` nuevo en el kit; D5 las tres reglas de RN-06 como texto estático; D6 fecha de `?fecha=` o hoy en Lima,
+  reflejada en la URL; D7 tipo y zona visibles además de la dirección; D8 404 genérico e indistinguible con enlace a
+  "Buscar espacios".
+- **Cambios:** `espacios`: `FichaPublicada` (sin `arrendadorId`), `CatalogoEspaciosService.publicado/esVisible` e
+  impl. `ConfiguracionSeguridad`: `permitAll` solo para `GET /api/espacios/*` y `GET /api/espacios/*/disponibilidad`.
+  `busqueda`: `FichaController` (id como texto → 404 indistinguible; `fecha` obligatoria), `FichaService` (orden
+  404 → 400 → `horasLibres`, `VentanaReserva`), `ReglasLimiteFicha` (dos reglas en el grupo `catalogo`, cupo
+  compartido con HU-10), DTO `FichaPublicaDTO`, `DisponibilidadPublicaDTO`, `BloqueLibreDTO`. Sin migración, sin
+  auditoría, sin puertos nuevos. Frontend: `Galeria` (kit), `obtenerEspacio`/`consultarBloquesLibres` en
+  `api/busqueda.js`, `textosFicha.js`, pantalla pública `/espacios/:id` (`FichaEspacio.jsx`), ruta en `App.jsx` y
+  enlace "Ver espacio" en `BuscarEspacios.jsx`. Docs: `architecture.md` y `frontend.md` (contrato para HU-12).
+- **Tests:** nuevos `FichaControllerIT` (23), `LimiteFichaIT` (6), `FichaServiceTest`, `ReglasLimiteFichaTest`;
+  ampliado `CatalogoEspaciosServiceImplTest` (solo casos añadidos). Primer uso de `@ParameterizedTest` en el repo
+  (incluido en `spring-boot-starter-test`). Trazabilidad R1–R33 en `progress/impl_HU-11.md`.
+- **Review:**
+  - Vuelta 0 — CHANGES_REQUESTED: (1) revertir la línea `aaprobado` agregada a `docs/historias/HU-11.md:13`;
+    (2) `@Primary` en el `@Bean reservasFalsas()` de `FichaControllerIT` para que no rompa con
+    `NoUniqueBeanDefinitionException` cuando HU-12 registre su `ReservasDelEspacio` real.
+  - Vuelta 1 — APPROVED: ambos cambios aplicados, sin otros cambios.
+- **Resultado:** `./init.sh` completo en verde en las dos vueltas (523 unitarias = 472 previas + 51 de HU-11;
+  351 IT con Testcontainers; lint y build OK). Status → `done`.
+- **Observaciones abiertas (no bloqueantes, para UAT y HU-12):**
+  1. `FichaEspacio.jsx:34`: sin `?fecha=`, la fecha inicial (hoy) no se escribe en la URL hasta que el usuario la
+     cambia. HU-12 (Eduardo Saldaña), para "vuelvo a la ficha", debe armar la URL de retorno con la `fecha` en uso y
+     no copiar `location` tal cual; acordarlo en el contrato de `design.md` § 13.
+  2. `FichaEspacio.jsx:34`: con `?fecha=` vacío se muestra el 400 "Elige una fecha válida." bajo el campo (aceptable).
+  3. `FichaEspacio.jsx:110`: `h1` para el nombre del espacio mientras `App.jsx` ya usa `h1` para la marca; revisar
+     la jerarquía de encabezados en UAT.
+  4. Contrato para HU-12: ruta `/espacios/:id?fecha=`, `obtenerEspacio(id)`, `consultarBloquesLibres(id, fecha)`,
+     `SelectorBloques` intacto y listo para `seleccionados`/`onCambiar`, DTO ampliables (`docs/frontend.md`).
+  - Todo está sin commitear: la dueña revisa y abre el PR hacia `develop`.

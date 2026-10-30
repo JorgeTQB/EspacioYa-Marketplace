@@ -10,6 +10,7 @@ import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
 import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
+import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
@@ -101,6 +102,8 @@ function App() {
           />
           {/* HU-10: catálogo público, con o sin sesión. */}
           <Route path="/buscar" element={<BuscarEspacios />} />
+          {/* HU-11: ficha pública (?fecha=AAAA-MM-DD), con o sin sesión; HU-12 vuelve aquí tras el login. */}
+          <Route path="/espacios/:id" element={<FichaEspacio />} />
           <Route path="/registro" element={<Registro />} />
           <Route path="/registro-arrendador" element={<RegistroArrendador />} />
           <Route path="/privacidad" element={<Privacidad />} />
