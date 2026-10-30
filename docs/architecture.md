@@ -169,7 +169,10 @@ horario, bloqueos y el puerto una vez por lote.
 `espacios.service.CatalogoEspaciosService` es la segunda interfaz pública de `espacios` (la creó HU-10), sin sesión ni
 rol, para `busqueda` (HU-10, HU-11, HU-23): `esTipoValido`, `existeZona`, `publicados(tipo, zona)` → `EspacioPublicado`
 de arrendadores `ACTIVA` ordenados por `precio_hora` e `id` (aplica la regla HU-09 D1), y `fotosPrincipales(ids)` →
-URL `/api/fotos/<UUID>` de la foto con orden 1. `busqueda` nunca lee repositorios de `espacios`.
+URL `/api/fotos/<UUID>` de la foto con orden 1. HU-11 le agregó `publicado(espacioId)` → `Optional<FichaPublicada>`
+(datos de la ficha y URL de todas sus fotos por orden ascendente, sin `arrendadorId`, estado ni fechas) y
+`esVisible(espacioId)`; ambos aplican la misma regla (`PUBLICADO` y `cuentaActiva(arrendadorId)`) y devuelven vacío o
+`false` para `null`, inexistente o no visible. `busqueda` nunca lee repositorios de `espacios`.
 
 **Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
 `PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
@@ -177,8 +180,10 @@ consigo misma y un patrón (`/api/espacios/{id}`, `/api/fotos/*`) con las rutas 
 al crear el bean. `FiltroLimiteIntentos` descuenta un solo intento por grupo y solicitud. El cupo del catálogo
 (grupo `catalogo`, 120 por IP por minuto, configurable con `espacioya.limite.catalogo.maximo` y `.ventana`) lo fija
 `busqueda/controller/LimiteCatalogo`; HU-11 y HU-23 registran sus rutas con un `@Bean`
-`limite.regla("GET", "/api/espacios/{id}")` (ver `ReglasLimiteBusqueda`) y comparten así el cupo. `GET /api/zonas` y
-las fotos no cuentan.
+`limite.regla("GET", "/api/espacios/{id}")` (ver `ReglasLimiteBusqueda`) y comparten así el cupo. HU-11 registró
+en `busqueda/controller/ReglasLimiteFicha` dos reglas del grupo: `GET /api/espacios/{id}` (ficha) y
+`GET /api/espacios/{id}/disponibilidad` (un patrón `/{id}` no cubre la subruta); cuentan también las respuestas 404 y
+400. `GET /api/zonas` y las fotos no cuentan.
 
 **Zona horaria.** El bean `Clock` sigue en UTC (`creado_en`, auditoría). Todo lo que depende del calendario local
 ("hoy", la hora actual, la ventana de 8 semanas) se calcula en `America/Lima` con
@@ -202,11 +207,13 @@ leyendo repositorios de `espacios` desde otro módulo):
 - **HU-10 (búsqueda por fecha), hecho:** `DisponibilidadService.conBloquesLibres(Collection<Long> espacioIds,
   LocalDate fecha) → Set<Long>` reutiliza `CalculoDisponibilidad` y consulta horario, bloqueos y el puerto
   (`bloquesReservadosDelDia`) una sola vez por lote. La búsqueda pagina en memoria sobre la lista ya filtrada.
-- **HU-11 (ficha pública):** necesita su propia ruta pública de disponibilidad (bajo `busqueda`, con el rate limiting
-  de HU-10). Con `horasLibres` basta para el CA2 ("veo los bloques libres"); si además quiere mostrar los ocupados,
-  agrega un método que devuelva los `Bloque` con su estado, sin `PASADO`/`BLOQUEADO`/`RESERVADO` distinguidos hacia
-  afuera (todos "no disponible", RNF-SEG-16). Cómo alimentar `SelectorBloques`: ver `docs/frontend.md` § Bloques
-  horarios.
+- **HU-11 (ficha pública), hecho:** ruta pública `GET /api/espacios/{id}/disponibilidad?fecha=` en `busqueda`
+  (`FichaService`), con el cupo del catálogo. Solo devuelve los bloques **libres** con `horasLibres`, sin cambiar
+  `DisponibilidadService`. Antes de calcular responde 404 genérico si el espacio no es visible
+  (`CatalogoEspaciosService.esVisible`) y 400 en `fecha` si la fecha no es válida o está fuera de `VentanaReserva`
+  (mismos textos que HU-08 y HU-10). Si una historia futura quiere mostrar los ocupados, agrega un método que devuelva
+  los `Bloque` con su estado, sin `PASADO`/`BLOQUEADO`/`RESERVADO` distinguidos hacia afuera (todos "no disponible",
+  RNF-SEG-16). Cómo alimentar `SelectorBloques`: ver `docs/frontend.md` § Bloques horarios.
 - **HU-12 (reservar):** el contrato DT-10 pide bloquear la fila de `espacio` antes de reservar, pero
   `EspacioRepository.findParaActualizar(id, arrendadorId)` exige ser el dueño y además es un repositorio de otro
   módulo. HU-12 agrega a `DisponibilidadService` un método transaccional que tome ese bloqueo **sin** filtrar por

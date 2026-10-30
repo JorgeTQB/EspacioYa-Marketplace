@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { buscarEspacios } from '../../api/busqueda.js'
 import { urlApi } from '../../api/cliente.js'
 import { listarZonas } from '../../api/espacios.js'
@@ -147,7 +147,12 @@ function BuscarEspacios() {
         <ul className={estilos.lista}>
           {datos.resultados.map((espacio) => (
             <li key={espacio.id}>
-              <Tarjeta titulo={espacio.nombre}>
+              <Tarjeta
+                titulo={espacio.nombre}
+                acciones={
+                  <Link to={`/espacios/${espacio.id}?${new URLSearchParams({ fecha })}`}>Ver espacio</Link>
+                }
+              >
                 <Imagen
                   src={espacio.fotoPrincipal ? urlApi(espacio.fotoPrincipal) : null}
                   alt={`Foto de ${espacio.nombre}`}

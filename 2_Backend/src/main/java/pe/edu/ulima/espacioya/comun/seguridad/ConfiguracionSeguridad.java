@@ -57,6 +57,9 @@ public class ConfiguracionSeguridad {
                         // trata como anónimo.
                         .requestMatchers(HttpMethod.GET, "/api/espacios").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/zonas").permitAll()
+                        // Ficha pública y sus bloques libres (HU-11 DT-12); cualquier otra subruta exige sesión.
+                        .requestMatchers(HttpMethod.GET, "/api/espacios/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/espacios/*/disponibilidad").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

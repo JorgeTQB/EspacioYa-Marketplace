@@ -4,12 +4,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
+import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FotoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
@@ -77,5 +79,31 @@ public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {
         }
         return fotos.findByEspacioIdInAndOrden(espacioIds, ORDEN_FOTO_PRINCIPAL).stream()
                 .collect(Collectors.toMap(FotoEspacio::getEspacioId, EspacioService::urlDe, (a, b) -> a));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<FichaPublicada> publicado(Long espacioId) {
+        return visible(espacioId).map(espacio -> new FichaPublicada(espacio.getId(), espacio.getNombre(),
+                espacio.getTipo().name(), espacio.getDireccion(), espacio.getZona(),
+                zonas.findById(espacio.getZona()).map(Zona::getNombre).orElse(espacio.getZona()),
+                espacio.getCapacidad(), espacio.getPrecioHora(), espacio.getDescripcion(),
+                fotos.findByEspacioIdOrderByOrdenAsc(espacio.getId()).stream().map(EspacioService::urlDe).toList()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean esVisible(Long espacioId) {
+        return visible(espacioId).isPresent();
+    }
+
+    // Misma regla que la búsqueda, las fotos y horasLibres (HU-09 D1): PUBLICADO y arrendador ACTIVA.
+    private Optional<Espacio> visible(Long espacioId) {
+        if (espacioId == null) {
+            return Optional.empty();
+        }
+        return espacios.findById(espacioId)
+                .filter(espacio -> espacio.getEstado() == EstadoEspacio.PUBLICADO)
+                .filter(espacio -> cuentas.cuentaActiva(espacio.getArrendadorId()));
     }
 }
