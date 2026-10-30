@@ -34,9 +34,23 @@ class ZonaControllerIT extends EspaciosControllerSoporte {
     }
 
     @Test
-    @DisplayName("HU-07 R43: sin sesión el catálogo de zonas responde 401 con el mensaje de sesión inválida")
+    @DisplayName("HU-10 R13: sin sesión el catálogo de zonas responde 200 (reemplaza HU-07 R43 para /api/zonas)")
     void sinSesion() throws Exception {
-        mvc.perform(desde(get(ZONAS))).andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.mensaje").value(SESION_INVALIDA));
+        var cuerpo = mvc.perform(desde(get(ZONAS))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var zonas = lista(cuerpo);
+        assertThat(zonas).hasSize(50);
+        assertThat(zonas).allSatisfy(zona -> assertThat(zona).containsOnlyKeys("codigo", "nombre"));
+        var nombres = zonas.stream().map(zona -> (String) zona.get("nombre")).toList();
+        var orden = Collator.getInstance(Locale.of("es", "PE"));
+        assertThat(nombres).isSortedAccordingTo(orden::compare);
+    }
+
+    @Test
+    @DisplayName("HU-10 R13: con un token inválido el catálogo de zonas responde 200 igual que sin sesión")
+    void tokenInvalido() throws Exception {
+        mvc.perform(con("token-que-no-existe", get(ZONAS))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(50));
     }
 }

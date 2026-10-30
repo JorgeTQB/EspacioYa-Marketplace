@@ -1,5 +1,6 @@
 package pe.edu.ulima.espacioya.espacios.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,8 @@ public interface HorarioSemanalRepository extends JpaRepository<HorarioSemanal, 
     List<HorarioSemanal> findByEspacioIdOrderByDiaSemanaAscHoraInicioAsc(Long espacioId);
 
     List<HorarioSemanal> findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(Long espacioId, short diaSemana);
+
+    List<HorarioSemanal> findByEspacioIdInAndDiaSemana(Collection<Long> espacioIds, short diaSemana);
 
     // Masivo y en el acto: con deleteAll + saveAll, Hibernate ejecutaría los INSERT antes que los DELETE y
     // chocaría con uq_horario_semanal_inicio al conservar una franja que empieza a la misma hora.
