@@ -151,6 +151,16 @@ class RevisionIdentidadControllerIT {
             avisos.add(new Aviso("RECHAZADA", correoNormalizado, motivo));
         }
 
+        @Override
+        public void notificarCuentaSuspendida(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-06 no suspende cuentas");
+        }
+
+        @Override
+        public void notificarCuentaReactivada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-06 no reactiva cuentas");
+        }
+
         List<Aviso> avisos() {
             return avisos;
         }

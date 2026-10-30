@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Limit;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -40,10 +42,14 @@ import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumentoIdentidad;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.dto.ArrendadorEnRevisionDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.CambioEstadoCuentaDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.CuentaResumenDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.DetalleCuentaDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.DocumentoIdentidadRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository.EnRevision;
+import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,12 +71,14 @@ class CuentaServiceImplTest {
     private ArchivosPrivados archivos;
     @Mock
     private NotificadorCorreo notificador;
+    @Mock
+    private SesionRepository sesiones;
 
     private CuentaServiceImpl servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new CuentaServiceImpl(usuarios, perfiles, documentos, archivos, notificador);
+        servicio = new CuentaServiceImpl(usuarios, perfiles, documentos, archivos, notificador, sesiones);
     }
 
     @AfterEach
@@ -366,5 +374,263 @@ class CuentaServiceImplTest {
         }
         assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
         verifyNoInteractions(notificador);
+    }
+
+    // ── HU-09: suspensión y reactivación ─────────────────────────────────
+
+    private static Usuario cuenta(long id, Rol rol, EstadoUsuario estado) {
+        var usuario = Usuario.registrar("cuenta" + id + "@correo.pe", "$2a$12$hash", "2026-10", AHORA);
+        ReflectionTestUtils.setField(usuario, "id", id);
+        ReflectionTestUtils.setField(usuario, "rol", rol);
+        ReflectionTestUtils.setField(usuario, "estado", estado);
+        return usuario;
+    }
+
+    private Usuario dadoParaCambiar(Rol rol, EstadoUsuario estado) {
+        var usuario = cuenta(ID, rol, estado);
+        when(usuarios.findParaActualizar(ID)).thenReturn(Optional.of(usuario));
+        return usuario;
+    }
+
+    @Test
+    @DisplayName("HU-09 R40: con rol USUARIO, ARRENDADOR o sin sesión los 4 métodos del admin lanzan AccesoDenegado "
+            + "sin consultar repositorios")
+    void rolDistintoDeAdminEnMetodosDeSuspension() {
+        var usuarioRol = new UsuarioAutenticado(ID, 31L, "USUARIO");
+        var arrendadorRol = new UsuarioAutenticado(ID, 31L, "ARRENDADOR");
+        for (var usuario : new UsuarioAutenticado[] {usuarioRol, arrendadorRol, null}) {
+            assertThatThrownBy(() -> servicio.buscarCuentas(usuario, "ana"))
+                    .isInstanceOf(AccesoDenegadoException.class);
+            assertThatThrownBy(() -> servicio.detalleCuenta(usuario, ID))
+                    .isInstanceOf(AccesoDenegadoException.class);
+            assertThatThrownBy(() -> servicio.suspenderCuenta(usuario, ID, "Fraude"))
+                    .isInstanceOf(AccesoDenegadoException.class);
+            assertThatThrownBy(() -> servicio.reactivarCuenta(usuario, ID))
+                    .isInstanceOf(AccesoDenegadoException.class);
+        }
+        verifyNoInteractions(usuarios, perfiles, documentos, archivos, notificador, sesiones);
+    }
+
+    @Test
+    @DisplayName("HU-09 R4: el patrón de búsqueda va en minúsculas, con %, _ y \\ escapados, y pide 21 filas")
+    void patronEscapadoYLimite() {
+        when(usuarios.buscar(anyString(), any(Limit.class))).thenReturn(List.of());
+
+        servicio.buscarCuentas(ADMIN, "A%b_C\\");
+
+        verify(usuarios).buscar("%a\\%b\\_c\\\\%", Limit.of(21));
+        assertThat(CuentaServiceImpl.escaparComodines("50%_\\x")).isEqualTo("50\\%\\_\\\\x");
+    }
+
+    @Test
+    @DisplayName("HU-09 R1, R2, R3: con 21 coincidencias devuelve las 20 primeras con sus 5 campos y hayMas")
+    void veintiunaCoincidenciasDanVeinteYHayMas() {
+        var filas = LongStream.rangeClosed(1, 21)
+                .mapToObj(id -> cuenta(id, Rol.USUARIO, EstadoUsuario.ACTIVA)).toList();
+        when(usuarios.buscar(anyString(), any(Limit.class))).thenReturn(filas);
+
+        var resultado = servicio.buscarCuentas(ADMIN, "cuenta");
+
+        assertThat(resultado.hayMas()).isTrue();
+        assertThat(resultado.cuentas()).hasSize(20);
+        assertThat(resultado.cuentas().getFirst())
+                .isEqualTo(new CuentaResumenDTO(1L, null, "cuenta1@correo.pe", "USUARIO", "ACTIVA"));
+        assertThat(resultado.cuentas().getLast().id()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("HU-09 R3: con 20 coincidencias o menos hayMas es false")
+    void veinteCoincidenciasSinHayMas() {
+        var filas = LongStream.rangeClosed(1, 20)
+                .mapToObj(id -> cuenta(id, Rol.ARRENDADOR, EstadoUsuario.SUSPENDIDA)).toList();
+        when(usuarios.buscar(anyString(), any(Limit.class))).thenReturn(filas);
+
+        var resultado = servicio.buscarCuentas(ADMIN, "cuenta");
+
+        assertThat(resultado.hayMas()).isFalse();
+        assertThat(resultado.cuentas()).hasSize(20);
+    }
+
+    @Test
+    @DisplayName("HU-09 R12: el detalle de una cuenta inexistente lanza RecursoNoEncontrado")
+    void detalleInexistenteDa404() {
+        when(usuarios.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.detalleCuenta(ADMIN, 404L))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("HU-09 R7, R8, R9: el detalle de un ARRENDADOR ACTIVA trae su identidad y puede suspenderse")
+    void detalleDeArrendador() {
+        when(usuarios.findById(ID)).thenReturn(Optional.of(arrendador(ID, EstadoUsuario.ACTIVA)));
+        when(perfiles.findById(ID)).thenReturn(Optional.of(perfil(ID, EstadoIdentidad.EN_REVISION)));
+
+        var detalle = servicio.detalleCuenta(ADMIN, ID);
+
+        assertThat(detalle).isEqualTo(new DetalleCuentaDTO(ID, "Ana 7", "arrendador7@correo.pe", "987654321",
+                "ARRENDADOR", "ACTIVA", true, "EN_REVISION", true, false));
+        assertThat(detalle.toString()).doesNotContain("20100070970").doesNotContain("Canchas");
+    }
+
+    @Test
+    @DisplayName("HU-09 R8, R9: un USUARIO no tiene identidad; banderas según rol y estado")
+    void detalleSinIdentidadYBanderas() {
+        when(usuarios.findById(ID)).thenReturn(Optional.of(cuenta(ID, Rol.USUARIO, EstadoUsuario.SUSPENDIDA)));
+        when(usuarios.findById(8L)).thenReturn(Optional.of(cuenta(8L, Rol.ADMIN, EstadoUsuario.ACTIVA)));
+        when(usuarios.findById(9L)).thenReturn(Optional.of(cuenta(9L, Rol.USUARIO, EstadoUsuario.ELIMINADA)));
+
+        var suspendida = servicio.detalleCuenta(ADMIN, ID);
+        var admin = servicio.detalleCuenta(ADMIN, 8L);
+        var eliminada = servicio.detalleCuenta(ADMIN, 9L);
+
+        assertThat(suspendida.estadoIdentidad()).isNull();
+        assertThat(suspendida.puedeSuspender()).isFalse();
+        assertThat(suspendida.puedeReactivar()).isTrue();
+        assertThat(admin.puedeSuspender()).isFalse();
+        assertThat(admin.puedeReactivar()).isFalse();
+        assertThat(eliminada.puedeSuspender()).isFalse();
+        assertThat(eliminada.puedeReactivar()).isFalse();
+        verifyNoInteractions(perfiles);
+    }
+
+    @Test
+    @DisplayName("HU-09 R15, R16, R18: suspender bloquea, cambia el estado, revoca después y avisa solo tras el commit")
+    void suspenderRevocaYAvisaTrasElCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        var usuario = dadoParaCambiar(Rol.ARRENDADOR, EstadoUsuario.ACTIVA);
+        when(sesiones.revocarTodas(ID)).thenAnswer(invocacion -> {
+            assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+            return 2;
+        });
+
+        var cambio = servicio.suspenderCuenta(ADMIN, ID, "  Publicó datos falsos.  ");
+
+        assertThat(cambio).isEqualTo(new CambioEstadoCuentaDTO("SUSPENDIDA", 2));
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+        verify(sesiones).revocarTodas(ID);
+        verifyNoInteractions(notificador);
+        confirmar();
+        verify(notificador).notificarCuentaSuspendida("cuenta7@correo.pe", "Publicó datos falsos.");
+        verify(notificador, never()).notificarCuentaReactivada(anyString());
+    }
+
+    @Test
+    @DisplayName("HU-09 R30, R32: reactivar deja ACTIVA, no revoca sesiones y avisa solo tras el commit")
+    void reactivarAvisaTrasElCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        var usuario = dadoParaCambiar(Rol.USUARIO, EstadoUsuario.SUSPENDIDA);
+
+        var cambio = servicio.reactivarCuenta(ADMIN, ID);
+
+        assertThat(cambio).isEqualTo(new CambioEstadoCuentaDTO("ACTIVA", 0));
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+        verifyNoInteractions(sesiones, notificador);
+        confirmar();
+        verify(notificador).notificarCuentaReactivada("cuenta7@correo.pe");
+        verify(notificador, never()).notificarCuentaSuspendida(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("HU-09 R39: si la transacción se revierte no se invoca el notificador")
+    void suspensionYReactivacionRevertidasNoAvisan() {
+        TransactionSynchronizationManager.initSynchronization();
+        dadoParaCambiar(Rol.ARRENDADOR, EstadoUsuario.ACTIVA);
+        servicio.suspenderCuenta(ADMIN, ID, "Fraude");
+        when(usuarios.findParaActualizar(8L)).thenReturn(Optional.of(cuenta(8L, Rol.USUARIO,
+                EstadoUsuario.SUSPENDIDA)));
+        servicio.reactivarCuenta(ADMIN, 8L);
+
+        revertir();
+
+        verifyNoInteractions(notificador);
+    }
+
+    @Test
+    @DisplayName("HU-09 R34, R39: suspender o reactivar una cuenta inexistente → 404 sin revocar ni avisar")
+    void cambioSobreCuentaInexistenteDa404() {
+        TransactionSynchronizationManager.initSynchronization();
+        when(usuarios.findParaActualizar(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.suspenderCuenta(ADMIN, 404L, "Fraude"))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.reactivarCuenta(ADMIN, 404L))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        verifyNoInteractions(sesiones, notificador);
+    }
+
+    @Test
+    @DisplayName("HU-09 R35, R39: suspender o reactivar una cuenta ADMIN o ELIMINADA → 400 no gestionable sin cambios")
+    void cambioSobreCuentaNoGestionableDa400() {
+        TransactionSynchronizationManager.initSynchronization();
+        for (var rolYEstado : new Object[][] {{Rol.ADMIN, EstadoUsuario.ACTIVA}, {Rol.ADMIN, EstadoUsuario.SUSPENDIDA},
+                {Rol.USUARIO, EstadoUsuario.ELIMINADA}, {Rol.ARRENDADOR, EstadoUsuario.ELIMINADA}}) {
+            var usuario = dadoParaCambiar((Rol) rolYEstado[0], (EstadoUsuario) rolYEstado[1]);
+
+            assertThatThrownBy(() -> servicio.suspenderCuenta(ADMIN, ID, "Fraude"))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessage("Esta cuenta no se puede suspender ni reactivar.");
+            assertThatThrownBy(() -> servicio.reactivarCuenta(ADMIN, ID))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessage("Esta cuenta no se puede suspender ni reactivar.");
+            assertThat(usuario.getEstado()).isEqualTo(rolYEstado[1]);
+        }
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        verifyNoInteractions(sesiones, notificador);
+    }
+
+    @Test
+    @DisplayName("HU-09 R36, R37, R39: suspender una SUSPENDIDA o reactivar una ACTIVA → 400 sin cambios ni aviso")
+    void cambioSobreEstadoIgualDa400() {
+        TransactionSynchronizationManager.initSynchronization();
+        var suspendida = dadoParaCambiar(Rol.USUARIO, EstadoUsuario.SUSPENDIDA);
+        assertThatThrownBy(() -> servicio.suspenderCuenta(ADMIN, ID, "Fraude"))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Esta cuenta ya está suspendida. Actualiza la página.");
+        assertThat(suspendida.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+
+        var activa = dadoParaCambiar(Rol.ARRENDADOR, EstadoUsuario.ACTIVA);
+        assertThatThrownBy(() -> servicio.reactivarCuenta(ADMIN, ID))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage("Esta cuenta ya está activa. Actualiza la página.");
+        assertThat(activa.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        verifyNoInteractions(sesiones, notificador);
+    }
+
+    @Test
+    @DisplayName("HU-09 R19, R39: suspender sin motivo o con motivo en blanco lanza sin consultar ni avisar")
+    void suspenderSinMotivoLanza() {
+        assertThatThrownBy(() -> servicio.suspenderCuenta(ADMIN, ID, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> servicio.suspenderCuenta(ADMIN, ID, "   "))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(usuarios, sesiones, notificador);
+    }
+
+    @Test
+    @DisplayName("HU-09 R27: cuentaActiva es true solo para una cuenta existente ACTIVA, sin pedir rol")
+    void cuentaActivaSoloSiExisteYEstaActiva() {
+        when(usuarios.findById(1L)).thenReturn(Optional.of(cuenta(1L, Rol.ARRENDADOR, EstadoUsuario.ACTIVA)));
+        when(usuarios.findById(2L)).thenReturn(Optional.of(cuenta(2L, Rol.ARRENDADOR, EstadoUsuario.SUSPENDIDA)));
+        when(usuarios.findById(3L)).thenReturn(Optional.of(cuenta(3L, Rol.USUARIO, EstadoUsuario.ELIMINADA)));
+        when(usuarios.findById(404L)).thenReturn(Optional.empty());
+
+        assertThat(servicio.cuentaActiva(1L)).isTrue();
+        assertThat(servicio.cuentaActiva(2L)).isFalse();
+        assertThat(servicio.cuentaActiva(3L)).isFalse();
+        assertThat(servicio.cuentaActiva(404L)).isFalse();
+        assertThat(servicio.cuentaActiva(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-09 R28: arrendadoresNoActivos devuelve los ids de la consulta como conjunto, sin pedir rol")
+    void arrendadoresNoActivosComoConjunto() {
+        when(usuarios.findIdsArrendadoresNoActivos()).thenReturn(List.of(4L, 9L));
+
+        assertThat(servicio.arrendadoresNoActivos()).containsExactlyInAnyOrder(4L, 9L);
     }
 }

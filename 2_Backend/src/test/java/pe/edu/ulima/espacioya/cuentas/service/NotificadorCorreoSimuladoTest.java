@@ -90,4 +90,32 @@ class NotificadorCorreoSimuladoTest {
                 .doesNotContain(motivo);
         assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("44556677");
     }
+
+    @Test
+    @DisplayName("HU-09 R47: el aviso simulado de cuenta suspendida no escribe el correo ni el motivo")
+    void cuentaSuspendidaSinCorreoNiMotivo(CapturedOutput salida) {
+        var motivo = "Publicó un espacio con el teléfono 912345678 de otra persona";
+
+        new NotificadorCorreoSimulado(true).notificarCuentaSuspendida("ana.secreta@correo.pe", motivo);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de cuenta suspendida simulado: no se envió ningún correo (HU-09).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("912345678")
+                .doesNotContain(motivo);
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("912345678");
+    }
+
+    @Test
+    @DisplayName("HU-09 R47: el aviso simulado de cuenta reactivada no escribe el correo")
+    void cuentaReactivadaSinCorreo(CapturedOutput salida) {
+        new NotificadorCorreoSimulado(true).notificarCuentaReactivada("ana.secreta@correo.pe");
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).")
+                .doesNotContain("ana.secreta");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
 }

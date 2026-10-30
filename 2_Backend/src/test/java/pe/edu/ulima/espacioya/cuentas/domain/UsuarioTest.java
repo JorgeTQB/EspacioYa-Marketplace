@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.cuentas.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 
@@ -132,6 +133,88 @@ class UsuarioTest {
         assertThat(admin.getVersionPolitica()).isEqualTo("2026-10");
         assertThat(admin.getFechaConsentimiento()).isEqualTo(AHORA);
         assertThat(admin.getNombre()).isNull();
+    }
+
+    private static Usuario conRolYEstado(Rol rol, EstadoUsuario estado) {
+        var usuario = usuarioActivo();
+        ReflectionTestUtils.setField(usuario, "rol", rol);
+        ReflectionTestUtils.setField(usuario, "estado", estado);
+        return usuario;
+    }
+
+    @Test
+    @DisplayName("HU-09 R9, R35: solo USUARIO y ARRENDADOR no eliminados son gestionables por el admin")
+    void gestionablePorRolYEstado() {
+        assertThat(conRolYEstado(Rol.USUARIO, EstadoUsuario.ACTIVA).esGestionablePorAdmin()).isTrue();
+        assertThat(conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ACTIVA).esGestionablePorAdmin()).isTrue();
+        assertThat(conRolYEstado(Rol.USUARIO, EstadoUsuario.SUSPENDIDA).esGestionablePorAdmin()).isTrue();
+        assertThat(conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.SUSPENDIDA).esGestionablePorAdmin()).isTrue();
+        assertThat(conRolYEstado(Rol.ADMIN, EstadoUsuario.ACTIVA).esGestionablePorAdmin()).isFalse();
+        assertThat(conRolYEstado(Rol.ADMIN, EstadoUsuario.SUSPENDIDA).esGestionablePorAdmin()).isFalse();
+        assertThat(conRolYEstado(Rol.USUARIO, EstadoUsuario.ELIMINADA).esGestionablePorAdmin()).isFalse();
+        assertThat(conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ELIMINADA).esGestionablePorAdmin()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-09 R9: puede suspenderse solo gestionable ACTIVA y reactivarse solo gestionable SUSPENDIDA")
+    void banderasDeSuspensionYReactivacion() {
+        var activa = conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ACTIVA);
+        var suspendida = conRolYEstado(Rol.USUARIO, EstadoUsuario.SUSPENDIDA);
+        var admin = conRolYEstado(Rol.ADMIN, EstadoUsuario.ACTIVA);
+        var eliminada = conRolYEstado(Rol.USUARIO, EstadoUsuario.ELIMINADA);
+
+        assertThat(activa.puedeSuspenderse()).isTrue();
+        assertThat(activa.puedeReactivarse()).isFalse();
+        assertThat(suspendida.puedeSuspenderse()).isFalse();
+        assertThat(suspendida.puedeReactivarse()).isTrue();
+        assertThat(admin.puedeSuspenderse()).isFalse();
+        assertThat(admin.puedeReactivarse()).isFalse();
+        assertThat(eliminada.puedeSuspenderse()).isFalse();
+        assertThat(eliminada.puedeReactivarse()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-09 R15, R30: suspender y reactivar llevan ACTIVA → SUSPENDIDA → ACTIVA")
+    void suspenderYReactivar() {
+        var usuario = conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ACTIVA);
+
+        usuario.suspender();
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+        assertThat(usuario.motivoRechazoInicioSesion()).contains(MotivoRechazoInicioSesion.CUENTA_NO_ACTIVA);
+
+        usuario.reactivar();
+        assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+        assertThat(usuario.motivoRechazoInicioSesion()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-09 R35, R36: suspender una cuenta SUSPENDIDA, ADMIN o ELIMINADA lanza sin cambiar el estado")
+    void suspenderFueraDeEstadoLanza() {
+        var suspendida = conRolYEstado(Rol.USUARIO, EstadoUsuario.SUSPENDIDA);
+        var admin = conRolYEstado(Rol.ADMIN, EstadoUsuario.ACTIVA);
+        var eliminada = conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ELIMINADA);
+
+        assertThatThrownBy(suspendida::suspender).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(admin::suspender).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(eliminada::suspender).isInstanceOf(IllegalStateException.class);
+        assertThat(suspendida.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+        assertThat(admin.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+        assertThat(eliminada.getEstado()).isEqualTo(EstadoUsuario.ELIMINADA);
+    }
+
+    @Test
+    @DisplayName("HU-09 R35, R37: reactivar una cuenta ACTIVA, ADMIN o ELIMINADA lanza sin cambiar el estado")
+    void reactivarFueraDeEstadoLanza() {
+        var activa = conRolYEstado(Rol.USUARIO, EstadoUsuario.ACTIVA);
+        var admin = conRolYEstado(Rol.ADMIN, EstadoUsuario.SUSPENDIDA);
+        var eliminada = conRolYEstado(Rol.ARRENDADOR, EstadoUsuario.ELIMINADA);
+
+        assertThatThrownBy(activa::reactivar).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(admin::reactivar).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(eliminada::reactivar).isInstanceOf(IllegalStateException.class);
+        assertThat(activa.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
+        assertThat(admin.getEstado()).isEqualTo(EstadoUsuario.SUSPENDIDA);
+        assertThat(eliminada.getEstado()).isEqualTo(EstadoUsuario.ELIMINADA);
     }
 
     @Test

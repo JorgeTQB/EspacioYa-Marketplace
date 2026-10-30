@@ -139,6 +139,16 @@ class RecuperacionContrasenaControllerIT {
             throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
         }
 
+        @Override
+        public void notificarCuentaSuspendida(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarCuentaReactivada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
         List<Envio> envios() {
             return envios;
         }

@@ -44,4 +44,15 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
     public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
         log.info("Envío de correo de identidad rechazada simulado: no se envió ningún correo (HU-06).");
     }
+
+    // Igual que los avisos de identidad: ni el correo ni el motivo de la suspensión van al log (HU-09, R47).
+    @Override
+    public void notificarCuentaSuspendida(String correoNormalizado, String motivo) {
+        log.info("Envío de correo de cuenta suspendida simulado: no se envió ningún correo (HU-09).");
+    }
+
+    @Override
+    public void notificarCuentaReactivada(String correoNormalizado) {
+        log.info("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).");
+    }
 }

@@ -71,6 +71,30 @@ class FotoPublicaControllerIT extends EspaciosControllerSoporte {
     }
 
     @Test
+    @DisplayName("HU-09 R22, R24: con el arrendador SUSPENDIDA la foto de su PUBLICADO responde 404 sin sesión; al "
+            + "volver a ACTIVA se sirve otra vez pública")
+    void fotoPublicadaSegunElEstadoDelArrendador() throws Exception {
+        var fotos = espacioConFotos("PUBLICADO");
+        crearArrendador(OTRO_CORREO);
+        var otro = token(OTRO_CORREO);
+
+        jdbc.update("UPDATE usuario SET estado = 'SUSPENDIDA' WHERE correo = ?", CORREO);
+        for (var token : new String[] {null, otro}) {
+            noEncontrada(verFoto(token, fotos.jpeg()));
+            noEncontrada(verFoto(token, fotos.png()));
+        }
+
+        jdbc.update("UPDATE usuario SET estado = 'ACTIVA' WHERE correo = ?", CORREO);
+        var cuerpo = verFoto(null, fotos.jpeg()).andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/jpeg"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "public, max-age=3600"))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(cuerpo).isEqualTo(enDisco(fotos.jpeg()));
+        assertThat(jdbc.queryForObject("SELECT estado FROM espacio WHERE id = ?", String.class, fotos.espacioId()))
+                .isEqualTo("PUBLICADO");
+    }
+
+    @Test
     @DisplayName("HU-07 R54: la foto de un BORRADOR o un PAUSADO se sirve a su dueño con no-store")
     void fotoNoPublicadaDelDueno() throws Exception {
         var fotos = espacioConFotos("BORRADOR");

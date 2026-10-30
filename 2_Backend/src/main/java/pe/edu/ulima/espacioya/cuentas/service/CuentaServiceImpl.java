@@ -2,12 +2,15 @@ package pe.edu.ulima.espacioya.cuentas.service;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -25,18 +28,27 @@ import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.domain.Rol;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.dto.ArrendadorEnRevisionDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.BusquedaCuentasDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.CambioEstadoCuentaDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.CuentaResumenDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.DetalleCuentaDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.DocumentoIdentidadDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.ExpedienteIdentidadDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.DocumentoIdentidadRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository.EnRevision;
+import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
 
 @Service
 public class CuentaServiceImpl implements CuentaService {
 
     public static final String MENSAJE_YA_REVISADA = "Este arrendador ya no está en revisión. Actualiza la cola.";
+    public static final String MENSAJE_NO_GESTIONABLE = "Esta cuenta no se puede suspender ni reactivar.";
+    public static final String MENSAJE_YA_SUSPENDIDA = "Esta cuenta ya está suspendida. Actualiza la página.";
+    public static final String MENSAJE_YA_ACTIVA = "Esta cuenta ya está activa. Actualiza la página.";
+    public static final int MAXIMO_RESULTADOS_BUSQUEDA = 20;
 
     private static final Logger log = LoggerFactory.getLogger(CuentaServiceImpl.class);
 
@@ -45,15 +57,17 @@ public class CuentaServiceImpl implements CuentaService {
     private final DocumentoIdentidadRepository documentos;
     private final ArchivosPrivados archivos;
     private final NotificadorCorreo notificador;
+    private final SesionRepository sesiones;
 
     public CuentaServiceImpl(UsuarioRepository usuarios, PerfilArrendadorRepository perfiles,
                              DocumentoIdentidadRepository documentos, ArchivosPrivados archivos,
-                             NotificadorCorreo notificador) {
+                             NotificadorCorreo notificador, SesionRepository sesiones) {
         this.usuarios = usuarios;
         this.perfiles = perfiles;
         this.documentos = documentos;
         this.archivos = archivos;
         this.notificador = notificador;
+        this.sesiones = sesiones;
     }
 
     @Override
@@ -128,6 +142,101 @@ public class CuentaServiceImpl implements CuentaService {
         return decision.perfil().getEstadoIdentidad().name();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public BusquedaCuentasDTO buscarCuentas(UsuarioAutenticado admin, String textoRecortado) {
+        exigirAdmin(admin);
+        var patron = "%" + escaparComodines(textoRecortado.toLowerCase(Locale.ROOT)) + "%";
+        // Se pide una de más para saber si hay más sin un count (DT-5).
+        var encontradas = usuarios.buscar(patron, Limit.of(MAXIMO_RESULTADOS_BUSQUEDA + 1));
+        var hayMas = encontradas.size() > MAXIMO_RESULTADOS_BUSQUEDA;
+        var cuentas = encontradas.stream().limit(MAXIMO_RESULTADOS_BUSQUEDA)
+                .map(cuenta -> new CuentaResumenDTO(cuenta.getId(), cuenta.getNombre(), cuenta.getCorreo(),
+                        cuenta.getRol().name(), cuenta.getEstado().name()))
+                .toList();
+        return new BusquedaCuentasDTO(cuentas, hayMas);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DetalleCuentaDTO detalleCuenta(UsuarioAutenticado admin, Long cuentaId) {
+        exigirAdmin(admin);
+        var cuenta = usuarios.findById(cuentaId).orElseThrow(RecursoNoEncontradoException::new);
+        String estadoIdentidad = null;
+        if (cuenta.getRol() == Rol.ARRENDADOR) {
+            estadoIdentidad = perfiles.findById(cuentaId).map(perfil -> perfil.getEstadoIdentidad().name())
+                    .orElse(null);
+        }
+        return new DetalleCuentaDTO(cuenta.getId(), cuenta.getNombre(), cuenta.getCorreo(), cuenta.getTelefono(),
+                cuenta.getRol().name(), cuenta.getEstado().name(), cuenta.isCorreoVerificado(), estadoIdentidad,
+                cuenta.puedeSuspenderse(), cuenta.puedeReactivarse());
+    }
+
+    @Override
+    @Transactional
+    public CambioEstadoCuentaDTO suspenderCuenta(UsuarioAutenticado admin, Long cuentaId, String motivo) {
+        exigirAdmin(admin);
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("Una suspensión exige un motivo");
+        }
+        var cuenta = paraCambiarEstado(cuentaId);
+        if (!cuenta.puedeSuspenderse()) {
+            throw new ReglaNegocioException(MENSAJE_YA_SUSPENDIDA);
+        }
+        cuenta.suspender();
+        var estado = cuenta.getEstado().name();
+        var correo = cuenta.getCorreo();
+        var motivoRecortado = motivo.strip();
+        // revocarTodas escribe antes el estado (flush) y deja la cuenta detached (clear): no se vuelve a usar.
+        var revocadas = sesiones.revocarTodas(cuentaId);
+        despuesDelCommit(() -> notificador.notificarCuentaSuspendida(correo, motivoRecortado));
+        return new CambioEstadoCuentaDTO(estado, revocadas);
+    }
+
+    @Override
+    @Transactional
+    public CambioEstadoCuentaDTO reactivarCuenta(UsuarioAutenticado admin, Long cuentaId) {
+        exigirAdmin(admin);
+        var cuenta = paraCambiarEstado(cuentaId);
+        if (!cuenta.puedeReactivarse()) {
+            throw new ReglaNegocioException(MENSAJE_YA_ACTIVA);
+        }
+        cuenta.reactivar();
+        var correo = cuenta.getCorreo();
+        despuesDelCommit(() -> notificador.notificarCuentaReactivada(correo));
+        return new CambioEstadoCuentaDTO(cuenta.getEstado().name(), 0);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean cuentaActiva(Long usuarioId) {
+        if (usuarioId == null) {
+            return false;
+        }
+        return usuarios.findById(usuarioId).map(cuenta -> cuenta.getEstado() == EstadoUsuario.ACTIVA).orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> arrendadoresNoActivos() {
+        return Set.copyOf(usuarios.findIdsArrendadoresNoActivos());
+    }
+
+    // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).
+    // Orden fijo: existe (404) → gestionable (400) → estado (400, lo comprueba cada llamador).
+    private Usuario paraCambiarEstado(Long cuentaId) {
+        var cuenta = usuarios.findParaActualizar(cuentaId).orElseThrow(RecursoNoEncontradoException::new);
+        if (!cuenta.esGestionablePorAdmin()) {
+            throw new ReglaNegocioException(MENSAJE_NO_GESTIONABLE);
+        }
+        return cuenta;
+    }
+
+    // El texto se compara literal (R4). La barra se escapa primero para no duplicar los escapes de % y _.
+    static String escaparComodines(String texto) {
+        return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
     // Defensa en profundidad (HU-06, R41): administracion ya validó el rol, pero ningún otro llamador lo salta.
     private static void exigirAdmin(UsuarioAutenticado admin) {
         if (admin == null || !Rol.ADMIN.name().equals(admin.rol())) {
@@ -152,7 +261,7 @@ public class CuentaServiceImpl implements CuentaService {
         return new Decision(cuenta, perfil);
     }
 
-    // No se avisa una decisión que hizo rollback (R40). Un fallo del envío no revierte la decisión ya confirmada.
+    // No se avisa una acción que hizo rollback (HU-06 R40, HU-09 R39). Un fallo del envío no revierte lo confirmado.
     private static void despuesDelCommit(Runnable aviso) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -160,7 +269,7 @@ public class CuentaServiceImpl implements CuentaService {
                 try {
                     aviso.run();
                 } catch (RuntimeException e) {
-                    log.warn("No se pudo enviar el aviso de la decisión de identidad");
+                    log.warn("No se pudo enviar un aviso por correo tras confirmar la transacción");
                 }
             }
         });

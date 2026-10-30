@@ -22,6 +22,7 @@ import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FotoEspacio;
@@ -60,11 +61,12 @@ public class FotoEspacioService {
     private final ArchivosPublicos archivos;
     private final AuditoriaService auditoria;
     private final TransactionTemplate transacciones;
+    private final CuentaService cuentas;
     private final Clock reloj;
 
     public FotoEspacioService(EspacioService espacioService, EspacioRepository espacios, FotoEspacioRepository fotos,
                               ValidadorArchivo validador, ArchivosPublicos archivos, AuditoriaService auditoria,
-                              TransactionTemplate transacciones, Clock reloj) {
+                              TransactionTemplate transacciones, CuentaService cuentas, Clock reloj) {
         this.espacioService = espacioService;
         this.espacios = espacios;
         this.fotos = fotos;
@@ -72,6 +74,7 @@ public class FotoEspacioService {
         this.archivos = archivos;
         this.auditoria = auditoria;
         this.transacciones = transacciones;
+        this.cuentas = cuentas;
         this.reloj = reloj;
     }
 
@@ -111,8 +114,9 @@ public class FotoEspacioService {
     }
 
     /**
-     * Foto lista para servir: de un espacio publicado, a cualquiera; si no, solo a su dueño ({@code usuario} es
-     * {@code null} sin sesión). Cualquier otro caso lanza el mismo 404, sin revelar si la foto existe (R55).
+     * Foto lista para servir: de un espacio publicado cuyo arrendador está activo, a cualquiera; si no, solo a su
+     * dueño ({@code usuario} es {@code null} sin sesión). Cualquier otro caso lanza el mismo 404, sin revelar si la
+     * foto existe (R55). Un arrendador suspendido no tiene sesión, así que sus fotos no se ven (HU-09 R22).
      */
     @Transactional(readOnly = true)
     public FotoServida ver(UsuarioAutenticado usuario, String uuid) {
@@ -122,7 +126,8 @@ public class FotoEspacioService {
         }
         var foto = fotos.findByRutaArchivo(CARPETA + "/" + uuid).orElseThrow(RecursoNoEncontradoException::new);
         var espacio = espacios.findById(foto.getEspacioId()).orElseThrow(RecursoNoEncontradoException::new);
-        var publica = espacio.getEstado() == EstadoEspacio.PUBLICADO;
+        var publica = espacio.getEstado() == EstadoEspacio.PUBLICADO
+                && cuentas.cuentaActiva(espacio.getArrendadorId());
         if (!publica && (usuario == null || !usuario.usuarioId().equals(espacio.getArrendadorId()))) {
             throw new RecursoNoEncontradoException();
         }

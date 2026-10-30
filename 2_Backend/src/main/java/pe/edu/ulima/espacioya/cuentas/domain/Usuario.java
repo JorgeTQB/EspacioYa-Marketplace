@@ -116,6 +116,33 @@ public class Usuario {
         hashContrasena = nuevoHash;
     }
 
+    // Un admin nunca se suspende, tampoco a sí mismo: no tiene recuperación ni otro admin que lo reactive (HU-09 D2).
+    public boolean esGestionablePorAdmin() {
+        return (rol == Rol.USUARIO || rol == Rol.ARRENDADOR) && estado != EstadoUsuario.ELIMINADA;
+    }
+
+    public boolean puedeSuspenderse() {
+        return esGestionablePorAdmin() && estado == EstadoUsuario.ACTIVA;
+    }
+
+    public boolean puedeReactivarse() {
+        return esGestionablePorAdmin() && estado == EstadoUsuario.SUSPENDIDA;
+    }
+
+    public void suspender() {
+        if (!puedeSuspenderse()) {
+            throw new IllegalStateException("La cuenta no se puede suspender: " + rol + " " + estado);
+        }
+        estado = EstadoUsuario.SUSPENDIDA;
+    }
+
+    public void reactivar() {
+        if (!puedeReactivarse()) {
+            throw new IllegalStateException("La cuenta no se puede reactivar: " + rol + " " + estado);
+        }
+        estado = EstadoUsuario.ACTIVA;
+    }
+
     public Long getId() {
         return id;
     }

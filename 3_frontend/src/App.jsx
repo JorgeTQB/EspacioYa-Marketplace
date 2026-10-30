@@ -5,7 +5,9 @@ import { cerrarSesion } from './api/cuentas.js'
 import { borrarToken } from './api/tokenSesion.js'
 import Alerta from './components/ui/Alerta.jsx'
 import Boton from './components/ui/Boton.jsx'
+import BuscarCuentas from './pages/administracion/BuscarCuentas.jsx'
 import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
+import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
@@ -161,6 +163,23 @@ function App() {
             element={
               <RutaProtegida>
                 <RevisarIdentidad />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-09: mismo panel admin; la API valida IP, rol y qué cuentas se pueden suspender o reactivar. */}
+          <Route
+            path="/admin/cuentas"
+            element={
+              <RutaProtegida>
+                <BuscarCuentas />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/cuentas/:id"
+            element={
+              <RutaProtegida>
+                <DetalleCuenta />
               </RutaProtegida>
             }
           />

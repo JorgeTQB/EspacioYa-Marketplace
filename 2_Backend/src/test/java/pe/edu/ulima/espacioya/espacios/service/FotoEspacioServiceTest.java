@@ -47,6 +47,7 @@ import pe.edu.ulima.espacioya.comun.error.ErrorDTO;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
@@ -85,6 +86,8 @@ class FotoEspacioServiceTest {
     private ArchivosPublicos archivos;
     @Mock
     private AuditoriaService auditoria;
+    @Mock
+    private CuentaService cuentas;
 
     private FotoEspacioService servicio;
 
@@ -92,7 +95,7 @@ class FotoEspacioServiceTest {
     void preparar() {
         var transacciones = new TransactionTemplate(mock(PlatformTransactionManager.class));
         servicio = new FotoEspacioService(espacioService, espacios, fotos, validador, archivos, auditoria,
-                transacciones, Clock.fixed(AHORA, ZoneOffset.UTC));
+                transacciones, cuentas, Clock.fixed(AHORA, ZoneOffset.UTC));
     }
 
     private static ArchivoRecibido recibido(String texto) {
@@ -354,6 +357,7 @@ class FotoEspacioServiceTest {
     @DisplayName("HU-07 R39: la foto de un espacio PUBLICADO se sirve sin sesión y como pública")
     void verPublicada() {
         fotoDe(EstadoEspacio.PUBLICADO);
+        when(cuentas.cuentaActiva(ID)).thenReturn(true);
         when(archivos.leer(CLAVE)).thenReturn(Optional.of(LIMPIA.contenido()));
 
         var servida = servicio.ver(null, UUID);
@@ -392,7 +396,32 @@ class FotoEspacioServiceTest {
         assertThatThrownBy(() -> servicio.ver(null, UUID)).isInstanceOf(RecursoNoEncontradoException.class);
 
         fotoDe(EstadoEspacio.PUBLICADO);
+        when(cuentas.cuentaActiva(ID)).thenReturn(true);
         when(archivos.leer(CLAVE)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> servicio.ver(null, UUID)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("HU-09 R22: la foto de un espacio PUBLICADO cuyo arrendador no está ACTIVA responde 404 sin sesión "
+            + "y sin leer el archivo")
+    void verPublicadaDeArrendadorNoActivo() {
+        fotoDe(EstadoEspacio.PUBLICADO);
+        when(cuentas.cuentaActiva(ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> servicio.ver(null, UUID)).isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.ver(new UsuarioAutenticado(99L, 1L, "USUARIO"), UUID))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(archivos);
+    }
+
+    @Test
+    @DisplayName("HU-09 R22: la foto de un BORRADOR no consulta el estado del arrendador")
+    void verBorradorNoConsultaCuentas() {
+        fotoDe(EstadoEspacio.BORRADOR);
+        when(archivos.leer(CLAVE)).thenReturn(Optional.of(LIMPIA.contenido()));
+
+        servicio.ver(ARRENDADOR, UUID);
+
+        verifyNoInteractions(cuentas);
     }
 }

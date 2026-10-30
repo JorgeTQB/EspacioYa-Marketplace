@@ -46,6 +46,7 @@ class DisponibilidadServiceImplIT {
     private Clock reloj;
 
     private long espacioId;
+    private long arrendadorId;
 
     @BeforeEach
     void prepararBase() {
@@ -63,6 +64,7 @@ class DisponibilidadServiceImplIT {
         var datos = new DatosEspacio("Cancha Los Olivos", TipoEspacio.CANCHA, "Av. Universitaria 1234", "LOS_OLIVOS",
                 20, new BigDecimal("80"), "Cancha de grass sintético techada.");
         espacioId = espacios.save(Espacio.crear(usuario.getId(), datos, reloj.instant())).getId();
+        arrendadorId = usuario.getId();
     }
 
     private void franja(LocalDate fecha, int inicio, int fin) {
@@ -86,5 +88,26 @@ class DisponibilidadServiceImplIT {
         assertThat(disponibilidad.horasLibres(espacioId, fecha)).containsExactly(8, 9, 14, 15);
         assertThat(disponibilidad.horasLibres(espacioId, fecha.plusDays(1))).isEmpty();
         assertThat(disponibilidad.horasLibres(espacioId, fecha.plusDays(56))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-09 R23, R25: con el arrendador SUSPENDIDA no hay horas libres; al volver a ACTIVA, las mismas que "
+            + "antes")
+    void horasLibresSegunElEstadoDelArrendador() {
+        var fecha = ZonaHoraria.hoy(reloj).plusDays(7);
+        franja(fecha, 8, 10);
+        jdbc.update("UPDATE espacio SET estado = 'PUBLICADO' WHERE id = ?", espacioId);
+        var antes = disponibilidad.horasLibres(espacioId, fecha);
+        assertThat(antes).containsExactly(8, 9);
+
+        jdbc.update("UPDATE usuario SET estado = 'SUSPENDIDA' WHERE id = ?", arrendadorId);
+        assertThat(disponibilidad.horasLibres(espacioId, fecha)).isEmpty();
+        jdbc.update("UPDATE usuario SET estado = 'ELIMINADA' WHERE id = ?", arrendadorId);
+        assertThat(disponibilidad.horasLibres(espacioId, fecha)).isEmpty();
+
+        jdbc.update("UPDATE usuario SET estado = 'ACTIVA' WHERE id = ?", arrendadorId);
+        assertThat(disponibilidad.horasLibres(espacioId, fecha)).isEqualTo(antes);
+        assertThat(jdbc.queryForObject("SELECT estado FROM espacio WHERE id = ?", String.class, espacioId))
+                .isEqualTo("PUBLICADO");
     }
 }
