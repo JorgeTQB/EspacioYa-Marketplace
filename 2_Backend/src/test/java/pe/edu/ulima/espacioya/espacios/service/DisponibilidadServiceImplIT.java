@@ -6,6 +6,9 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -109,5 +112,54 @@ class DisponibilidadServiceImplIT {
         assertThat(disponibilidad.horasLibres(espacioId, fecha)).isEqualTo(antes);
         assertThat(jdbc.queryForObject("SELECT estado FROM espacio WHERE id = ?", String.class, espacioId))
                 .isEqualTo("PUBLICADO");
+    }
+
+    private long otroEspacio(long arrendador, String estado) {
+        var datos = new DatosEspacio("Otro espacio", TipoEspacio.CANCHA, "Av. Universitaria 1234", "LOS_OLIVOS",
+                20, new BigDecimal("80"), "Cancha de grass sintético techada.");
+        var id = espacios.save(Espacio.crear(arrendador, datos, reloj.instant())).getId();
+        jdbc.update("UPDATE espacio SET estado = ? WHERE id = ?", estado, id);
+        return id;
+    }
+
+    private void franja(long espacio, LocalDate fecha, int inicio, int fin) {
+        jdbc.update("INSERT INTO horario_semanal (espacio_id, dia_semana, hora_inicio, hora_fin) VALUES (?, ?, ?, ?)",
+                espacio, fecha.getDayOfWeek().getValue(), inicio, fin);
+    }
+
+    private Set<Long> conHorasLibres(List<Long> ids, LocalDate fecha) {
+        return ids.stream().filter(id -> !disponibilidad.horasLibres(id, fecha).isEmpty())
+                .collect(Collectors.toSet());
+    }
+
+    @Test
+    @DisplayName("HU-10 R30: contra la base, conBloquesLibres da exactamente los ids con horasLibres no vacía")
+    void conBloquesLibresEquivaleAHorasLibres() {
+        var hoy = ZonaHoraria.hoy(reloj);
+        var fecha = hoy.plusDays(8);
+        var suspendido = usuarios.save(Usuario.registrarArrendador("beto@correo.pe", "x", "Beto Ruiz", "987654322",
+                "2026-10", reloj.instant()));
+        perfiles.save(PerfilArrendador.crear(suspendido.getId(), TipoDocumento.RUC, "20100070971", "1".repeat(64),
+                "Estadios del Norte SAC", "Av. Túpac Amaru 100"));
+        jdbc.update("UPDATE usuario SET estado = 'SUSPENDIDA' WHERE id = ?", suspendido.getId());
+
+        jdbc.update("UPDATE espacio SET estado = 'PUBLICADO' WHERE id = ?", espacioId);
+        franja(espacioId, fecha, 8, 10);
+        var sinHorario = otroEspacio(arrendadorId, "PUBLICADO");
+        var bloqueado = otroEspacio(arrendadorId, "PUBLICADO");
+        franja(bloqueado, fecha, 8, 10);
+        jdbc.update("INSERT INTO bloqueo_fecha (espacio_id, fecha) VALUES (?, ?)", bloqueado, Date.valueOf(fecha));
+        var borrador = otroEspacio(arrendadorId, "BORRADOR");
+        franja(borrador, fecha, 8, 10);
+        var deSuspendido = otroEspacio(suspendido.getId(), "PUBLICADO");
+        franja(deSuspendido, fecha, 8, 10);
+        // Hoy, la franja 0–1 ya empezó siempre: sin horas libres. (fecha = hoy + 8 cae otro día de la semana.)
+        var horasPasadas = otroEspacio(arrendadorId, "PUBLICADO");
+        franja(horasPasadas, hoy, 0, 1);
+        var ids = List.of(espacioId, sinHorario, bloqueado, borrador, deSuspendido, horasPasadas, 999_999L);
+
+        assertThat(disponibilidad.conBloquesLibres(ids, fecha)).isEqualTo(conHorasLibres(ids, fecha))
+                .containsExactly(espacioId);
+        assertThat(disponibilidad.conBloquesLibres(ids, hoy)).isEqualTo(conHorasLibres(ids, hoy)).isEmpty();
     }
 }

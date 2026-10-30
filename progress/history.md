@@ -587,3 +587,45 @@
     `not in` si el conjunto está vacío) o `CuentaService.cuentaActiva(id)`; `DisponibilidadService.horasLibres` ya
     devuelve vacío para ellos. Escrito en `docs/architecture.md` § Puertos entre módulos.
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-29 · orquestador (Sebastian Garate, HU-10): `docs/requerimientos.md` §9 punto 9 — límite de búsqueda/ficha/filtros por IP resuelto por el dueño (120/min, cupo compartido HU-10/11/23, configurable; HU-10 extiende `ReglaLimite` a patrones de ruta).
+- 2026-10-29 · orquestador (Sebastian Garate, HU-10): `docs/architecture.md` nota para HU-12 sobre `ReservasDelEspacio.bloquesReservadosDelDia`; `docs/requerimientos.md` §9.9 apunta a `application.properties`.
+
+## 2026-10-29 — HU-10 Búsqueda por tipo, zona y fecha (done)
+
+- **Dueño:** Sebastian Garate · **Rama:** `feature/HU-10-busqueda-espacios` (desde `develop`)
+- **Agentes:** orquestador → explorador (`progress/explore_HU-10.md`) → spec-author (bloqueado por la cifra del rate
+  limiting; el dueño la resolvió en `docs/requerimientos.md` §9.9: 120 peticiones/IP/min, ventana deslizante, cupo
+  compartido HU-10/11/23, 429 genérico, configurable en `application.properties`) → spec-author (`specs/HU-10/`,
+  R1–R47, D1–D12, T1–T20) → aprobación del dueño (2026-10-29; D2 y D4 discutidas, se mantiene orden por precio
+  ascendente; selector de orden queda como idea para HU-23) → implementer (`progress/impl_HU-10.md`) → reviewer
+  (`progress/review_HU-10.md`: APPROVED, sin cambios requeridos).
+- **Cambios:** `comun/limite`: `ReglaLimite` pasa a `final class` con `PathPattern` (cierra la evasión con rutas
+  codificadas) y `FiltroLimiteIntentos` descuenta un intento por grupo; `ConfiguracionSeguridad` con `permitAll` para
+  `GET /api/espacios` y `GET /api/zonas` (reemplaza HU-07 R43 solo para `/api/zonas`, D2). `espacios`: consultas en
+  lote en los repositorios, `DisponibilidadService.conBloquesLibres` (sin N+1), método default
+  `ReservasDelEspacio.bloquesReservadosDelDia` (aviso a HU-12 en `docs/architecture.md`), `CatalogoEspaciosService`/
+  `Impl` y `EspacioPublicado`. Módulo nuevo `busqueda`: `BusquedaController`, `LimiteCatalogo`, `ReglasLimiteBusqueda`,
+  `BusquedaService`, `BusquedaEspacios`, `BusquedaBase`, `CriteriosBusqueda`, DTO `ResultadoBusquedaDTO` y
+  `ResultadoEspacioDTO`. Migración `V3_2__indices_busqueda.sql` (índice `ix_espacio_busqueda`). Propiedades del cupo
+  en `application.properties` y `.env.example` (comentadas). Tests nuevos: `BusquedaControllerIT`, `LimiteCatalogoIT`,
+  `LimiteCatalogoTest`, `BusquedaServiceTest`, `BusquedaBaseTest`, `FiltroLimiteIntentosTest`,
+  `CatalogoEspaciosServiceImplTest`; ampliados `ReglaLimiteTest` (3 de HU-02 intactos), `DisponibilidadServiceImplTest`/
+  `IT`, `ZonaControllerIT` (`sinSesion` pasa a 200, nuevo `tokenInvalido`). Frontend: `Imagen` en el kit,
+  `api/busqueda.js`, `textosBusqueda.js`, pantalla pública `/buscar` (`BuscarEspacios.jsx`), ruta y enlaces en
+  `App.jsx`. Docs: `architecture.md`, `frontend.md`, `modelo-datos.md`.
+- **Desvíos aceptados:** ejemplo de R8 probado con 8–11 excluido y 8–12 incluido; variables del cupo comentadas en
+  `.env.example` (vacías impedirían arrancar); R12 probado con Bearer inexistente (revocado y vencido siguen el mismo
+  camino).
+- **Resultado:** `./init.sh` completo en verde (472 unitarias + 322 IT con Testcontainers, lint y build OK).
+  Trazabilidad R1–R47 en `progress/impl_HU-10.md`. Reviewer: APPROVED sin cambios requeridos. Status → `done`.
+- **Pendientes (observaciones no bloqueantes del review):**
+  1. `3_frontend/src/App.jsx:87-90`: la clase `estilos.inicio` pasó del enlace "Crea tu cuenta" al nuevo "Buscar
+     espacios"; "Crea tu cuenta" queda en un `<p>` sin clase. Revisar el espaciado de la portada en UAT.
+  2. Al unir a `develop`, confirmar que `V3_2` sigue libre; si otra historia del sprint 3 lo tomó, renombrar
+     `V3_2__indices_busqueda.sql` al siguiente libre (`docs/conventions.md`).
+  3. El ejemplo de design § 13 para R8 ("10:00 con 8–11 → incluido") no coincide con `CalculoDisponibilidad`; corregir
+     ese ejemplo si se vuelve a editar `specs/HU-10/design.md`.
+  - HU-11 y HU-23 comparten el cupo agregando un `@Bean` con `limiteCatalogo.regla(...)`; HU-23 envuelve
+    `BusquedaEspacios` (Decorator).
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.

@@ -1,7 +1,10 @@
 package pe.edu.ulima.espacioya.espacios.service.puertos;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Puerto que implementa {@code reservas} (HU-12); {@code espacios} no depende de {@code reservas}. Mientras nadie lo
@@ -19,4 +22,17 @@ public interface ReservasDelEspacio {
      * desde y hasta, ambas inclusive. {@code pagado} = la reserva está CONFIRMADA.
      */
     List<BloqueReservado> bloquesReservados(Long espacioId, LocalDate desde, LocalDate hasta);
+
+    /**
+     * Reservas activas del día por espacio, para la búsqueda en lote (HU-10 DT-6). Por defecto, una llamada a
+     * {@link #bloquesReservados} por id; {@code reservas} (HU-12) puede sobrescribirlo con una sola consulta con el
+     * mismo criterio de reservas activas. Los ids sin reservas pueden faltar en el mapa.
+     */
+    default Map<Long, List<BloqueReservado>> bloquesReservadosDelDia(Collection<Long> espacioIds, LocalDate fecha) {
+        var porEspacio = new HashMap<Long, List<BloqueReservado>>();
+        for (var id : espacioIds) {
+            porEspacio.put(id, bloquesReservados(id, fecha, fecha));
+        }
+        return porEspacio;
+    }
 }

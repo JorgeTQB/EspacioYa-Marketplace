@@ -2,7 +2,10 @@ package pe.edu.ulima.espacioya.espacios.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -15,7 +18,9 @@ import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.CalculoDisponibilidad;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
+import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
+import pe.edu.ulima.espacioya.espacios.domain.FranjaHoraria;
 import pe.edu.ulima.espacioya.espacios.domain.HorarioSemanal;
 import pe.edu.ulima.espacioya.espacios.domain.VentanaReserva;
 import pe.edu.ulima.espacioya.espacios.repository.BloqueoFechaRepository;
@@ -65,6 +70,51 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
                 .filter(bloque -> bloque.estado() == EstadoBloque.LIBRE)
                 .map(Bloque::horaInicio)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> conBloquesLibres(Collection<Long> espacioIds, LocalDate fecha) {
+        if (espacioIds.isEmpty() || !ventana().contiene(fecha)) {
+            return Set.of();
+        }
+        var noActivos = cuentas.arrendadoresNoActivos();
+        var visibles = espacios.findAllById(Set.copyOf(espacioIds)).stream()
+                .filter(espacio -> espacio.getEstado() == EstadoEspacio.PUBLICADO)
+                .filter(espacio -> !noActivos.contains(espacio.getArrendadorId()))
+                .map(Espacio::getId)
+                .toList();
+        if (visibles.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, List<FranjaHoraria>> franjas = horarios
+                .findByEspacioIdInAndDiaSemana(visibles, (short) fecha.getDayOfWeek().getValue()).stream()
+                .collect(Collectors.groupingBy(HorarioSemanal::getEspacioId,
+                        Collectors.mapping(HorarioSemanal::aFranja, Collectors.toList())));
+        if (franjas.isEmpty()) {
+            return Set.of();
+        }
+        var candidatos = new HashSet<>(franjas.keySet());
+        candidatos.removeAll(Set.copyOf(bloqueos.espaciosBloqueados(candidatos, fecha)));
+        if (candidatos.isEmpty()) {
+            return Set.of();
+        }
+        var puerto = reservas.getIfAvailable();
+        Map<Long, List<BloqueReservado>> reservadas = puerto == null ? Map.of()
+                : puerto.bloquesReservadosDelDia(candidatos, fecha);
+        var ahora = ZonaHoraria.ahora(reloj);
+        var conLibres = new HashSet<Long>();
+        for (var id : candidatos) {
+            var horasReservadas = reservadas.getOrDefault(id, List.of()).stream()
+                    .filter(reservado -> fecha.equals(reservado.fecha()))
+                    .map(BloqueReservado::horaInicio)
+                    .collect(Collectors.toSet());
+            var bloques = CalculoDisponibilidad.bloquesDelDia(fecha, franjas.get(id), false, horasReservadas, ahora);
+            if (bloques.stream().anyMatch(bloque -> bloque.estado() == EstadoBloque.LIBRE)) {
+                conLibres.add(id);
+            }
+        }
+        return conLibres;
     }
 
     VentanaReserva ventana() {

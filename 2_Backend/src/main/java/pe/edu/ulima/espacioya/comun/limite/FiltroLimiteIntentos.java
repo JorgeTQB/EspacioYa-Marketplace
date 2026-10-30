@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.comun.limite;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 
 import jakarta.servlet.FilterChain;
@@ -34,8 +35,10 @@ public class FiltroLimiteIntentos extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest solicitud, HttpServletResponse respuesta, FilterChain cadena)
             throws ServletException, IOException {
         var ruta = solicitud.getRequestURI().substring(solicitud.getContextPath().length());
+        // Con patrones, dos reglas del mismo grupo pueden coincidir con la misma ruta: un solo intento por grupo.
+        var gruposContados = new HashSet<String>();
         for (var regla : reglas) {
-            if (regla.aplicaA(solicitud.getMethod(), ruta)
+            if (regla.aplicaA(solicitud.getMethod(), ruta) && gruposContados.add(regla.grupo())
                     && !limitador.intentar(regla.clave(IpCliente.de(solicitud)), regla.maximo(), regla.ventana())) {
                 rechazar(respuesta);
                 return;

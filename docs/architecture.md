@@ -128,7 +128,7 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
 | `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
-| `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
+| `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: obtener la reserva vigente con su monto y confirmarla |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19 |
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
@@ -163,6 +163,22 @@ caché puede verse hasta 1 hora, `max-age=3600`) y en `horasLibres`.
 horas ya empezadas) de un espacio `PUBLICADO` cuyo arrendador está `ACTIVA` (HU-09) en una fecha de las próximas 8
 semanas, o una lista vacía. La reutilizan
 `busqueda` (HU-10, HU-11) y `reservas` (HU-12); no hace falta otro puerto porque esas direcciones están permitidas.
+HU-10 le agregó `conBloquesLibres(espacioIds, fecha) → Set<Long>`: los ids con `horasLibres` no vacía, consultando
+horario, bloqueos y el puerto una vez por lote.
+
+`espacios.service.CatalogoEspaciosService` es la segunda interfaz pública de `espacios` (la creó HU-10), sin sesión ni
+rol, para `busqueda` (HU-10, HU-11, HU-23): `esTipoValido`, `existeZona`, `publicados(tipo, zona)` → `EspacioPublicado`
+de arrendadores `ACTIVA` ordenados por `precio_hora` e `id` (aplica la regla HU-09 D1), y `fotosPrincipales(ids)` →
+URL `/api/fotos/<UUID>` de la foto con orden 1. `busqueda` nunca lee repositorios de `espacios`.
+
+**Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
+`PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
+consigo misma y un patrón (`/api/espacios/{id}`, `/api/fotos/*`) con las rutas que encajan; un patrón inválido falla
+al crear el bean. `FiltroLimiteIntentos` descuenta un solo intento por grupo y solicitud. El cupo del catálogo
+(grupo `catalogo`, 120 por IP por minuto, configurable con `espacioya.limite.catalogo.maximo` y `.ventana`) lo fija
+`busqueda/controller/LimiteCatalogo`; HU-11 y HU-23 registran sus rutas con un `@Bean`
+`limite.regla("GET", "/api/espacios/{id}")` (ver `ReglasLimiteBusqueda`) y comparten así el cupo. `GET /api/zonas` y
+las fotos no cuentan.
 
 **Zona horaria.** El bean `Clock` sigue en UTC (`creado_en`, auditoría). Todo lo que depende del calendario local
 ("hoy", la hora actual, la ventana de 8 semanas) se calcula en `America/Lima` con
@@ -180,13 +196,12 @@ Lo que ya existe en `espacios` y se reutiliza tal cual:
 | Puerto `service.puertos.ReservasDelEspacio` | Ver la tabla de puertos. Las horas que devuelva quedan `RESERVADO` y salen de `horasLibres` |
 | Rutas `/api/arrendadores/actual/espacios/{id}/horario`, `/bloqueos`, `/disponibilidad` | Solo para el **dueño** (rol `ARRENDADOR`). No sirven para la ficha ni la búsqueda públicas |
 
-Lo que **no** existe y le toca a cada historia decidirlo en su `design.md` (agregando el método a
-`DisponibilidadService`, no leyendo repositorios de `espacios` desde otro módulo):
+Lo que le toca a cada historia decidirlo en su `design.md` (agregando el método a `DisponibilidadService`, no
+leyendo repositorios de `espacios` desde otro módulo):
 
-- **HU-10 (búsqueda por fecha):** `horasLibres` es de a un espacio. Filtrar "al menos un bloque libre" llamándolo por
-  cada candidato y paginando después es N+1 y rompe las páginas de 20. Lo previsto es un método en lote, p. ej.
-  `conBloquesLibres(Collection<Long> espacioIds, LocalDate fecha) → Set<Long>`, que reutilice `CalculoDisponibilidad`
-  y consulte horario, bloqueos y el puerto una sola vez por lote.
+- **HU-10 (búsqueda por fecha), hecho:** `DisponibilidadService.conBloquesLibres(Collection<Long> espacioIds,
+  LocalDate fecha) → Set<Long>` reutiliza `CalculoDisponibilidad` y consulta horario, bloqueos y el puerto
+  (`bloquesReservadosDelDia`) una sola vez por lote. La búsqueda pagina en memoria sobre la lista ya filtrada.
 - **HU-11 (ficha pública):** necesita su propia ruta pública de disponibilidad (bajo `busqueda`, con el rate limiting
   de HU-10). Con `horasLibres` basta para el CA2 ("veo los bloques libres"); si además quiere mostrar los ocupados,
   agrega un método que devuelva los `Bloque` con su estado, sin `PASADO`/`BLOQUEADO`/`RESERVADO` distinguidos hacia
@@ -203,6 +218,13 @@ Lo que **no** existe y le toca a cada historia decidirlo en su `design.md` (agre
 - **HU-12, pruebas:** `EspaciosControllerSoporte` registra un `ReservasDelEspacioFalso` con `@Primary`, así que las
   IT de `espacios` siguen usando el doble aunque exista el bean real. `DisponibilidadServiceImplIT` prueba R21 (sin
   bean); cuando HU-12 agregue su implementación, esa IT pasa a usar la real y debe seguir verde con la base vacía.
+- **HU-12, consulta en lote (HU-10 DT-6, D7):** HU-10 agrega a `ReservasDelEspacio` el método **default**
+  `bloquesReservadosDelDia(Collection<Long> espacioIds, LocalDate fecha) → Map<Long, List<BloqueReservado>>`, que
+  la búsqueda usa para saber qué espacios tienen al menos un bloque libre. Por defecto llama a `bloquesReservados`
+  una vez por id, así que HU-12 **no está obligada** a implementarlo; pero la búsqueda lo invoca con todos los
+  espacios publicados de un tipo y una zona, y conviene que HU-12 lo **sobrescriba con una sola consulta**
+  (`espacio_id IN (…)` y `fecha = …`) con el mismo criterio de reservas activas. Los ids sin reservas pueden faltar
+  en el mapa. Contacto: Sebastian Garate (dueño de HU-10).
 - **HU-21 (baja con reservas):** usa el mismo puerto `ReservasDelEspacio` con la ventana completa
   (`desde`, `hasta` de `VentanaReserva`).
 

@@ -31,7 +31,7 @@
 ├── styles/
 │   └── tokens.css        # ÚNICO archivo con colores literales
 ├── components/
-│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques
+│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen
 ├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
 ├── sesion/               # ProveedorSesion, useSesion, RutaProtegida (HU-03)
 └── api/                  # cliente.js, tokenSesion.js + un archivo por módulo: api/cuentas.js
@@ -173,7 +173,8 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`) | `estado` |
-| `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
+| `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
+| `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` "Cancelar" y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `variante` (`primario` o `peligro-confirmar`), `cargando` |
 | `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) o mostrarlos. Construido por HU-08: cada bloque muestra `HH:00–HH:00`; el ocupado va tachado, sin clic y con su `detalle` como texto. Sin `onCambiar` es **solo lectura** (los bloques no son botones); con `onCambiar`, cada bloque libre es un `<button aria-pressed>` y al pulsarlo llama `onCambiar` con el arreglo nuevo de horas. Lista vacía: no renderiza nada | `bloques` (`[{ horaInicio, horaFin, libre, detalle }]`), `seleccionados` (horas de inicio, por defecto `[]`), `onCambiar` (opcional) |
 

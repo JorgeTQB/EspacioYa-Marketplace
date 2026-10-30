@@ -9,6 +9,7 @@ import BuscarCuentas from './pages/administracion/BuscarCuentas.jsx'
 import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
 import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
+import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
@@ -63,6 +64,7 @@ function App() {
           <Link to="/">EspacioYa</Link>
         </h1>
         <nav className={estilos.navegacion}>
+          <Link to="/buscar">Buscar espacios</Link>
           {sesion ? (
             <>
               <Link to="/panel">Mi panel</Link>
@@ -83,6 +85,9 @@ function App() {
             element={
               <>
                 <p className={estilos.inicio}>
+                  <Link to="/buscar">Buscar espacios</Link>
+                </p>
+                <p>
                   <Link to="/registro">Crea tu cuenta</Link>
                 </p>
                 <p>
@@ -94,6 +99,8 @@ function App() {
               </>
             }
           />
+          {/* HU-10: catálogo público, con o sin sesión. */}
+          <Route path="/buscar" element={<BuscarEspacios />} />
           <Route path="/registro" element={<Registro />} />
           <Route path="/registro-arrendador" element={<RegistroArrendador />} />
           <Route path="/privacidad" element={<Privacidad />} />

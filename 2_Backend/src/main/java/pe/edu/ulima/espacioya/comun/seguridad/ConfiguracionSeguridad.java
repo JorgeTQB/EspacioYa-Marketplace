@@ -53,6 +53,10 @@ public class ConfiguracionSeguridad {
                         // Fotos de espacios (HU-07, DT-4): públicas si el espacio está publicado; si no, el servicio
                         // exige ser el dueño. El filtro de sesión igual autentica si llega un Bearer válido.
                         .requestMatchers(HttpMethod.GET, "/api/fotos/*").permitAll()
+                        // Catálogo público (HU-10 DT-1, DT-2): búsqueda y zonas sin sesión; un Bearer inválido se
+                        // trata como anónimo.
+                        .requestMatchers(HttpMethod.GET, "/api/espacios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/zonas").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

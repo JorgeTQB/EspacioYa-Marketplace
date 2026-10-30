@@ -1,0 +1,24 @@
+.imagen,
+.vacia {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radio);
+}
+
+.imagen {
+  object-fit: cover;
+  background: var(--color-gris-suave);
+}
+
+.vacia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gris-suave);
+}
+
+.texto {
+  font-size: var(--texto-sm);
+  color: var(--color-texto-secundario);
+}
