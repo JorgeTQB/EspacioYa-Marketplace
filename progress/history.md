@@ -537,3 +537,53 @@
   espacio sin filtrar por dueño para HU-12, porque `findParaActualizar` exige ser dueño y es un repositorio de
   `espacios`); `docs/frontend.md` § Bloques horarios: cómo armar el prop `bloques` de `SelectorBloques`. Pedido por
   Sebastian Garate.
+
+## 2026-10-29 — HU-09 Suspensión y reactivación de cuentas (done)
+
+- **Dueño:** Jorge Quispe · **Tester:** Kevin Chan · **Rama:** `feature/HU-09-suspension-reactivacion` (desde
+  `develop` en `39a77aa`)
+- **Equipo:** Jorge Quispe trabajó desde la laptop de Eduardo Saldaña, con su permiso (confirmado en la sesión).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-09.md`, 15 decisiones abiertas) → spec-author
+  (`specs/HU-09/`, R1–R47, DT-1…DT-11, T1–T18) → aprobación de Jorge Quispe (2026-10-29) → implementer → reviewer
+  (APPROVED, `progress/review_HU-09.md`) → implementer (cierre).
+- **Decisiones del dueño:** D1 los espacios del arrendador no `ACTIVA` se ocultan consultando `cuentas` al leer
+  (`CuentaService.cuentaActiva` / `arrendadoresNoActivos`, sin rol, sin columna en `espacio`; `espacio.estado` no
+  cambia); D2 solo se suspenden o reactivan `USUARIO` y `ARRENDADOR` (nunca un `ADMIN`, tampoco uno mismo; `ELIMINADA`
+  tampoco); D3 al suspender se revocan todas las sesiones y `SesionService.validar` rechaza sesiones de cuentas no
+  `ACTIVA` (cambio en HU-03); D4 también se avisa por correo al reactivar (después del commit, sin correo ni motivo en
+  el log). Supuestos S1–S15 aceptados tal cual: rutas `/api/admin/cuentas` (GET `?q=`, GET `/{id}`, POST
+  `/{id}/suspension` y `/{id}/reactivacion` → 201); tabla `suspension_cuenta` en `administracion`; bloqueo
+  `PESSIMISTIC_WRITE` de `usuario`; búsqueda "contiene" de 3–100 caracteres, máximo 20 con `hayMas`; `ADMIN` y
+  `ELIMINADA` visibles sin acciones (400 *no gestionable*); búsqueda y detalle sin auditar; auditoría
+  `accion=…;registro=…` sin motivo; la suspensión no toca reservas; tokens de recuperación y limitador sin cambios;
+  `exigirAdmin` duplicado; migración `V3_1__suspension_cuenta.sql`; pantallas sin componentes nuevos; "espacios
+  ocultos" probado sobre fotos y `horasLibres`; caché de fotos hasta 1 h aceptada.
+- **Cambios:** backend `cuentas`: `Usuario` (`esGestionablePorAdmin`, `puedeSuspenderse`, `puedeReactivarse`,
+  `suspender`, `reactivar`), `UsuarioRepository` (`findParaActualizar`, `buscar` con `escape` y `Limit`,
+  `findIdsArrendadoresNoActivos`), 4 DTO, `CuentaService`/`Impl` (6 métodos, inyecta `SesionRepository`),
+  `SesionService.validar`, `NotificadorCorreo` + simulado (2 avisos). `espacios`: `FotoEspacioService.ver` y
+  `DisponibilidadServiceImpl.horasLibres` filtran por arrendador `ACTIVA`. `administracion`: `AccionSuspension`,
+  `SuspensionCuenta`, `SuspensionCuentaRepository`, 4 DTO, `CuentaAdminService`, `CuentaAdminController`; migración
+  `V3_1__suspension_cuenta.sql`. Tests nuevos: `CuentaAdminControllerIT` (23), `CuentaAdminServiceTest`,
+  `SuspensionCuentaTest`, `MotivoSuspensionDTOTest`, `CuentaServiceImplIT`; casos agregados en `UsuarioTest`,
+  `CuentaServiceImplTest`, `SesionServiceTest`, `NotificadorCorreoSimuladoTest`, `FotoEspacioServiceTest`,
+  `FotoPublicaControllerIT`, `DisponibilidadServiceImplTest`/`IT`; los 4 `NotificadorFalso` implementan los avisos
+  nuevos. Frontend: `EtiquetaEstado` (+`ACTIVA`, `SUSPENDIDA`, `ELIMINADA`), `NOMBRES_ROL`, `api/administracion.js`
+  (+4), páginas `BuscarCuentas` y `DetalleCuenta`, enlace en `Panel`, rutas en `App`. Docs: `architecture.md` (métodos
+  de `CuentaService`, regla de filtro para HU-10/11/12, contrato de `horasLibres`, `validar`), `modelo-datos.md`
+  (`suspension_cuenta`), `frontend.md` (`EtiquetaEstado`).
+- **Resultado:** `./init.sh` completo en verde (427 unitarias + 290 IT con Testcontainers, lint y build OK).
+  Trazabilidad R1–R47 en `progress/impl_HU-09.md`. Reviewer: APPROVED sin cambios requeridos. Status → `done`.
+- **Pendientes:**
+  1. (Reviewer, obs. 1) `CuentaServiceImpl.suspenderCuenta` lanza `IllegalArgumentException` con un motivo nulo o en
+     blanco: por la API no ocurre (`@Valid`), pero otro llamador recibiría un 500. Si HU-27 lo reutiliza, cambiarlo por
+     una `ReglaNegocioException` con el campo `motivo`.
+  2. (Reviewer, obs. 2) En `DetalleCuenta.jsx`, con el `Modal` de reactivar abierto se ven a la vez el botón primario
+     de la página y el de confirmación del modal; es lo que fija design § 10 y el patrón de HU-06 (aceptado).
+  3. (Reviewer, obs. 3) Antes del merge: si HU-10, HU-11 o HU-12 llegan antes a `develop` con una `V3_1`, renombrar
+     `V3_1__suspension_cuenta.sql` a la siguiente libre (S12).
+  - **Avisar a Sebastian Garate (HU-10), Adriana Callupe (HU-11) y Eduardo Saldaña (HU-12)** (D1): sus consultas deben
+    ocultar los espacios de arrendadores no `ACTIVA` con `CuentaService.arrendadoresNoActivos()` (omitiendo el
+    `not in` si el conjunto está vacío) o `CuentaService.cuentaActiva(id)`; `DisponibilidadService.horasLibres` ya
+    devuelve vacío para ellos. Escrito en `docs/architecture.md` § Puertos entre módulos.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.

@@ -29,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
@@ -51,6 +52,7 @@ class DisponibilidadServiceImplTest {
     private static final LocalDate HOY = LocalDate.of(2026, 10, 28);
     private static final LocalDate LUNES = LocalDate.of(2026, 11, 2);
     private static final long ESPACIO_ID = 40L;
+    private static final long ARRENDADOR_ID = 7L;
 
     @Mock
     private EspacioRepository espacios;
@@ -60,20 +62,22 @@ class DisponibilidadServiceImplTest {
     private BloqueoFechaRepository bloqueos;
     @Mock
     private ObjectProvider<ReservasDelEspacio> proveedor;
+    @Mock
+    private CuentaService cuentas;
 
     private final ReservasDelEspacio puerto = mock(ReservasDelEspacio.class);
     private DisponibilidadServiceImpl servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new DisponibilidadServiceImpl(espacios, horarios, bloqueos, proveedor,
+        servicio = new DisponibilidadServiceImpl(espacios, horarios, bloqueos, proveedor, cuentas,
                 Clock.fixed(AHORA, ZoneOffset.UTC));
     }
 
     private static Espacio espacio(EstadoEspacio estado) {
         var datos = new DatosEspacio("Cancha Los Olivos", TipoEspacio.CANCHA, "Av. Universitaria 1234", "LOS_OLIVOS",
                 20, new BigDecimal("80"), "Cancha de grass sintético techada.");
-        var espacio = Espacio.crear(7L, datos, AHORA);
+        var espacio = Espacio.crear(ARRENDADOR_ID, datos, AHORA);
         ReflectionTestUtils.setField(espacio, "id", ESPACIO_ID);
         ReflectionTestUtils.setField(espacio, "estado", estado);
         return espacio;
@@ -99,6 +103,7 @@ class DisponibilidadServiceImplTest {
     @DisplayName("HU-08 R24, R30: un espacio publicado devuelve solo las horas LIBRE, sin las reservadas")
     void publicadoDevuelveSoloLibres() {
         when(espacios.findById(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(true);
         horarioDelLunes(new FranjaHoraria(1, 14, 16), new FranjaHoraria(1, 8, 10));
         when(bloqueos.existsByEspacioIdAndFecha(ESPACIO_ID, LUNES)).thenReturn(false);
         when(proveedor.getIfAvailable()).thenReturn(puerto);
@@ -112,6 +117,7 @@ class DisponibilidadServiceImplTest {
     @DisplayName("HU-08 R23, R30: una fecha bloqueada no tiene horas libres y no consulta el puerto")
     void bloqueadaNoConsultaPuerto() {
         when(espacios.findById(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(true);
         horarioDelLunes(new FranjaHoraria(1, 8, 10));
         when(bloqueos.existsByEspacioIdAndFecha(ESPACIO_ID, LUNES)).thenReturn(true);
 
@@ -125,6 +131,7 @@ class DisponibilidadServiceImplTest {
     @DisplayName("HU-08 R25, R30: hoy a las 22:00 en Lima solo queda libre la hora de las 23")
     void hoyDescartaHorasEmpezadas() {
         when(espacios.findById(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(true);
         // 2026-10-28 es miércoles (3).
         when(horarios.findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(ESPACIO_ID, (short) 3))
                 .thenReturn(List.of(HorarioSemanal.de(ESPACIO_ID, new FranjaHoraria(3, 20, 24))));
@@ -143,7 +150,18 @@ class DisponibilidadServiceImplTest {
         assertThat(servicio.horasLibres(ESPACIO_ID, LUNES)).isEmpty();
         assertThat(servicio.horasLibres(ESPACIO_ID, LUNES)).isEmpty();
         verify(horarios, never()).findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(anyLong(), anyShort());
-        verifyNoInteractions(proveedor);
+        verifyNoInteractions(proveedor, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-09 R23: un espacio PUBLICADO cuyo arrendador no está ACTIVA devuelve una lista vacía sin "
+            + "consultar horarios, bloqueos ni reservas")
+    void arrendadorNoActivoDevuelveVacio() {
+        when(espacios.findById(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(false);
+
+        assertThat(servicio.horasLibres(ESPACIO_ID, LUNES)).isEmpty();
+        verifyNoInteractions(horarios, bloqueos, proveedor);
     }
 
     @Test

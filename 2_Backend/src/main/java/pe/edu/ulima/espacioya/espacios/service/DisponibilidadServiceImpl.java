@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.CalculoDisponibilidad;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
@@ -34,15 +35,17 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
     private final HorarioSemanalRepository horarios;
     private final BloqueoFechaRepository bloqueos;
     private final ObjectProvider<ReservasDelEspacio> reservas;
+    private final CuentaService cuentas;
     private final Clock reloj;
 
     public DisponibilidadServiceImpl(EspacioRepository espacios, HorarioSemanalRepository horarios,
                                      BloqueoFechaRepository bloqueos, ObjectProvider<ReservasDelEspacio> reservas,
-                                     Clock reloj) {
+                                     CuentaService cuentas, Clock reloj) {
         this.espacios = espacios;
         this.horarios = horarios;
         this.bloqueos = bloqueos;
         this.reservas = reservas;
+        this.cuentas = cuentas;
         this.reloj = reloj;
     }
 
@@ -53,9 +56,9 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
             return List.of();
         }
         var publicado = espacios.findById(espacioId)
-                .filter(espacio -> espacio.getEstado() == EstadoEspacio.PUBLICADO)
-                .isPresent();
-        if (!publicado) {
+                .filter(espacio -> espacio.getEstado() == EstadoEspacio.PUBLICADO);
+        // El espacio de un arrendador no ACTIVA conserva su estado pero no ofrece horas (HU-09 D1, R23).
+        if (publicado.isEmpty() || !cuentas.cuentaActiva(publicado.get().getArrendadorId())) {
             return List.of();
         }
         return bloquesDelDia(espacioId, fecha).stream()

@@ -25,6 +25,7 @@ import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
 import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.domain.Sesion;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
@@ -82,6 +83,22 @@ class SesionServiceTest {
 
         assertThat(resultado).contains(new UsuarioAutenticado(ID_USUARIO, ID_SESION, "ARRENDADOR"));
         assertThat(sesion.getExpiraEn()).isEqualTo(AHORA.plus(Duration.ofMinutes(30)));
+    }
+
+    @Test
+    @DisplayName("HU-09 R21: una sesión vigente de una cuenta SUSPENDIDA o ELIMINADA no se acepta ni se renueva")
+    void cuentaNoActivaVacioSinRenovar() {
+        for (var estado : new EstadoUsuario[] {EstadoUsuario.SUSPENDIDA, EstadoUsuario.ELIMINADA}) {
+            var sesion = sesionCreadaHace(Duration.ofMinutes(20));
+            var expiracion = sesion.getExpiraEn();
+            var usuario = arrendador();
+            ReflectionTestUtils.setField(usuario, "estado", estado);
+            when(sesiones.findByHashToken(TokenAleatorio.hash(TOKEN))).thenReturn(Optional.of(sesion));
+            when(usuarios.findById(ID_USUARIO)).thenReturn(Optional.of(usuario));
+
+            assertThat(servicio.validar(TOKEN)).isEmpty();
+            assertThat(sesion.getExpiraEn()).isEqualTo(expiracion).isEqualTo(AHORA.plus(Duration.ofMinutes(10)));
+        }
     }
 
     @Test

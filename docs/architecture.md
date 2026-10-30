@@ -143,9 +143,25 @@ sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. HU-06 le
 rol `ADMIN` aunque `administracion` ya lo haya comprobado. No es un puerto: la dirección `administracion → cuentas` está
 permitida. Si una historia necesita un puerto nuevo, lo justifica en su `design.md` y lo agrega a esta tabla.
 
+HU-09 le agregó, para `administracion`, `buscarCuentas`, `detalleCuenta`, `suspenderCuenta` (bloquea la fila de
+`usuario`, la deja `SUSPENDIDA`, revoca todas sus sesiones y avisa por correo con el motivo después del commit) y
+`reactivarCuenta`; los cuatro exigen el rol `ADMIN`. Y, **sin exigir sesión ni rol** porque los usan rutas públicas:
+
+- `cuentaActiva(usuarioId)` → `true` solo si la cuenta existe y está `ACTIVA`.
+- `arrendadoresNoActivos()` → `Set<Long>` con los ids de los arrendadores cuyo estado no es `ACTIVA` (o vacío).
+
+**Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
+no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
+búsqueda paginada agrega `e.arrendadorId not in :ids` con `arrendadoresNoActivos()` y, **si el conjunto está vacío,
+omite esa condición** (una colección vacía en `not in` no es portable en JPQL); la ficha y la reserva preguntan
+`cuentaActiva(arrendadorId)` o heredan el filtro si usan `DisponibilidadService.horasLibres`. `espacios` ya lo aplica en
+`FotoEspacioService.ver` (la foto de un `PUBLICADO` de un arrendador no activo responde 404 al público; una copia en
+caché puede verse hasta 1 hora, `max-age=3600`) y en `horasLibres`.
+
 `espacios.service.DisponibilidadService` es la interfaz pública de `espacios` (la creó HU-08):
 `horasLibres(espacioId, fecha)` devuelve las horas de inicio de los bloques libres (horario − bloqueos − reservas −
-horas ya empezadas) de un espacio `PUBLICADO` en una fecha de las próximas 8 semanas, o una lista vacía. La reutilizan
+horas ya empezadas) de un espacio `PUBLICADO` cuyo arrendador está `ACTIVA` (HU-09) en una fecha de las próximas 8
+semanas, o una lista vacía. La reutilizan
 `busqueda` (HU-10, HU-11) y `reservas` (HU-12); no hace falta otro puerto porque esas direcciones están permitidas.
 
 **Zona horaria.** El bean `Clock` sigue en UTC (`creado_en`, auditoría). Todo lo que depende del calendario local
@@ -158,7 +174,7 @@ Lo que ya existe en `espacios` y se reutiliza tal cual:
 
 | Pieza | Qué hace |
 |-------|----------|
-| `service.DisponibilidadService.horasLibres(espacioId, fecha)` | Única entrada pública. Horas de inicio (0–23) `LIBRE`, ascendentes; lista vacía si el espacio no existe, no está `PUBLICADO` o la fecha está fuera de la ventana. Transacción de solo lectura; no bloquea nada |
+| `service.DisponibilidadService.horasLibres(espacioId, fecha)` | Única entrada pública. Horas de inicio (0–23) `LIBRE`, ascendentes; lista vacía si el espacio no existe, no está `PUBLICADO`, su arrendador no está `ACTIVA` (HU-09, vía `CuentaService.cuentaActiva`) o la fecha está fuera de la ventana. Transacción de solo lectura; no bloquea nada |
 | `domain.VentanaReserva` | `VentanaReserva.desde(ZonaHoraria.hoy(reloj))` → `desde` = hoy, `hasta` = hoy + 55 (`DIAS = 56`); `contiene(fecha)`. Usarla para validar la fecha de una búsqueda, de la ficha o de una reserva, en vez de repetir la regla |
 | `domain.CalculoDisponibilidad.bloquesDelDia(...)` | Cálculo puro (horario − bloqueo − horas reservadas − horas ya empezadas) → `Bloque(horaInicio, estado)` con `EstadoBloque` `LIBRE`, `BLOQUEADO`, `RESERVADO` o `PASADO` |
 | Puerto `service.puertos.ReservasDelEspacio` | Ver la tabla de puertos. Las horas que devuelva quedan `RESERVADO` y salen de `horasLibres` |
@@ -197,7 +213,9 @@ Además, en todo el sistema:
 
 - **(S) Suplantación:** la identidad se toma siempre de la sesión en el backend,
   nunca de un ID enviado por el cliente. Los tokens se invalidan al cerrar
-  sesión o tras 30 minutos de inactividad.
+  sesión o tras 30 minutos de inactividad. Al suspender una cuenta se revocan
+  todas sus sesiones y, además, `SesionService.validar` rechaza (401, sin
+  renovar) cualquier sesión de una cuenta cuyo estado no es `ACTIVA` (HU-09 D3).
 - **(S) Panel admin hasta HU-17 (MFA):** toda ruta `/api/admin/**` pasa primero
   por `comun/seguridad/FiltroIpsAdmin`, que solo deja pasar las IPs de
   `ADMIN_IPS_PERMITIDAS` (IPs o rangos CIDR; vacía = nadie) y si no responde 403

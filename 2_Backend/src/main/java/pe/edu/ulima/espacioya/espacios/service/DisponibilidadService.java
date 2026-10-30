@@ -8,7 +8,8 @@ public interface DisponibilidadService {
 
     /**
      * Horas de inicio (0–23) de los bloques LIBRE del espacio en la fecha, ascendentes. Vacía si el espacio no
-     * existe, no está PUBLICADO o la fecha está fuera de la ventana de 8 semanas.
+     * existe, no está PUBLICADO, su arrendador no está ACTIVA (HU-09) o la fecha está fuera de la ventana de 8
+     * semanas.
      */
     List<Integer> horasLibres(Long espacioId, LocalDate fecha);
 }

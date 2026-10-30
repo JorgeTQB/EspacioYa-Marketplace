@@ -32,6 +32,7 @@
 | | `reclamo` / `mensaje_reclamo` | id, reserva_id (único), motivo, descripcion, estado, resolucion / reclamo_id, autor_id, texto, fecha | HU-26 |
 | | `reporte` | id, reportante_id, tipo_objetivo (ESPACIO, RESENA), objetivo_id, motivo, estado, admin_id, decision | HU-27 |
 | Administración | `revision_identidad` | id, arrendador_id (FK a `perfil_arrendador`, en cascada), admin_id (FK a `usuario`, sin cascada), decision (APROBADA, RECHAZADA), motivo (hasta 500; obligatorio y no en blanco solo si RECHAZADA, nulo si APROBADA), fecha. Historial de decisiones del admin: el estado vigente sigue en `perfil_arrendador` | HU-06 |
+| | `suspension_cuenta` | id, usuario_id (FK a `usuario`, en cascada), admin_id (FK a `usuario`, sin cascada), accion (SUSPENSION, REACTIVACION), motivo (hasta 500; obligatorio y no en blanco solo si SUSPENSION, nulo si REACTIVACION), fecha. Historial de suspensiones y reactivaciones del admin: el estado vigente sigue en `usuario.estado` | HU-09 |
 | Transversal | `auditoria` | id, usuario_id, accion, entidad, entidad_id, ip, fecha, detalle | Todas (R de STRIDE) |
 
 ## Restricciones clave
@@ -52,6 +53,7 @@
 | `horario_semanal`: `CHECK` de dia_semana (1–7) y de horas (`hora_inicio >= 0`, `hora_fin <= 24`, `hora_inicio < hora_fin`); (espacio_id, dia_semana, hora_inicio) único. La superposición entre franjas la impide el servicio con el espacio bloqueado | Bloques de 1 hora en punto, sin franjas repetidas | HU-08 |
 | `bloqueo_fecha` (espacio_id, fecha) único | Una fecha no se bloquea dos veces | HU-08 |
 | `revision_identidad`: `CHECK` de decision (APROBADA, RECHAZADA) y de motivo (RECHAZADA con motivo no en blanco, APROBADA sin motivo) | Toda decisión de identidad queda registrada y un rechazo siempre dice por qué | HU-06 |
+| `suspension_cuenta`: `CHECK` de accion (SUSPENSION, REACTIVACION) y de motivo (SUSPENSION con motivo no en blanco, REACTIVACION sin motivo) | Toda suspensión o reactivación queda registrada y una suspensión siempre dice por qué | HU-09 |
 | `token.hash_token` único (SHA-256 hex del token) | Un enlace de un solo uso no se confunde con otro; el token en claro no se guarda | HU-04 |
 | Llaves foráneas en todas las relaciones | No hay reservas, pagos ni reseñas huérfanas | Todas |
 
@@ -63,6 +65,8 @@ erDiagram
   PERFIL_ARRENDADOR ||--o{ DOCUMENTO_IDENTIDAD : sube
   PERFIL_ARRENDADOR ||--o{ REVISION_IDENTIDAD : "recibe"
   USUARIO ||--o{ REVISION_IDENTIDAD : "decide (admin)"
+  USUARIO ||--o{ SUSPENSION_CUENTA : "recibe"
+  USUARIO ||--o{ SUSPENSION_CUENTA : "suspende o reactiva (admin)"
   PERFIL_ARRENDADOR ||--o{ ESPACIO : publica
   ZONA ||--o{ ESPACIO : ubica
   PERFIL_ARRENDADOR ||--o{ CUENTA_BANCARIA : registra

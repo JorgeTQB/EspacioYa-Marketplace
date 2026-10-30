@@ -13,6 +13,10 @@ const ESTADOS = {
   OCULTO: { texto: 'Oculto', tipo: 'error' },
   BORRADOR: { texto: 'Borrador', tipo: 'neutro' },
   BAJA: { texto: 'De baja', tipo: 'neutro' },
+  // Cuenta (HU-09)
+  ACTIVA: { texto: 'Activa', tipo: 'exito' },
+  SUSPENDIDA: { texto: 'Suspendida', tipo: 'error' },
+  ELIMINADA: { texto: 'Eliminada', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

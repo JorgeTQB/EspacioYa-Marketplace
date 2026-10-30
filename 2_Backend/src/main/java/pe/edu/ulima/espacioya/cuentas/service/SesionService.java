@@ -12,6 +12,7 @@ import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.comun.seguridad.ValidadorSesion;
+import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
 import pe.edu.ulima.espacioya.cuentas.dto.SesionActualDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
@@ -39,16 +40,20 @@ public class SesionService implements ValidadorSesion {
         this.reloj = reloj;
     }
 
+    // Una cuenta no ACTIVA no usa sus sesiones aunque sigan vigentes: cierra la carrera entre un inicio de sesión y una
+    // suspensión, en la que nacería una sesión que nadie revoca (HU-09 D3, R21). No se renueva.
     @Override
     @Transactional
     public Optional<UsuarioAutenticado> validar(String token) {
         var ahora = Instant.now(reloj);
         return sesiones.findByHashToken(TokenAleatorio.hash(token))
                 .filter(sesion -> sesion.estaVigente(ahora))
-                .flatMap(sesion -> usuarios.findById(sesion.getUsuarioId()).map(usuario -> {
-                    sesion.renovar(ahora);
-                    return new UsuarioAutenticado(usuario.getId(), sesion.getId(), usuario.getRol().name());
-                }));
+                .flatMap(sesion -> usuarios.findById(sesion.getUsuarioId())
+                        .filter(usuario -> usuario.getEstado() == EstadoUsuario.ACTIVA)
+                        .map(usuario -> {
+                            sesion.renovar(ahora);
+                            return new UsuarioAutenticado(usuario.getId(), sesion.getId(), usuario.getRol().name());
+                        }));
     }
 
     @Transactional(readOnly = true)
