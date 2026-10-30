@@ -74,6 +74,15 @@
 | `--color-borde-control` | `#64748B` | Borde de controles: campos de texto, select, textarea, casillas, radios y botón secundario |
 | `--color-gris-suave` | `#F1F5F9` | Fondo de bloques ocupados y filas alternas de tablas |
 
+**Colores del encabezado y la página de inicio** (paleta de la referencia visual; no se usan en otras pantallas)
+
+| Token | Hex | Dónde se usa |
+|-------|-----|--------------|
+| `--color-marca` / `--color-marca-hover` | `#1565E0` / `#0F4FB8` | Logo, botón "Regístrate", botón "Buscar" del hero, iconos y enlaces del inicio (blanco encima: 5.3:1) |
+| `--color-marino` | `#0B2A4A` | Fondo del hero, "Espacio" del logo, títulos de sección del inicio |
+| `--color-marca-claro` | `#5AAEF7` | Acento del título del hero sobre marino (6.1:1) |
+| `--color-celeste` / `--color-celeste-banda` | `#EEF5FD` / `#E5F3FE` | Fondo de las secciones del inicio y de la banda de ventajas |
+
 **Colores de estado.** Cada uno es un fondo claro y un texto oscuro de la misma
 familia; los usan `EtiquetaEstado` y `Alerta`.
 

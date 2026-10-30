@@ -774,3 +774,5 @@
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
 
 - 2026-10-30 — (orquestador, sdd:false) HU-12: Eduardo Saldaña comprobó el contador en el navegador con una reserva a 30 segundos: bajó hasta `00:00` sin subir, la pantalla pasó sola a "Expirada" y en la base la reserva quedó `EXPIRADA`, el bloque inactivo y la auditoría `RESERVA_EXPIRADA` con `origen=PROCESO`. Se cierra ese pendiente.
+
+- 2026-10-30 — (sdd:false, pedido visual) Rediseño de la página de inicio `/` (`pages/inicio/`) y del encabezado global según una imagen de referencia: hero con buscador hacia `/buscar`, tarjetas por tipo real (CANCHA, ESTADIO, AUDITORIO), banda de ventajas `#como-funciona` con el enlace a `/registro-arrendador`. Tokens nuevos de color en `tokens.css` y `docs/frontend.md`; el ancho de lectura pasa de `#root` a `.contenido` de `App.module.css`. Detalle en `progress/impl_inicio.md`. Sin commitear.

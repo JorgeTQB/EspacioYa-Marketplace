@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { NO_AUTENTICADO } from './api/cliente.js'
 import { cerrarSesion } from './api/cuentas.js'
 import { borrarToken } from './api/tokenSesion.js'
@@ -11,6 +11,7 @@ import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
+import Inicio from './pages/inicio/Inicio.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
@@ -32,6 +33,7 @@ const MENSAJE_SESION_CERRADA = 'Cerraste sesión.'
 function App() {
   const { sesion, salir } = useSesion()
   const navegar = useNavigate()
+  const enInicio = useLocation().pathname === '/'
   const [cerrando, setCerrando] = useState(false)
   const [errorCierre, setErrorCierre] = useState(null)
 
@@ -62,45 +64,58 @@ function App() {
   return (
     <>
       <header className={estilos.encabezado}>
-        <h1 className={estilos.marca}>
-          <Link to="/">EspacioYa</Link>
-        </h1>
-        <nav className={estilos.navegacion}>
-          <Link to="/buscar">Buscar espacios</Link>
-          {sesion ? (
-            <>
-              <Link to="/panel">Mi panel</Link>
-              <Boton variante="secundario" cargando={cerrando} onClick={alCerrarSesion}>
-                Cerrar sesión
-              </Boton>
-            </>
-          ) : (
-            <Link to="/iniciar-sesion">Iniciar sesión</Link>
-          )}
-        </nav>
-      </header>
-      {errorCierre && <Alerta tipo="error">{errorCierre}</Alerta>}
-      <main>
-        <Routes>
-          <Route
-            path="/"
-            element={
+        <div className={estilos.barra}>
+          <h1 className={estilos.marca}>
+            <Link to="/" aria-label="EspacioYa, ir al inicio">
+              <svg className={estilos.pin} viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.4 6.2 11.6 6.9 12.2a.9.9 0 0 0 1.2 0c.7-.6 6.9-6.8 6.9-12.2A7.5 7.5 0 0 0 12 2Z" />
+                <circle cx="12" cy="9.5" r="3" className={estilos.pinCentro} />
+              </svg>
+              <span className={estilos.marcaEspacio}>Espacio</span>
+              <span className={estilos.marcaYa}>Ya</span>
+            </Link>
+          </h1>
+          <nav className={estilos.secciones} aria-label="Secciones">
+            <Link to="/buscar">Explorar espacios</Link>
+            <Link to={{ pathname: '/', hash: '#como-funciona' }}>Cómo funciona</Link>
+          </nav>
+          <nav className={estilos.cuenta} aria-label="Cuenta">
+            <Link to="/buscar" className={estilos.lupa} aria-label="Buscar espacios">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg>
+            </Link>
+            {sesion ? (
               <>
-                <p className={estilos.inicio}>
-                  <Link to="/buscar">Buscar espacios</Link>
-                </p>
-                <p>
-                  <Link to="/registro">Crea tu cuenta</Link>
-                </p>
-                <p>
-                  <Link to="/registro-arrendador">¿Tienes un espacio? Regístrate como arrendador</Link>
-                </p>
-                <p>
-                  <Link to="/iniciar-sesion">¿Ya tienes cuenta? Inicia sesión</Link>
-                </p>
+                <Link to="/panel" className={estilos.enlace}>
+                  Mi panel
+                </Link>
+                <Boton variante="secundario" cargando={cerrando} onClick={alCerrarSesion}>
+                  Cerrar sesión
+                </Boton>
               </>
-            }
-          />
+            ) : (
+              <>
+                <Link to="/iniciar-sesion" className={estilos.enlace}>
+                  Iniciar sesión
+                </Link>
+                <Link to="/registro" className={estilos.registrate}>
+                  Regístrate
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+      </header>
+      {errorCierre && (
+        <div className={estilos.contenido}>
+          <Alerta tipo="error">{errorCierre}</Alerta>
+        </div>
+      )}
+      <main className={enInicio ? undefined : estilos.contenido}>
+        <Routes>
+          <Route path="/" element={<Inicio />} />
           {/* HU-10: catálogo público, con o sin sesión. */}
           <Route path="/buscar" element={<BuscarEspacios />} />
           {/* HU-11: ficha pública (?fecha=AAAA-MM-DD), con o sin sesión; HU-12 vuelve aquí tras el login. */}
