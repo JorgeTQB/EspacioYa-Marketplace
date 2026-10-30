@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -220,6 +221,12 @@ public class CuentaServiceImpl implements CuentaService {
     @Transactional(readOnly = true)
     public Set<Long> arrendadoresNoActivos() {
         return Set.copyOf(usuarios.findIdsArrendadoresNoActivos());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bloquearCuenta(Long usuarioId) {
+        usuarios.findParaActualizar(usuarioId).orElseThrow(RecursoNoEncontradoException::new);
     }
 
     // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).

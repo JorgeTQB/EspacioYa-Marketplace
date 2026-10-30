@@ -11,9 +11,12 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
+import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
+import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.CalculoDisponibilidad;
@@ -31,7 +34,7 @@ import pe.edu.ulima.espacioya.espacios.service.puertos.ReservasDelEspacio;
 
 /**
  * Bloques de un día calculados al consultar: horario − bloqueos − reservas (HU-08 DT-8). El puerto de reservas
- * llega como {@link ObjectProvider}: hasta que HU-12 lo implemente no hay bean y ninguna fecha tiene reservas (R21).
+ * llega como {@link ObjectProvider}: sin su bean, ninguna fecha tiene reservas (R21).
  */
 @Service
 public class DisponibilidadServiceImpl implements DisponibilidadService {
@@ -115,6 +118,23 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
             }
         }
         return conLibres;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public EspacioRetenido retenerSiLibres(Long espacioId, LocalDate fecha, List<Integer> horas) {
+        var espacio = espacios.findParaReservar(espacioId)
+                .filter(encontrado -> encontrado.getEstado() == EstadoEspacio.PUBLICADO)
+                .filter(encontrado -> cuentas.cuentaActiva(encontrado.getArrendadorId()))
+                .orElseThrow(RecursoNoEncontradoException::new);
+        var libres = bloquesDelDia(espacioId, fecha).stream()
+                .filter(bloque -> bloque.estado() == EstadoBloque.LIBRE)
+                .map(Bloque::horaInicio)
+                .collect(Collectors.toSet());
+        if (!libres.containsAll(horas)) {
+            throw new ReglaNegocioException(MENSAJE_HORARIO_NO_DISPONIBLE);
+        }
+        return new EspacioRetenido(espacio.getNombre(), espacio.getPrecioHora());
     }
 
     VentanaReserva ventana() {

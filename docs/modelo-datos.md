@@ -22,8 +22,8 @@
 | | `horario_semanal` | id, espacio_id (FK en cascada), dia_semana (`SMALLINT`, ISO 1 = lunes … 7 = domingo), hora_inicio (`SMALLINT` 0–23), hora_fin (`SMALLINT` 1–24, exclusivo; 24 = medianoche). Varias franjas por día sin superponerse; el horario se reemplaza completo. Los bloques libres no se guardan: se calculan al consultar | HU-08 |
 | | `bloqueo_fecha` | id, espacio_id (FK en cascada), fecha (`DATE`, día completo; se bloquea solo dentro de las próximas 8 semanas y se puede desbloquear) | HU-08 |
 | | `caracteristica` / `espacio_caracteristica` | id, nombre / espacio_id + caracteristica_id | HU-23 |
-| Reservas | `reserva` | id, usuario_id, espacio_id, estado (PENDIENTE_PAGO, CONFIRMADA, EXPIRADA, CANCELADA), monto_total, precio_hora_aplicado, creada_en, expira_en, cancelada_por, cancelada_en | HU-12, HU-14, HU-15 |
-| | `reserva_bloque` | id, reserva_id, espacio_id, fecha, hora_inicio, activo. Se recomienda `hora_inicio SMALLINT` (0–23), la misma granularidad que `horario_semanal` (HU-08) | HU-12 |
+| Reservas | `reserva` | id, usuario_id (FK a `usuario`, sin cascada), espacio_id (FK a `espacio`, sin cascada), estado (`VARCHAR(20)`: PENDIENTE_PAGO, CONFIRMADA, EXPIRADA, CANCELADA), precio_hora_aplicado (`NUMERIC(8,2)`, copia del precio al crear), monto_total (`NUMERIC(10,2)`: 24 × S/ 100 000.00 no cabe en `(8,2)`), creada_en, expira_en (`TIMESTAMPTZ`; creada_en + 15 min). `cancelada_por` y `cancelada_en` los agrega HU-15 con su migración | HU-12, HU-14, HU-15 |
+| | `reserva_bloque` | id, reserva_id (FK a `reserva`, en cascada), espacio_id (FK a `espacio`, sin cascada), fecha (`DATE`), hora_inicio (`SMALLINT` 0–23, la misma granularidad que `horario_semanal`, HU-08), activo (`BOOLEAN`, por defecto `TRUE`). Liberar un bloque pone `activo = false`: las filas se conservan porque HU-14 muestra el horario de las reservas pasadas | HU-12 |
 | Pagos | `pago` | id, reserva_id, id_transaccion_pasarela (único), monto, estado (PAGADO, RECHAZADO, REEMBOLSADO, REEMBOLSO_FALLIDO), ultimos4, creado_en | HU-13, HU-28 |
 | | `reembolso` | id, pago_id, monto, origen (CANCELACION, RECLAMO), estado, intentos, creado_en | HU-16, HU-26 |
 | | `cuenta_bancaria` | id, arrendador_id, banco, numero (cifrado), titular, retener_hasta | HU-18 |
@@ -39,7 +39,8 @@
 
 | Restricción | Regla de negocio | Historia |
 | --- | --- | --- |
-| Bloque único: (espacio_id, fecha, hora_inicio) solo para bloques activos (índice único parcial `WHERE activo`) | Dos usuarios no pueden reservar el mismo bloque | HU-12 |
+| Bloque único: `uq_reserva_bloque_activo` en (espacio_id, fecha, hora_inicio) solo para bloques activos (índice único parcial `WHERE activo`) | Dos usuarios no pueden reservar el mismo bloque | HU-12 |
+| `reserva`: `CHECK` de estado (`ck_reserva_estado`), de montos positivos (`ck_reserva_montos`) y de `expira_en > creada_en` (`ck_reserva_expira`); `reserva_bloque`: `CHECK` de `hora_inicio` entre 0 y 23 (`ck_reserva_bloque_hora`). Índices `ix_reserva_usuario_estado` (usuario_id, estado), `ix_reserva_vencimiento` (expira_en, `WHERE estado = 'PENDIENTE_PAGO'`) e `ix_reserva_bloque_reserva` (reserva_id) | Una reserva nace con valores válidos y el cupo y la expiración se consultan sin recorrer la tabla | HU-12 |
 | `pago.id_transaccion_pasarela` único | El webhook es idempotente: un pago no se registra dos veces | HU-13 |
 | Un reembolso por pago y origen | Una cancelación no genera dos reembolsos | HU-16 |
 | `liquidacion_detalle.reserva_id` único | Una reserva no se liquida dos veces | HU-19 |

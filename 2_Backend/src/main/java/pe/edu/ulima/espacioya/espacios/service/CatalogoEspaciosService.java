@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Interfaz pública del catálogo de {@code espacios} para {@code busqueda} (HU-10, HU-11, HU-23). Sin sesión. */
+/**
+ * Interfaz pública del catálogo de {@code espacios} para {@code busqueda} (HU-10, HU-11, HU-23) y {@code reservas}
+ * (HU-12, HU-14). Sin sesión.
+ */
 public interface CatalogoEspaciosService {
 
     /** {@code true} solo si el texto es exactamente CANCHA, ESTADIO o AUDITORIO. */
@@ -31,4 +34,10 @@ public interface CatalogoEspaciosService {
 
     /** {@code true} solo si el espacio existe, está PUBLICADO y su arrendador está ACTIVA (HU-11 R33). */
     boolean esVisible(Long espacioId);
+
+    /**
+     * Id del espacio → nombre, sin filtro de visibilidad: una reserva ya creada sigue mostrando su espacio aunque este
+     * se haya pausado o su arrendador esté suspendido (HU-12 S11). Los ids que no existen no aparecen.
+     */
+    Map<Long, String> nombres(Collection<Long> espacioIds);
 }

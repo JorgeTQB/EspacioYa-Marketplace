@@ -27,6 +27,11 @@ public interface EspacioRepository extends JpaRepository<Espacio, Long> {
     @Query("select e from Espacio e where e.id = :id and e.arrendadorId = :arrendadorId")
     Optional<Espacio> findParaActualizar(@Param("id") Long id, @Param("arrendadorId") Long arrendadorId);
 
+    // El mismo bloqueo de fila, sin filtrar por dueño: quien reserva no es el dueño (HU-08 DT-10, HU-12 DT-2).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Espacio e where e.id = :id")
+    Optional<Espacio> findParaReservar(@Param("id") Long id);
+
     // Búsqueda pública (HU-10 DT-4, DT-9): servida por ix_espacio_busqueda.
     @Query("select e from Espacio e where e.estado = :estado and e.tipo = :tipo and e.zona = :zona "
             + "order by e.precioHora asc, e.id asc")

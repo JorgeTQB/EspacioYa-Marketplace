@@ -1,12 +1,14 @@
 package pe.edu.ulima.espacioya.espacios.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +37,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
+import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
@@ -295,5 +299,104 @@ class DisponibilidadServiceImplTest {
 
         assertThat(ventana.desde()).isEqualTo(HOY);
         assertThat(ventana.hasta()).isEqualTo(HOY.plusDays(55));
+    }
+
+    private void retenibleElLunes() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(true);
+        horarioDelLunes(new FranjaHoraria(1, 8, 10));
+    }
+
+    @Test
+    @DisplayName("HU-12 R3: con las horas libres devuelve el nombre y el precio leídos bajo el bloqueo")
+    void retenerDevuelveNombreYPrecio() {
+        retenibleElLunes();
+        when(proveedor.getIfAvailable()).thenReturn(null);
+
+        var retenido = servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8, 9));
+
+        assertThat(retenido.nombre()).isEqualTo("Cancha Los Olivos");
+        assertThat(retenido.precioHora()).isEqualByComparingTo("80.00");
+    }
+
+    @Test
+    @DisplayName("HU-12 R18: bloquea con findParaReservar antes de calcular y nunca lee el espacio sin bloqueo")
+    void retenerBloqueaAntesDeCalcular() {
+        retenibleElLunes();
+        when(proveedor.getIfAvailable()).thenReturn(null);
+
+        servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8));
+
+        var orden = inOrder(espacios, horarios);
+        orden.verify(espacios).findParaReservar(ESPACIO_ID);
+        orden.verify(horarios).findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(ESPACIO_ID, (short) 1);
+        verify(espacios, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("HU-12 R33: espacio inexistente, en borrador o pausado es 404 sin consultar el horario")
+    void retenerNoPublicado() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.empty(),
+                Optional.of(espacio(EstadoEspacio.BORRADOR)), Optional.of(espacio(EstadoEspacio.PAUSADO)));
+
+        for (var intento = 0; intento < 3; intento++) {
+            assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8)))
+                    .isInstanceOf(RecursoNoEncontradoException.class);
+        }
+        verifyNoInteractions(horarios, bloqueos, proveedor, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-12 R33: un espacio PUBLICADO de un arrendador no ACTIVA es 404")
+    void retenerArrendadorNoActivo() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(horarios, bloqueos, proveedor);
+    }
+
+    @Test
+    @DisplayName("HU-12 R18: una hora reservada responde horario no disponible")
+    void retenerHoraReservada() {
+        retenibleElLunes();
+        when(proveedor.getIfAvailable()).thenReturn(puerto);
+        when(puerto.bloquesReservados(ESPACIO_ID, LUNES, LUNES))
+                .thenReturn(List.of(new BloqueReservado(LUNES, 9, false)));
+
+        assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8, 9)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage(DisponibilidadService.MENSAJE_HORARIO_NO_DISPONIBLE);
+    }
+
+    @Test
+    @DisplayName("HU-12 R18: en una fecha bloqueada ninguna hora es libre")
+    void retenerFechaBloqueada() {
+        retenibleElLunes();
+        when(bloqueos.existsByEspacioIdAndFecha(ESPACIO_ID, LUNES)).thenReturn(true);
+
+        assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(8)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage(DisponibilidadService.MENSAJE_HORARIO_NO_DISPONIBLE);
+    }
+
+    @Test
+    @DisplayName("HU-12 R18: una hora ya empezada o fuera del horario responde horario no disponible")
+    void retenerHoraPasadaOFueraDeHorario() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+        when(cuentas.cuentaActiva(ARRENDADOR_ID)).thenReturn(true);
+        when(proveedor.getIfAvailable()).thenReturn(null);
+        // 2026-10-28 es miércoles (3) y son las 22:00 en Lima: la 21 ya pasó y la 23 está libre.
+        when(horarios.findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(ESPACIO_ID, (short) 3))
+                .thenReturn(List.of(HorarioSemanal.de(ESPACIO_ID, new FranjaHoraria(3, 20, 24))));
+        horarioDelLunes(new FranjaHoraria(1, 8, 10));
+
+        assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, HOY, List.of(21)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage(DisponibilidadService.MENSAJE_HORARIO_NO_DISPONIBLE);
+        assertThatThrownBy(() -> servicio.retenerSiLibres(ESPACIO_ID, LUNES, List.of(10)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessage(DisponibilidadService.MENSAJE_HORARIO_NO_DISPONIBLE);
     }
 }

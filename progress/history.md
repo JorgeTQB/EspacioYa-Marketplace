@@ -672,3 +672,105 @@
   4. Contrato para HU-12: ruta `/espacios/:id?fecha=`, `obtenerEspacio(id)`, `consultarBloquesLibres(id, fecha)`,
      `SelectorBloques` intacto y listo para `seleccionados`/`onCambiar`, DTO ampliables (`docs/frontend.md`).
   - Todo está sin commitear: la dueña revisa y abre el PR hacia `develop`.
+
+## 2026-10-30 — HU-12 Reserva con bloqueo temporal (done)
+
+- **Dueño:** Eduardo Saldaña · **Prueba:** Ariel Enriquez · **Rama:** `feature/HU-12-reserva-bloqueo-temporal` (desde
+  `develop` en `a8234a6`)
+- **Agentes:** orquestador → explorador (`progress/explore_HU-12.md`, puntos 1–18) → decisiones D1–D4 del dueño →
+  spec-author (`specs/HU-12/`, R1–R45, DT-1…DT-11, S1–S11, T1–T23) → aprobación del dueño (2026-10-30, S1–S11 aceptados
+  tal cual) → implementer (`progress/impl_HU-12.md`) → reviewer vuelta 0 (CHANGES_REQUESTED) → implementer vuelta 1 →
+  reviewer vuelta 1 (APPROVED, `progress/review_HU-12.md`).
+- **Decisiones D1–D4 (Eduardo Saldaña, 2026-10-30):**
+  - D1: solo el rol `USUARIO` reserva; `ARRENDADOR` y `ADMIN` reciben 403 y la ficha no les ofrece el botón.
+  - D2: expiración en tres capas: las lecturas ignoran las vencidas, un job cada minuto las pasa a `EXPIRADA` y audita,
+    y al crear una reserva se liberan las vencidas de esos bloques. Cierra §9-8 para RF-D-02; los recordatorios
+    (RF-D-10) siguen abiertos para HU-25.
+  - D3: tras reservar se va a `/reservas/:id` (resumen, monto y contador), con `GET /api/reservas/{id}` solo para su
+    dueño (si no, 404).
+  - D4: el cupo de 3 pendientes se protege bloqueando la fila del usuario con un método nuevo de `CuentaService`, con
+    orden fijo `usuario → espacio → reserva`; al superarlo, 400 con mensaje claro.
+- **Supuestos S1–S11 (aceptados por el dueño al aprobar):** S1 conflicto de CA3 como 400 sin campo, no 409; S2 no se
+  define aún `pagos.ReservasPorCobrar`, lo crea HU-13; S3 retorno tras el login con `state.retorno`, en las dos salidas
+  de `IniciarSesion` y también tras una sesión caducada en `ProveedorSesion` (cambia código de HU-03), sin conservar los
+  bloques elegidos; S4 se permiten bloques que empiezan en menos de 15 minutos; S5 una `PENDIENTE_PAGO` sigue y expira
+  sola si el arrendador o el usuario se suspende o el espacio se pausa u oculta, y HU-13 comprobará `cuentaActiva` antes
+  de cobrar; S6 una sola fecha y horas consecutivas, sin cruzar medianoche; S7 riesgo aceptado: renovar 3 pendientes
+  indefinidamente o abarcar un día entero, sin poder soltar una pendiente; S8 sin modal de confirmación; S9 la expiración
+  se audita con `usuario_id` e `ip` nulos y `origen=PROCESO`; S10 `@Primary` en los dobles del puerto de
+  `BusquedaControllerIT` y `EspaciosControllerSoporte`; S11 `CatalogoEspaciosService.nombres(ids)` sin filtro de
+  visibilidad, y `cancelada_por` y `cancelada_en` quedan para HU-15.
+- **Cambios:**
+  - Módulo nuevo `reservas`: `Reserva`, `ReservaBloque`, `EstadoReserva`, `SeleccionBloques`, `ReservaRepository`,
+    `ReservaBloqueRepository`, `CrearReservaDTO`, `ReservaDTO`, `ReservaService` e `Impl`, `ReservasDelEspacioImpl`
+    (implementación real del puerto de HU-08, con `bloquesReservadosDelDia` en una sola consulta), `ExpiracionReservas`,
+    `ProgramacionExpiracion` (primer proceso programado del backend) y `ReservaController` (`POST /api/reservas`,
+    `GET /api/reservas/{id}`).
+  - Migración `V3_3__reservas.sql` (`V3_3` confirmado libre en `develop`, local y origin): tablas, `CHECK`, índices e
+    índice único parcial `uq_reserva_bloque_activo`.
+  - `cuentas`: `CuentaService.bloquearCuenta`. `espacios`: `EspacioRepository.findParaReservar`,
+    `DisponibilidadService.retenerSiLibres`, `EspacioRetenido`, `CatalogoEspaciosService.nombres`.
+  - Propiedades `espacioya.reservas.expiracion.activa` e `.intervalo` (`RESERVAS_EXPIRACION_ACTIVA`,
+    `RESERVAS_EXPIRACION_INTERVALO`), apagado en las pruebas.
+  - Frontend: `api/reservas.js`, `pages/reservas/` (`ResumenReserva`, `textosReservas`), `CuentaRegresiva` (kit),
+    estados de reserva en `EtiquetaEstado`, `sesion/retorno.js`, ficha con selección y "Reservar", login con retorno,
+    `ProveedorSesion` y ruta `/reservas/:id`.
+  - Docs: `architecture.md` (sección "Reservas: qué deja HU-12"), `modelo-datos.md`, `frontend.md` y `requerimientos.md`
+    (§8 y §9-8).
+- **Tests:** nuevos `ReservaTest`, `SeleccionBloquesTest`, `CrearReservaDTOTest`, `ReservaServiceImplTest`,
+  `ExpiracionReservasTest`, `ProgramacionExpiracionTest`, `ReservasDelEspacioImplTest`, `ReservasDelEspacioImplIT` (7),
+  `ReservaControllerIT` (69, incluidas la trampa del `flush` y la violación real del índice) y `ReservaConcurrenciaIT`
+  (5, con hilos reales), sobre `ReservasControllerSoporte`. Ampliados `CuentaServiceImplTest`,
+  `DisponibilidadServiceImplTest` y `CatalogoEspaciosServiceImplTest`. Trazabilidad R1–R45 en `progress/impl_HU-12.md`.
+- **Tests de otras historias que cambiaron:** `BusquedaControllerIT` y `EspaciosControllerSoporte` (`@Primary`, S10);
+  `DisponibilidadServiceImplIT` (comentario y `@DisplayName` sin R21, que sigue en la unitaria); `FichaControllerIT`
+  (comentario); `CalendarioEspacioControllerIT.calculaAlConsultar` (HU-08 R28), que exigía que `bloqueo_fecha` fuera la
+  única tabla con `bloque` en el nombre: `reserva_bloque` también coincide y guarda retenciones, no bloques calculados.
+  T9 no lo había previsto; se documentó antes de tocarlo.
+- **Desviaciones del diseño:**
+  - § 4: `CrearReservaDTO` usa `SoloListaDeEnteros` y `SoloTexto` en lugar de `contentUsing`, para que `"horas": 14` o
+    `"fecha": {}` den el error en su campo, como piden R30 y R32.
+  - § 6, aprobada por el dueño (2026-10-30): `ahora` se toma después de `retenerSiLibres`, no después de
+    `bloquearCuenta`; el cupo conserva su propia lectura del reloj. Sin cambios de firma y con el mismo orden de
+    bloqueos. Los 15 minutos empiezan tras la espera del bloqueo. `design.md` no se editó.
+  - § 10: "Reservar" no se muestra si el día no tiene bloques libres (el diseño decía "sin sesión, siempre activo").
+- **Review:**
+  - Vuelta 0 — CHANGES_REQUESTED: (1) CA2 en pantalla: la `key` del contador cambiaba al pedir y no al recibir, así que
+    podía mostrar "Pendiente de pago" y unos 15:00 con los bloques ya liberados; (2) `@DisplayName` de
+    `DisponibilidadServiceImplIT` y comentario de `FichaControllerIT`; (3) siete líneas de más de 120 caracteres.
+  - Vuelta 1 — APPROVED: los tres cambios aplicados, más las observaciones 1 (IT de R22 con PostgreSQL real, sin
+    defectos), 2 (`retornoValido`, a pedido del dueño) y 3 (el `ahora` de la desviación de § 6, a pedido del dueño).
+- **Pendientes:**
+  1. **Dueño, comprobar el contador en el navegador.** El arreglo de CA2 se aprobó por lectura del código y cálculo de
+     tiempos: ninguna pantalla de HU-12 se ejecutó en un navegador. Los pasos están en `progress/impl_HU-12.md`,
+     "Pendiente para el dueño". Si el contador salta a un tiempo mayor, la historia vuelve a `in_progress`.
+  2. **Avisos al equipo, escritos aquí y aún sin entregar:**
+     - Jorge Quispe (HU-03, S3): `IniciarSesion.jsx` va a `state.retorno` si `retornoValido` lo acepta, en sus dos
+       salidas, y si no a `/panel`; `ProveedorSesion.jsx` agrega `retorno` al llevar al login tras un 401 con token, en
+       todas las rutas protegidas.
+     - Kevin Chan (HU-15, S11): `reserva` aún no tiene `cancelada_por` ni `cancelada_en`: las agrega HU-15 con su
+       migración. Para liberar bloques al cancelar, poner `activo = false` con
+       `ReservaBloqueRepository.desactivarDeReserva`; las filas se conservan.
+     - Sebastian Garate (HU-08, HU-10, S10): los dobles del puerto de `BusquedaControllerIT` y
+       `EspaciosControllerSoporte` llevan `@Primary`. `bloquesReservadosDelDia` está sobrescrito con una sola consulta y
+       su firma queda confirmada, sin cambios.
+     - Adriana Callupe (HU-14): puede reutilizar `CatalogoEspaciosService.nombres(ids)`, sin filtro de visibilidad, y
+       `ReservaDTO`. El estado se lee con `Reserva.estadoEn(ahora)`, no con `getEstado()`.
+  3. **Lo que necesitará HU-13 (`design.md` § 12, también en `docs/architecture.md`):** `reservas` implementará
+     `pagos.ReservasPorCobrar`, que define HU-13. Obtener: id, usuario dueño, `montoTotal`, `expiraEn` y vigencia con
+     `esVigente(ahora)`, no solo por estado. Confirmar: `Reserva.confirmar()` nuevo, respetando `usuario → espacio →
+     reserva`; `retenerSiLibres` no sirve porque las horas ya las retiene la propia reserva, así que hace falta otro
+     método que solo tome el bloqueo del espacio y luego `findParaActualizar` de la reserva, revalidando vigencia, porque
+     el proceso y el webhook compiten por esa fila. Cobro y correos: comprobar `cuentaActiva` antes del checkout (S5);
+     `EspacioRetenido` no trae el arrendador.
+  4. **Observaciones del review que siguen abiertas (no bloquean):** la carrera entre el job y la creación está razonada,
+     no probada con hilos (el spec no lo exige; R16 es Mockito), y `RutaProtegida` no guarda el retorno, de modo que abrir
+     `/reservas/:id` sin sesión lleva al login y luego a `/panel` (fuera de S3, anotado en `docs/frontend.md`).
+  5. **Para HU-20 (del explorador):** hoy `PUBLICADO` implica identidad verificada, y por eso la reserva no la comprueba;
+     HU-20 CA3 / RN-02 devolverá la identidad a "en revisión", y allí se decide si esos espacios siguen reservándose.
+- **Resultado:** `./init.sh` completo en verde en el cierre, con HU-12 ya en `done` (631 unitarias = 523 previas + 108 de
+  HU-12; 432 IT con Testcontainers = 351 + 81 de HU-12; lint y build OK). Único aviso, ajeno a la historia: las llaves
+  locales del backend. Status → `done`: código terminado, no aceptación; falta la caja negra de Ariel Enriquez en UAT.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+- 2026-10-30 — (orquestador, sdd:false) HU-12: Eduardo Saldaña comprobó el contador en el navegador con una reserva a 30 segundos: bajó hasta `00:00` sin subir, la pantalla pasó sola a "Expirada" y en la base la reserva quedó `EXPIRADA`, el bloque inactivo y la auditoría `RESERVA_EXPIRADA` con `origen=PROCESO`. Se cierra ese pendiente.

@@ -1,0 +1,6 @@
+.contador {
+  color: var(--color-texto);
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-negrita);
+  font-variant-numeric: tabular-nums;
+}

@@ -49,7 +49,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Ficha pública y bloques libres contra PostgreSQL real. El reloj está fijo en el miércoles 2026-10-28 a las 10:00
- * de Lima y el puerto de reservas es un doble (HU-12 aún no existe). Cada test usa su propia IP (10.12.x.x).
+ * de Lima y el puerto de reservas es un doble. Cada test usa su propia IP (10.12.x.x).
  */
 @SpringBootTest
 @AutoConfigureMockMvc

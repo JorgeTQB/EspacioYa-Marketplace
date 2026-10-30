@@ -97,4 +97,14 @@ public interface CuentaService {
      * conjunto está vacío, el llamador omite esa condición: una colección vacía en {@code not in} no es portable.
      */
     Set<Long> arrendadoresNoActivos();
+
+    /**
+     * Bloquea la fila de la cuenta hasta el fin de la transacción del llamador (HU-12 D4). {@code reservas} lo usa
+     * para serializar el cupo de un usuario que reserva dos espacios a la vez; el orden fijo de bloqueos es
+     * {@code usuario → espacio → reserva}. No exige sesión ni rol.
+     *
+     * @throws org.springframework.transaction.IllegalTransactionStateException si no hay una transacción activa.
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     */
+    void bloquearCuenta(Long usuarioId);
 }
