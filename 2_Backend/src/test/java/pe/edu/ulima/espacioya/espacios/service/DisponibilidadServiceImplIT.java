@@ -30,7 +30,7 @@ import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 
-/** Contexto real sin implementación del puerto de reservas (como en producción hasta HU-12). */
+/** Contexto real con la implementación de HU-12 del puerto de reservas y las tablas de reservas vacías. */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class DisponibilidadServiceImplIT {
@@ -76,7 +76,7 @@ class DisponibilidadServiceImplIT {
     }
 
     @Test
-    @DisplayName("HU-08 R21, R30: contra la base, un espacio publicado da sus horas libres sin el puerto de reservas")
+    @DisplayName("HU-08 R30: contra la base, un espacio publicado da sus horas libres con el puerto real sin reservas")
     void horasLibresContraLaBase() {
         var fecha = ZonaHoraria.hoy(reloj).plusDays(7);
         franja(fecha, 14, 16);

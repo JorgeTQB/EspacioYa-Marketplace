@@ -17,6 +17,11 @@ const ESTADOS = {
   ACTIVA: { texto: 'Activa', tipo: 'exito' },
   SUSPENDIDA: { texto: 'Suspendida', tipo: 'error' },
   ELIMINADA: { texto: 'Eliminada', tipo: 'neutro' },
+  // Reserva (HU-12)
+  PENDIENTE_PAGO: { texto: 'Pendiente de pago', tipo: 'atencion' },
+  CONFIRMADA: { texto: 'Confirmada', tipo: 'exito' },
+  EXPIRADA: { texto: 'Expirada', tipo: 'neutro' },
+  CANCELADA: { texto: 'Cancelada', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

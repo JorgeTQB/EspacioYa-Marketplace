@@ -239,4 +239,22 @@ class CatalogoEspaciosServiceImplTest {
         assertThat(servicio.esVisible(1L)).isTrue();
         verifyNoInteractions(fotos, zonas);
     }
+
+    @Test
+    @DisplayName("HU-12 R37: nombres no filtra por visibilidad: incluye PAUSADO, BAJA y arrendador no ACTIVA")
+    void nombresSinFiltroDeVisibilidad() {
+        when(espacios.findAllById(any())).thenReturn(List.of(enEstado(1L, EstadoEspacio.PAUSADO),
+                enEstado(2L, EstadoEspacio.BAJA), espacio(3L, "80.00")));
+
+        assertThat(servicio.nombres(List.of(1L, 2L, 3L, 3L)))
+                .containsOnly(Map.entry(1L, "Cancha 1"), Map.entry(2L, "Cancha 2"), Map.entry(3L, "Cancha 3"));
+        verifyNoInteractions(cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-12 R37: nombres con una colección vacía devuelve vacío sin consultar")
+    void nombresVacio() {
+        assertThat(servicio.nombres(List.of())).isEmpty();
+        verifyNoInteractions(espacios);
+    }
 }

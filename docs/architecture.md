@@ -150,6 +150,9 @@ HU-09 le agregó, para `administracion`, `buscarCuentas`, `detalleCuenta`, `susp
 - `cuentaActiva(usuarioId)` → `true` solo si la cuenta existe y está `ACTIVA`.
 - `arrendadoresNoActivos()` → `Set<Long>` con los ids de los arrendadores cuyo estado no es `ACTIVA` (o vacío).
 
+HU-12 le agregó `bloquearCuenta(usuarioId)` (D4, `@Transactional(propagation = MANDATORY)`): bloquea la fila de
+`usuario` hasta el fin de la transacción del llamador y responde 404 si no existe. Sin sesión ni rol.
+
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
 búsqueda paginada agrega `e.arrendadorId not in :ids` con `arrendadoresNoActivos()` y, **si el conjunto está vacío,
@@ -164,7 +167,8 @@ horas ya empezadas) de un espacio `PUBLICADO` cuyo arrendador está `ACTIVA` (HU
 semanas, o una lista vacía. La reutilizan
 `busqueda` (HU-10, HU-11) y `reservas` (HU-12); no hace falta otro puerto porque esas direcciones están permitidas.
 HU-10 le agregó `conBloquesLibres(espacioIds, fecha) → Set<Long>`: los ids con `horasLibres` no vacía, consultando
-horario, bloqueos y el puerto una vez por lote.
+horario, bloqueos y el puerto una vez por lote. HU-12 le agregó `retenerSiLibres(espacioId, fecha, horas) →
+EspacioRetenido(nombre, precioHora)` (ver [Reservas](#reservas-qué-deja-hu-12-hu-13-hu-14-hu-15)).
 
 `espacios.service.CatalogoEspaciosService` es la segunda interfaz pública de `espacios` (la creó HU-10), sin sesión ni
 rol, para `busqueda` (HU-10, HU-11, HU-23): `esTipoValido`, `existeZona`, `publicados(tipo, zona)` → `EspacioPublicado`
@@ -172,7 +176,9 @@ de arrendadores `ACTIVA` ordenados por `precio_hora` e `id` (aplica la regla HU-
 URL `/api/fotos/<UUID>` de la foto con orden 1. HU-11 le agregó `publicado(espacioId)` → `Optional<FichaPublicada>`
 (datos de la ficha y URL de todas sus fotos por orden ascendente, sin `arrendadorId`, estado ni fechas) y
 `esVisible(espacioId)`; ambos aplican la misma regla (`PUBLICADO` y `cuentaActiva(arrendadorId)`) y devuelven vacío o
-`false` para `null`, inexistente o no visible. `busqueda` nunca lee repositorios de `espacios`.
+`false` para `null`, inexistente o no visible. `busqueda` nunca lee repositorios de `espacios`. HU-12 le agregó
+`nombres(espacioIds)` → `Map<Long, String>`, **sin** filtro de visibilidad, para que `reservas` (HU-12, HU-14) muestre
+una reserva cuyo espacio ya no se ve.
 
 **Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
 `PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
@@ -214,26 +220,47 @@ leyendo repositorios de `espacios` desde otro módulo):
   (mismos textos que HU-08 y HU-10). Si una historia futura quiere mostrar los ocupados, agrega un método que devuelva
   los `Bloque` con su estado, sin `PASADO`/`BLOQUEADO`/`RESERVADO` distinguidos hacia afuera (todos "no disponible",
   RNF-SEG-16). Cómo alimentar `SelectorBloques`: ver `docs/frontend.md` § Bloques horarios.
-- **HU-12 (reservar):** el contrato DT-10 pide bloquear la fila de `espacio` antes de reservar, pero
-  `EspacioRepository.findParaActualizar(id, arrendadorId)` exige ser el dueño y además es un repositorio de otro
-  módulo. HU-12 agrega a `DisponibilidadService` un método transaccional que tome ese bloqueo **sin** filtrar por
-  dueño y compruebe dentro de la misma transacción que las horas pedidas siguen en `horasLibres` (p. ej.
-  `retenerSiLibres(espacioId, fecha, horas)` con `@Transactional(propagation = MANDATORY)`), y lo llama desde su
-  propia transacción antes de insertar en `reserva_bloque`. La restricción única de `reserva_bloque` sigue siendo la
-  última defensa (CA3 de HU-12). Su implementación de `ReservasDelEspacio` debe incluir las `PENDIENTE_PAGO` aún no
-  expiradas, o un bloque retenido aparecería libre.
-- **HU-12, pruebas:** `EspaciosControllerSoporte` registra un `ReservasDelEspacioFalso` con `@Primary`, así que las
-  IT de `espacios` siguen usando el doble aunque exista el bean real. `DisponibilidadServiceImplIT` prueba R21 (sin
-  bean); cuando HU-12 agregue su implementación, esa IT pasa a usar la real y debe seguir verde con la base vacía.
-- **HU-12, consulta en lote (HU-10 DT-6, D7):** HU-10 agrega a `ReservasDelEspacio` el método **default**
-  `bloquesReservadosDelDia(Collection<Long> espacioIds, LocalDate fecha) → Map<Long, List<BloqueReservado>>`, que
-  la búsqueda usa para saber qué espacios tienen al menos un bloque libre. Por defecto llama a `bloquesReservados`
-  una vez por id, así que HU-12 **no está obligada** a implementarlo; pero la búsqueda lo invoca con todos los
-  espacios publicados de un tipo y una zona, y conviene que HU-12 lo **sobrescriba con una sola consulta**
-  (`espacio_id IN (…)` y `fecha = …`) con el mismo criterio de reservas activas. Los ids sin reservas pueden faltar
-  en el mapa. Contacto: Sebastian Garate (dueño de HU-10).
+- **HU-12 (reservar), hecho:** ver [Reservas](#reservas-qué-deja-hu-12-hu-13-hu-14-hu-15).
+- **HU-12, pruebas:** `EspaciosControllerSoporte`, `BusquedaControllerIT` y `FichaControllerIT` registran su doble de
+  `ReservasDelEspacio` con `@Primary`, así que siguen usando el doble aunque exista el bean real; cualquier doble nuevo
+  del puerto debe llevarlo o el contexto no arranca (`NoUniqueBeanDefinitionException`). `DisponibilidadServiceImplIT`
+  usa la implementación real con las tablas de reservas vacías; R21 de HU-08 (sin bean) se prueba en la unitaria.
+- **HU-12, consulta en lote (HU-10 DT-6, D7), hecho:** `ReservasDelEspacioImpl` sobrescribe el método **default**
+  `bloquesReservadosDelDia` con una sola consulta (`espacio_id IN (…)` y `fecha = …`) con el mismo criterio de reservas
+  activas. Los ids sin reservas faltan en el mapa.
 - **HU-21 (baja con reservas):** usa el mismo puerto `ReservasDelEspacio` con la ventana completa
   (`desde`, `hasta` de `VentanaReserva`).
+
+### Reservas: qué deja HU-12 (HU-13, HU-14, HU-15)
+
+| Pieza | Qué hace |
+|-------|----------|
+| `reservas.service.ReservaService` | Interfaz pública: `crear(usuario, datos, ip)` y `consultar(usuario, id)`. Solo el rol `USUARIO` reserva (D1); una reserva ajena es 404 |
+| `Reserva.esVigente(ahora)`, `estaVencida(ahora)`, `estadoEn(ahora)` | Vigente si `PENDIENTE_PAGO` y `ahora < expira_en`. Quien lee usa siempre estos métodos y no `getEstado()`: una vencida sigue `PENDIENTE_PAGO` en la fila hasta que alguien la expira |
+| `espacios.DisponibilidadService.retenerSiLibres` | `@Transactional(propagation = MANDATORY)`. Toma el bloqueo de `espacio` sin filtrar por dueño (`EspacioRepository.findParaReservar`), aplica HU-09 D1 con `cuentaActiva` (404 si no es visible), comprueba las horas bajo ese bloqueo (400 *horario no disponible*) y devuelve `EspacioRetenido` con nombre y precio leídos ya bloqueados. Debe ser la primera lectura del espacio en la transacción |
+| `ReservasDelEspacioImpl` | Implementación real del puerto: `PENDIENTE_PAGO` vigente o `CONFIRMADA` |
+| `ExpiracionReservas` | `expirarVencidas()` (una transacción por reserva) y `liberarVencidas(...)` (`MANDATORY`, dentro de la reserva que choca) |
+| `ProgramacionExpiracion` | Proceso programado con `@Scheduled(fixedDelay…)`. Propiedades `espacioya.reservas.expiracion.activa` (`RESERVAS_EXPIRACION_ACTIVA`, por defecto `true`) e `.intervalo` (`RESERVAS_EXPIRACION_INTERVALO`, por defecto `PT1M`). Apagado en `src/test/resources/config/application.properties`: las pruebas llaman a `expirarVencidas()` |
+
+**Orden fijo de bloqueos: `usuario → espacio → reserva`.** `crear` toma `CuentaService.bloquearCuenta` (serializa el
+cupo de 3 pendientes de un usuario que reserva dos espacios a la vez) y luego `retenerSiLibres` (serializa a dos
+usuarios, y a la reserva con el bloqueo de fechas y la edición del precio, HU-08 DT-10). El proceso programado solo
+toma una fila de `reserva` por transacción y nunca `espacio`. Quien agregue un bloqueo en este camino respeta ese orden.
+El índice `uq_reserva_bloque_activo` es la última defensa: `crear` traduce su violación a *horario no disponible*,
+reconociéndola por el nombre de la restricción; cualquier otra violación se relanza.
+
+**Expiración en tres capas (D2).** (1) Las lecturas comparan con *ahora*: una vencida no ocupa ni cuenta en el cupo, y
+`GET /api/reservas/{id}` la responde `EXPIRADA` sin escribir. (2) El proceso programado la pasa a `EXPIRADA`, pone
+`activo = false` y audita `RESERVA_EXPIRADA` con `usuario_id` e `ip` nulos y `origen=PROCESO`. (3) Al crear una reserva,
+bajo el bloqueo del espacio, `liberarVencidas` expira las que retienen esas horas: el índice parcial no entiende el
+tiempo, y sin esto una vencida daría un falso conflicto. Por lo mismo `desactivarDeReserva` es un `UPDATE` con
+`flushAutomatically`, que llega a la base antes del `INSERT` de los bloques nuevos.
+
+**Lo que necesita HU-13 (no existe aún):** `reservas` implementará `pagos.ReservasPorCobrar`, que define HU-13.
+`Reserva.confirmar()` no existe. `retenerSiLibres` **no sirve** para confirmar, porque las horas ya las retiene la
+propia reserva: hace falta otro método que solo tome el bloqueo del espacio y luego `ReservaRepository.findParaActualizar`,
+revalidando `esVigente(ahora)`, porque el proceso y el webhook compiten por esa fila. Antes del checkout se comprueba
+`cuentaActiva` del arrendador (S5); `EspacioRetenido` no trae `arrendadorId`, HU-13 lo amplía.
 
 ## Seguridad transversal (STRIDE)
 
@@ -293,6 +320,7 @@ En el modelo de datos se reparten en `usuario.correo_verificado`,
   arrendador está suspendido, sus espacios no se muestran pero conservan su estado.
 - **Reserva:** `PENDIENTE_PAGO` (retiene los bloques 15 minutos) → `CONFIRMADA`
   (pago aprobado) o `EXPIRADA` (sin pago a tiempo); `CONFIRMADA` → `CANCELADA`.
+  Mientras no expira no se puede soltar: `PENDIENTE_PAGO` → `CANCELADA` no existe (HU-12 S7).
 - **Pago:** `RECHAZADO` si la pasarela no aprueba (se puede reintentar mientras
   la reserva siga vigente); `PAGADO` → `REEMBOLSADO` o `REEMBOLSO_FALLIDO`
   (el admin puede reintentarlo).

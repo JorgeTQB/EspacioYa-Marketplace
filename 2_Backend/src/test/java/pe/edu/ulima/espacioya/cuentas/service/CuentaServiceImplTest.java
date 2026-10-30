@@ -88,6 +88,25 @@ class CuentaServiceImplTest {
         }
     }
 
+    @Test
+    @DisplayName("HU-12 R28: bloquearCuenta toma el bloqueo de la fila por id")
+    void bloquearCuentaBloqueaLaFila() {
+        when(usuarios.findParaActualizar(ID))
+                .thenReturn(Optional.of(Usuario.registrar(CORREO, "hash", "2026-10", AHORA)));
+
+        servicio.bloquearCuenta(ID);
+
+        verify(usuarios).findParaActualizar(ID);
+    }
+
+    @Test
+    @DisplayName("HU-12 R28: bloquearCuenta de una cuenta inexistente lanza 404")
+    void bloquearCuentaInexistente() {
+        when(usuarios.findParaActualizar(ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.bloquearCuenta(ID)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
     private static Usuario arrendador(long id, EstadoUsuario estado) {
         var usuario = Usuario.registrarArrendador("arrendador" + id + "@correo.pe", "$2a$12$hash", "Ana " + id,
                 "987654321", "2026-10", AHORA);

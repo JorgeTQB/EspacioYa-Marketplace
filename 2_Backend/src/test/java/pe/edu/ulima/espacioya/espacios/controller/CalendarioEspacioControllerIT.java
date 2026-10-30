@@ -603,9 +603,10 @@ class CalendarioEspacioControllerIT extends EspaciosControllerSoporte {
         ponerHorario(token, id, horario(franja(dia(fecha), 8, 12))).andExpect(status().isOk());
 
         verDia(token, id, fecha).andExpect(jsonPath("$.bloques.length()").value(4));
+        // reserva_bloque (HU-12) guarda retenciones de reservas, no los bloques calculados.
         var tablas = jdbc.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = "
                 + "'public' AND table_name LIKE '%bloque%'", String.class);
-        assertThat(tablas).containsExactly("bloqueo_fecha");
+        assertThat(tablas).containsExactlyInAnyOrder("bloqueo_fecha", "reserva_bloque");
     }
 
     // ── Propiedad y acceso ───────────────────────────────────────────────

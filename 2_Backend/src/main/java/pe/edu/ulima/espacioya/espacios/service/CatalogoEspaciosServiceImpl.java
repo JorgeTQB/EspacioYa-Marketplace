@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -95,6 +96,16 @@ public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {
     @Transactional(readOnly = true)
     public boolean esVisible(Long espacioId) {
         return visible(espacioId).isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombres(Collection<Long> espacioIds) {
+        if (espacioIds.isEmpty()) {
+            return Map.of();
+        }
+        return espacios.findAllById(Set.copyOf(espacioIds)).stream()
+                .collect(Collectors.toMap(Espacio::getId, Espacio::getNombre));
     }
 
     // Misma regla que la búsqueda, las fotos y horasLibres (HU-09 D1): PUBLICADO y arrendador ACTIVA.

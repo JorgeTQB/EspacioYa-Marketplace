@@ -5,6 +5,7 @@ import { guardarToken } from '../../api/tokenSesion.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Campo from '../../components/ui/Campo.jsx'
+import { retornoValido } from '../../sesion/retorno.js'
 import useSesion from '../../sesion/useSesion.js'
 import estilos from './IniciarSesion.module.css'
 
@@ -16,13 +17,15 @@ function IniciarSesion() {
   const { sesion, entrar } = useSesion()
   const navegar = useNavigate()
   const aviso = useLocation().state
+  // Las dos salidas usan el mismo destino: al entrar, sesion cambia y el Navigate de abajo puede ganarle a navegar.
+  const destino = retornoValido(aviso?.retorno) ?? '/panel'
   const [correo, setCorreo] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [errorGeneral, setErrorGeneral] = useState(null)
   const [errores, setErrores] = useState({})
 
-  if (sesion) return <Navigate to="/panel" replace />
+  if (sesion) return <Navigate to={destino} replace />
 
   async function enviar(evento) {
     evento.preventDefault()
@@ -33,7 +36,7 @@ function IniciarSesion() {
       const respuesta = await iniciarSesion({ correo, contrasena })
       guardarToken(respuesta.token)
       entrar({ rol: respuesta.rol, aviso: respuesta.aviso })
-      navegar('/panel', { replace: true })
+      navegar(destino, { replace: true })
     } catch (error) {
       setErrorGeneral(error.mensaje)
       setErrores(erroresPorCampo(error.errores))

@@ -110,8 +110,9 @@ abstract class EspaciosControllerSoporte {
             return new RelojControlable(Instant.parse("2026-10-28T15:00:00Z"));
         }
 
-        // HU-08: el módulo reservas aún no existe; este doble del puerto permite probar CA3.
+        // HU-08: este doble del puerto permite probar CA3 sin crear reservas reales.
         @Bean
+        @Primary
         ReservasDelEspacioFalso reservasDelEspacioFalso() {
             return new ReservasDelEspacioFalso();
         }

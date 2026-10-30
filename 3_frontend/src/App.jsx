@@ -22,6 +22,7 @@ import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
+import ResumenReserva from './pages/reservas/ResumenReserva.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
 import estilos from './App.module.css'
@@ -104,6 +105,15 @@ function App() {
           <Route path="/buscar" element={<BuscarEspacios />} />
           {/* HU-11: ficha pública (?fecha=AAAA-MM-DD), con o sin sesión; HU-12 vuelve aquí tras el login. */}
           <Route path="/espacios/:id" element={<FichaEspacio />} />
+          {/* HU-12: resumen de la reserva; la API solo se la entrega a su dueño. */}
+          <Route
+            path="/reservas/:id"
+            element={
+              <RutaProtegida>
+                <ResumenReserva />
+              </RutaProtegida>
+            }
+          />
           <Route path="/registro" element={<Registro />} />
           <Route path="/registro-arrendador" element={<RegistroArrendador />} />
           <Route path="/privacidad" element={<Privacidad />} />
