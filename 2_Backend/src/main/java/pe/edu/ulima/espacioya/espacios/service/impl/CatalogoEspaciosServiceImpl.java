@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.espacios.service;
+package pe.edu.ulima.espacioya.espacios.service.impl;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -20,6 +20,10 @@ import pe.edu.ulima.espacioya.espacios.domain.Zona;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.FotoEspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.ZonaRepository;
+import pe.edu.ulima.espacioya.espacios.service.CatalogoEspaciosService;
+import pe.edu.ulima.espacioya.espacios.service.EspacioPublicado;
+import pe.edu.ulima.espacioya.espacios.service.EspacioService;
+import pe.edu.ulima.espacioya.espacios.service.FichaPublicada;
 
 @Service
 public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {

@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.cuentas.service;
+package pe.edu.ulima.espacioya.cuentas.service.impl;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -36,10 +36,12 @@ import pe.edu.ulima.espacioya.cuentas.dto.ExpedienteIdentidadDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.DocumentoIdentidadRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.NombreCuenta;
-import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository.EnRevision;
+import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
+import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 
 @Service
 public class CuentaServiceImpl implements CuentaService {

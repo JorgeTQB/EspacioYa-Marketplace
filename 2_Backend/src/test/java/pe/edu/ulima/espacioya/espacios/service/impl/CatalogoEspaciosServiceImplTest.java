@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.espacios.service;
+package pe.edu.ulima.espacioya.espacios.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +37,8 @@ import pe.edu.ulima.espacioya.espacios.domain.Zona;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.FotoEspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.ZonaRepository;
+import pe.edu.ulima.espacioya.espacios.service.EspacioPublicado;
+import pe.edu.ulima.espacioya.espacios.service.FichaPublicada;
 
 @ExtendWith(MockitoExtension.class)
 class CatalogoEspaciosServiceImplTest {

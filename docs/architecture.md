@@ -28,7 +28,9 @@ Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
 1. **Capas claras.** Dentro de cada módulo:
    `controller → service → domain / repository`.
    - `controller` — recibe la solicitud, valida la entrada y convierte DTO.
-   - `service` — coordina el caso de uso y las transacciones.
+   - `service` — coordina el caso de uso y las transacciones. Las
+     implementaciones `*Impl` de una interfaz van en `service/impl/`
+     (ver `docs/conventions.md`).
    - `domain` — entidades y reglas de negocio (estados, políticas, cálculos).
    - `repository` — acceso a datos con Spring Data JPA (DAO).
    Un controlador **nunca** llama directamente a un repositorio.

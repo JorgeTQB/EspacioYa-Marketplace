@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.reservas.service;
+package pe.edu.ulima.espacioya.reservas.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

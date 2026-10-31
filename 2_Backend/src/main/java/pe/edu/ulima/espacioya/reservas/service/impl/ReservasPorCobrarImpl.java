@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.reservas.service;
+package pe.edu.ulima.espacioya.reservas.service.impl;
 
 import java.time.Clock;
 import java.time.Instant;

@@ -189,7 +189,7 @@ public class EspacioService {
     }
 
     // R11: la URL estable es /api/fotos/<UUID>, el UUID de la clave espacios/<UUID>; nunca la clave entera (R7).
-    static String urlDe(FotoEspacio foto) {
+    public static String urlDe(FotoEspacio foto) {
         var ruta = foto.getRutaArchivo();
         return RUTA_FOTOS + ruta.substring(ruta.indexOf('/') + 1);
     }

@@ -996,3 +996,29 @@
     navegador (`PAGOS_PASARELA=simulada` en el `.env` local).
 - **Resultado:** `./init.sh` completo en verde (889 unitarias y 626 IT); en el cierre, `./init.sh --rapido` para confirmar
   la coherencia. Status → `done`. Todo sin commitear.
+
+## 2026-10-31 — Reorganización de `service/impl/` (sin historia)
+- **Agente:** Jorge Quispe con Claude Code. Cambio de estructura pedido por Jorge fuera del flujo SDD (`"sdd": false`):
+  no toca comportamiento, solo paquetes y visibilidad.
+- **Cambios:**
+  - Movidas a `<modulo>/service/impl/` las 6 implementaciones que ya existían: `cuentas.CuentaServiceImpl`,
+    `espacios.CatalogoEspaciosServiceImpl`, `espacios.DisponibilidadServiceImpl`, `reservas.ReservaServiceImpl`,
+    `reservas.ReservasDelEspacioImpl` y `reservas.ReservasPorCobrarImpl`. Sus pruebas (`*ImplTest`, `*ImplIT`) se
+    movieron al mismo paquete de `src/test`. No se crearon interfaces nuevas.
+  - Imports explícitos agregados donde la clase usaba otras de `service/` sin import (incluidos
+    `CalendarioEspacioService` y `CalendarioEspacioServiceTest`, que usan `DisponibilidadServiceImpl`).
+  - Visibilidad ampliada a `public` porque las clases de `impl/` ya no comparten paquete: en
+    `DisponibilidadServiceImpl`, `ventana()`, `reservasDelDia(...)` y `bloquesDelDia(...)` (los usa
+    `CalendarioEspacioService`); la clase `reservas.service.ConversionReservas` y su `aDto(...)` (la usa
+    `ReservaServiceImpl`); `EspacioService.urlDe(FotoEspacio)` (la usa `CatalogoEspaciosServiceImpl`). Ahora otros módulos
+    pueden llamarlos; las reglas de `docs/architecture.md` (no usar el servicio de otro módulo salvo por su contrato
+    público o un puerto) siguen vigentes.
+  - `docs/conventions.md`: árbol con `service/impl/`, regla `<Nombre>Impl` y nota de que `repository` es la capa DAO
+    (Spring Data genera la implementación, por eso no hay `dao/impl`). `docs/architecture.md` (principio 1) enlaza esa
+    regla.
+- **Tests:** ninguno cambió de contenido, solo de paquete. `./2_Backend/mvnw -f 2_Backend/pom.xml verify` en verde
+  (626 IT, 0 fallos, errores ni omitidas). Frontend no afectado.
+- **Pendientes:** avisar a Sebastian Garate (`espacios`) y Adriana (`reservas`) de que sus `*Impl` cambiaron de paquete
+  y de los métodos que ahora son `public`. Las ramas abiertas que toquen esas clases tendrán conflictos de ruta al
+  integrar `develop`.
+- **Resultado:** sin commitear; lo revisa y commitea el dueño.

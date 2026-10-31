@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.reservas.service;
+package pe.edu.ulima.espacioya.reservas.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,6 +57,7 @@ import pe.edu.ulima.espacioya.reservas.dto.CrearReservaDTO;
 import pe.edu.ulima.espacioya.reservas.dto.ReservaDTO;
 import pe.edu.ulima.espacioya.reservas.repository.ReservaBloqueRepository;
 import pe.edu.ulima.espacioya.reservas.repository.ReservaRepository;
+import pe.edu.ulima.espacioya.reservas.service.ExpiracionReservas;
 
 @ExtendWith(MockitoExtension.class)
 class ReservaServiceImplTest {

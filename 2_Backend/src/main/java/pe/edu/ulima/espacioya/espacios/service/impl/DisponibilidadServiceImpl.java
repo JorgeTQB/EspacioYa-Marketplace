@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.espacios.service;
+package pe.edu.ulima.espacioya.espacios.service.impl;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -20,8 +20,8 @@ import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.CalculoDisponibilidad;
-import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
+import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FranjaHoraria;
 import pe.edu.ulima.espacioya.espacios.domain.HorarioSemanal;
@@ -29,6 +29,9 @@ import pe.edu.ulima.espacioya.espacios.domain.VentanaReserva;
 import pe.edu.ulima.espacioya.espacios.repository.BloqueoFechaRepository;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.HorarioSemanalRepository;
+import pe.edu.ulima.espacioya.espacios.service.DisponibilidadService;
+import pe.edu.ulima.espacioya.espacios.service.EspacioBloqueado;
+import pe.edu.ulima.espacioya.espacios.service.EspacioRetenido;
 import pe.edu.ulima.espacioya.espacios.service.puertos.BloqueReservado;
 import pe.edu.ulima.espacioya.espacios.service.puertos.ReservasDelEspacio;
 
@@ -144,11 +147,11 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         return new EspacioBloqueado(espacio.getArrendadorId(), espacio.getNombre());
     }
 
-    VentanaReserva ventana() {
+    public VentanaReserva ventana() {
         return VentanaReserva.desde(ZonaHoraria.hoy(reloj));
     }
 
-    List<BloqueReservado> reservasDelDia(Long espacioId, LocalDate fecha) {
+    public List<BloqueReservado> reservasDelDia(Long espacioId, LocalDate fecha) {
         var puerto = reservas.getIfAvailable();
         if (puerto == null) {
             return List.of();
@@ -156,7 +159,7 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         return puerto.bloquesReservados(espacioId, fecha, fecha);
     }
 
-    List<Bloque> bloquesDelDia(Long espacioId, LocalDate fecha) {
+    public List<Bloque> bloquesDelDia(Long espacioId, LocalDate fecha) {
         var franjas = horarios.findByEspacioIdAndDiaSemanaOrderByHoraInicioAsc(espacioId,
                         (short) fecha.getDayOfWeek().getValue()).stream()
                 .map(HorarioSemanal::aFranja)

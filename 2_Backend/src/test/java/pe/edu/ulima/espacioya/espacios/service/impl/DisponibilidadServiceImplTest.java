@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.espacios.service;
+package pe.edu.ulima.espacioya.espacios.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,8 +42,8 @@ import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 import pe.edu.ulima.espacioya.espacios.domain.Bloque;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
-import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
+import pe.edu.ulima.espacioya.espacios.domain.EstadoBloque;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FranjaHoraria;
 import pe.edu.ulima.espacioya.espacios.domain.HorarioSemanal;
@@ -51,6 +51,8 @@ import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
 import pe.edu.ulima.espacioya.espacios.repository.BloqueoFechaRepository;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.HorarioSemanalRepository;
+import pe.edu.ulima.espacioya.espacios.service.DisponibilidadService;
+import pe.edu.ulima.espacioya.espacios.service.EspacioBloqueado;
 import pe.edu.ulima.espacioya.espacios.service.puertos.BloqueReservado;
 import pe.edu.ulima.espacioya.espacios.service.puertos.ReservasDelEspacio;
 

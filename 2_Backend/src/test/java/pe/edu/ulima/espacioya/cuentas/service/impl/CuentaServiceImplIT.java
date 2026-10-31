@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.cuentas.service;
+package pe.edu.ulima.espacioya.cuentas.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
+import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
 
 /** Los métodos sin rol de {@link CuentaService} que usan otros módulos (HU-09 D1), contra la BD real. */
 @SpringBootTest

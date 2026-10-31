@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.espacios.service;
+package pe.edu.ulima.espacioya.espacios.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,6 +29,7 @@ import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
+import pe.edu.ulima.espacioya.espacios.service.DisponibilidadService;
 
 /** Contexto real con la implementación de HU-12 del puerto de reservas y las tablas de reservas vacías. */
 @SpringBootTest

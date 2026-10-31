@@ -60,9 +60,19 @@ pe/edu/ulima/espacioya/<modulo>/
 ├── controller/   <Recurso>Controller.java
 ├── dto/          <Recurso>DTO.java, Crear<Recurso>DTO.java
 ├── service/      <Recurso>Service.java
+│   └── impl/     <Recurso>ServiceImpl.java
 ├── domain/       <Entidad>.java, Estado<Entidad>.java
 └── repository/   <Entidad>Repository.java
 ```
+
+Cuando un servicio o un puerto tiene interfaz, su implementación se llama
+`<Nombre>Impl` y vive en `service/impl/`. Los servicios sin interfaz siguen
+como clase concreta en `service/`: no se crea una interfaz solo para llenar
+`impl/`. Lo que una clase de `impl/` use de `service/` tiene que ser `public`.
+La capa `repository` cumple el papel de DAO: Spring Data JPA genera la
+implementación, así que no hay carpeta `dao/impl`. Un DAO escrito a mano
+(como `reservas.repository.ReservaDAO`) se justifica solo si combina varios
+repositorios o impone una regla.
 
 Las clases concretas de cada historia las fija su `design.md`. Los puertos
 entre módulos van en `service/puertos/` (ver `docs/architecture.md`), y las

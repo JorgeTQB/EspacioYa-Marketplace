@@ -1,4 +1,4 @@
-package pe.edu.ulima.espacioya.reservas.service;
+package pe.edu.ulima.espacioya.reservas.service.impl;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -32,6 +32,9 @@ import pe.edu.ulima.espacioya.reservas.dto.CrearReservaDTO;
 import pe.edu.ulima.espacioya.reservas.dto.ReservaDTO;
 import pe.edu.ulima.espacioya.reservas.repository.ReservaBloqueRepository;
 import pe.edu.ulima.espacioya.reservas.repository.ReservaRepository;
+import pe.edu.ulima.espacioya.reservas.service.ConversionReservas;
+import pe.edu.ulima.espacioya.reservas.service.ExpiracionReservas;
+import pe.edu.ulima.espacioya.reservas.service.ReservaService;
 
 /**
  * Crea y consulta reservas (HU-12). Orden fijo de bloqueos, {@code usuario → espacio → reserva} (DT-1): el del usuario

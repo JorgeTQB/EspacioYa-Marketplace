@@ -29,6 +29,7 @@ import pe.edu.ulima.espacioya.espacios.dto.HorarioDTO;
 import pe.edu.ulima.espacioya.espacios.repository.BloqueoFechaRepository;
 import pe.edu.ulima.espacioya.espacios.repository.EspacioRepository;
 import pe.edu.ulima.espacioya.espacios.repository.HorarioSemanalRepository;
+import pe.edu.ulima.espacioya.espacios.service.impl.DisponibilidadServiceImpl;
 import pe.edu.ulima.espacioya.espacios.service.puertos.BloqueReservado;
 
 /**
