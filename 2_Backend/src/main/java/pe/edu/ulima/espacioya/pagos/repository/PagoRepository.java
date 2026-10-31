@@ -17,4 +17,7 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     long countByReservaIdAndEstado(Long reservaId, EstadoPago estado);
 
     Optional<Pago> findFirstByReservaIdOrderByCreadoEnDescIdDesc(Long reservaId);
+
+    // Solo con PAGADO (HU-15): uq_pago_reserva_pagado garantiza como mucho uno por reserva.
+    Optional<Pago> findByReservaIdAndEstado(Long reservaId, EstadoPago estado);
 }

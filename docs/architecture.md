@@ -138,7 +138,8 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
 
 Solo los servicios que usan otros módulos llevan interfaz pública
-(`CuentaService`, `ReservaService`, `PagoService`); los internos son clases
+(`CuentaService`, `ReservaService`, `PagoService` — creada por HU-15 con `reembolsarCancelacion`, ver
+[Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28)); los internos son clases
 concretas (YAGNI). `CuentaService` la creó HU-07 con
 `habilitacionArrendador` (correo e identidad verificados del arrendador de la
 sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. HU-06 le agregó, para `administracion`,
@@ -298,7 +299,18 @@ que `mercadopago` no arranca; `url-api` (`PAGOS_URL_API`) y `margen-cierre` (`PA
 `simulada` y `secreto-webhook` queda **vacío**: `POST /api/pagos/webhook` rechaza todo pago y la pantalla es la única entrada
 (S16). Las pruebas usan `simulada`; las IT del webhook, el adaptador real contra `StubMercadoPago`.
 
-**Lo que deben saber las historias que siguen.** HU-15 crea `PagoService`: nadie lo usaba aún. Una reserva tiene como mucho un
+**`pagos.service.PagoService` (HU-15).** Interfaz pública de `pagos` para otros módulos; su primer método es
+`reembolsarCancelacion(ReembolsoPorCancelacion(reservaId, monto, solicitadoPor, ip))`, `@Transactional(propagation =
+MANDATORY)`. Contrato con HU-16 (`specs/HU-15/design.md` § 11.1): `reservas` lo llama una sola vez por reserva, **dentro**
+de la transacción de la cancelación, con la reserva ya `CANCELADA`, sus bloques liberados y `monto > 0` (con 0 % no se
+llama), y el monto nunca supera el del pago `PAGADO`. En HU-15 `PagoServiceImpl` solo busca ese pago
+(`IllegalStateException` si no hay → 500 y rollback de la cancelación), valida `0 < monto ≤ pago.monto`
+(`IllegalArgumentException`) y audita `REEMBOLSO_SOLICITADO` sobre el pago (`origen=CANCELACION;reservaId=…;monto=…`): **no**
+llama a la pasarela, **no** cambia `pago.estado` y **no** crea `reembolso`. HU-16 reemplaza ese cuerpo sin cambiar la firma ni
+la propagación: crea la fila de `reembolso` y ejecuta el Command contra `PasarelaPago.reembolsar` **después del commit**; un
+fallo de la pasarela no lanza ahí (va a `REEMBOLSO_FALLIDO`). HU-15 no filtra las filas `sim-`: lo decide HU-16.
+
+**Lo que deben saber las historias que siguen.** Una reserva tiene como mucho un
 pago `PAGADO`. HU-19 y HU-28 cuentan solo `PAGADO` (HU-28, también los reembolsados): `PAGADO_TARDIO` y `MONTO_DISTINTO`
 no cobraron nada. Las IT que crean pagos los borran antes que la reserva: `pago` no tiene cascada. **Filas `sim-`:** con la
 simulada, `id_transaccion_pasarela` empieza por `sim-` y ningún dinero se movió: HU-15, HU-16, HU-19 y HU-28 deben filtrarlas o
@@ -333,6 +345,34 @@ sin cambiar la API.
 lista del arrendador (solo `CONFIRMADA`); si quiere mostrársela, amplía `confirmadasDeEspacios` o agrega un método al DAO,
 siempre con el dueño en la firma. HU-24 y HU-26 pueden **ampliar** `ReservaDTO`, sin quitar ni cambiar campos. Un índice en
 `reserva(espacio_id)` iría en una `V4_n` libre.
+
+### Cancelación: qué deja HU-15 (HU-16, HU-21, HU-28)
+
+Cuatro rutas, una por papel y método: `GET` (vista previa, CA2) y `POST` (confirmación, CA3) de
+`/api/reservas/{id}/cancelacion` (rol `USUARIO`) y de `/api/arrendadores/actual/reservas/{id}/cancelacion` (rol
+`ARRENDADOR`). Quién cancela (`QuienCancela`) lo fija la ruta, nunca el cuerpo; el `POST` solo lee `montoReembolsoVisto`
+para **compararlo** con el monto recalculado (400 si cambió). Las cuatro delegan en `reservas.service.CancelacionReservaService`.
+Solo se cancela una reserva cuyo estado leído es `CONFIRMADA` y que aún no empieza (`Reserva.motivoNoCancelable`).
+
+| Pieza | Patrón ★ | Qué hace |
+|-------|----------|----------|
+| `reservas.domain.PoliticaReembolso` | **Strategy** | Una regla fija de RN-06: `codigo()`, `aplicaA(SolicitudCancelacion)`, `porcentaje()` y `monto(montoPagado)` por defecto (escala 2, `HALF_UP`). `ANTICIPACION_MINIMA` = 48 h |
+| `ReembolsoUsuarioConAnticipacion`, `ReembolsoUsuarioSinAnticipacion`, `ReembolsoCancelaArrendador` | Strategy (ConcreteStrategy) | Usuario con ≥ 48 h → 100 %; usuario con < 48 h → 0 %; arrendador → 100 %. Excluyentes y exhaustivas |
+| `reservas.domain.CalculoReembolso` | Strategy (Context) | `politicaFija()` arma la lista de RN-06 (sin Spring ni configuración); `calcular` elige **la única** que aplica (`IllegalStateException` si no hay exactamente una). Agregar una regla es agregar una clase a la lista |
+| `CancelacionReservaService` | Strategy (Client) | Arma `SolicitudCancelacion(quien, inicio, ahora, montoTotal)` con datos del servidor (inicio en `America/Lima`, `ReservaConHorario.instanteDeInicio`) y no tiene ningún `if` sobre la regla |
+
+**Confirmación.** Orden `espacio → reserva` como HU-13: `findEspacioIdById` → `DisponibilidadService.bloquearEspacio` →
+`findParaActualizar` → propiedad (`reserva.usuarioId` o `EspacioBloqueado.arrendadorId`) → *ahora* (después de los bloqueos)
+→ motivo → cálculo → comparación → `Reserva.cancelar` → `desactivarDeReserva` → `PagoService.reembolsarCancelacion` si el
+monto es mayor que 0 → auditoría `RESERVA_CANCELADA` → `AvisosCancelacion` (dos correos con `DespuesDelCommit`). Todo en una
+transacción: un error revierte la cancelación y la solicitud de reembolso. Dos confirmaciones a la vez se serializan en el
+espacio y la segunda ve `CANCELADA` (400). La vista previa es `readOnly` y no bloquea.
+
+**`CANCELADA` con sus datos.** La fila guarda `cancelada_por`, `cancelada_en` y `monto_reembolso` (HU-16 y HU-28 los leen sin
+parsear la auditoría); el porcentaje y la política quedan en el detalle de `RESERVA_CANCELADA`. Para el usuario la cancelada
+cae en Pasadas; para el arrendador desaparece de su lista (HU-14 R15, sin cambios). La regla "id bien escrito" de las rutas
+`/{id}` de reservas vive en `ConversionReservas.idReserva`. HU-21 puede reutilizar `CancelacionReservaService` con
+`QuienCancela.ARRENDADOR` o agregar una estrategia.
 
 ## Seguridad transversal (STRIDE)
 
@@ -421,7 +461,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 |--------------|---------------------------------|-----------------------------|
 | HU-13 ★      | Adapter, Facade                 | `pagos`: interfaz `PasarelaPago` + adaptador del proveedor; la implementación (sandbox o simulada) se elige por configuración con inyección de dependencias; `CheckoutFacade` para reserva vigente → monto en servidor → checkout |
 | HU-14 ★      | Iterator, DAO                   | `reservas`: recorrer reservas próximas y pasadas sin exponer la colección (`HistorialReservas` + `IteradorReservas` + `Pagina`); consultas siempre filtradas por el usuario de la sesión (`ReservaDAO` + `ReservaDAOJpa`, primer DAO explícito). Ver [Mis reservas](#mis-reservas-qué-deja-hu-14-hu-15-hu-21-hu-22-hu-24-hu-26) |
-| HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo |
+| HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo (`CalculoReembolso` es el Context). Ver [Cancelación](#cancelación-qué-deja-hu-15-hu-16-hu-21-hu-28) |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
 | HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente |
 | HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento; adaptador del proveedor de correo |

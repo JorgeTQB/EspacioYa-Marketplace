@@ -33,6 +33,38 @@ export const ENLACE_VER_ESPACIO = 'Ver espacio'
 export const ENLACE_VER_RESERVA = 'Ver reserva'
 export const RESERVADO_POR = 'Reservado por'
 
+// HU-15. Solo textos: el monto y la política los decide el servidor.
+export const BOTON_CANCELAR_RESERVA = 'Cancelar reserva'
+export const TITULO_CANCELAR = '¿Cancelar esta reserva?'
+export const BOTON_CONFIRMAR_CANCELACION = 'Sí, cancelar reserva'
+export const BOTON_VOLVER = 'Volver'
+export const ETIQUETA_ESPACIO = 'Espacio'
+export const ETIQUETA_FECHA = 'Fecha'
+export const ETIQUETA_HORARIO = 'Horario'
+export const ETIQUETA_MONTO_PAGADO = 'Monto pagado'
+export const RESERVA_CANCELADA_USUARIO = 'Reserva cancelada. Te enviamos un correo con el detalle.'
+export const RESERVA_CANCELADA_ARRENDADOR = 'Reserva cancelada. Le avisamos al usuario por correo.'
+
+// La pantalla solo elige el texto según la política que devolvió la API; el monto (en negrita) es el de la API y va
+// entre "antes" y "despues". Sin "despues", la línea no muestra monto.
+export const LINEA_REEMBOLSO = {
+  USUARIO_CON_ANTICIPACION: {
+    antes: 'Se te devolverá ',
+    despues: ' (100 %): cancelas con 48 horas o más de anticipación.',
+  },
+  USUARIO_SIN_ANTICIPACION: {
+    antes: 'No corresponde reembolso (0 %): faltan menos de 48 horas para el inicio.',
+  },
+  ARRENDADOR: {
+    antes: 'Al usuario se le devolverá ',
+    despues: ' (100 %) y recibirá un correo.',
+  },
+}
+
+export function reembolsoEnProceso(monto) {
+  return `El reembolso de ${monto} está en proceso.`
+}
+
 const FORMATO_FECHA = new Intl.DateTimeFormat('es-PE', {
   weekday: 'long',
   day: 'numeric',

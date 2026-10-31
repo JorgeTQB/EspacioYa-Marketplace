@@ -16,9 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.comun.web.IpCliente;
+import pe.edu.ulima.espacioya.reservas.domain.QuienCancela;
+import pe.edu.ulima.espacioya.reservas.dto.CancelacionDTO;
+import pe.edu.ulima.espacioya.reservas.dto.ConfirmarCancelacionDTO;
 import pe.edu.ulima.espacioya.reservas.dto.CrearReservaDTO;
 import pe.edu.ulima.espacioya.reservas.dto.PaginaReservasDTO;
 import pe.edu.ulima.espacioya.reservas.dto.ReservaDTO;
+import pe.edu.ulima.espacioya.reservas.dto.VistaCancelacionDTO;
+import pe.edu.ulima.espacioya.reservas.service.CancelacionReservaService;
 import pe.edu.ulima.espacioya.reservas.service.ConsultaReservasService;
 import pe.edu.ulima.espacioya.reservas.service.ReservaService;
 
@@ -28,10 +33,13 @@ public class ReservaController {
 
     private final ReservaService reservas;
     private final ConsultaReservasService consulta;
+    private final CancelacionReservaService cancelacion;
 
-    public ReservaController(ReservaService reservas, ConsultaReservasService consulta) {
+    public ReservaController(ReservaService reservas, ConsultaReservasService consulta,
+                             CancelacionReservaService cancelacion) {
         this.reservas = reservas;
         this.consulta = consulta;
+        this.cancelacion = cancelacion;
     }
 
     @PostMapping
@@ -54,5 +62,20 @@ public class ReservaController {
     @GetMapping("/{id}")
     public ReservaDTO consultar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable String id) {
         return reservas.consultar(usuario, id);
+    }
+
+    // HU-15: el usuario cancela su reserva. Quien cancela lo fija la ruta; del cuerpo solo se lee el monto visto (R7).
+    @GetMapping("/{id}/cancelacion")
+    public VistaCancelacionDTO vistaPreviaCancelacion(@AuthenticationPrincipal UsuarioAutenticado usuario,
+                                                      @PathVariable String id) {
+        return cancelacion.vistaPrevia(usuario, id, QuienCancela.USUARIO);
+    }
+
+    // Sin @Valid: el servicio comprueba rol, id y monto visto en ese orden (DT-6).
+    @PostMapping("/{id}/cancelacion")
+    public CancelacionDTO cancelar(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable String id,
+                                   @RequestBody(required = false) ConfirmarCancelacionDTO datos,
+                                   HttpServletRequest peticion) {
+        return cancelacion.confirmar(usuario, id, QuienCancela.USUARIO, datos, IpCliente.de(peticion));
     }
 }

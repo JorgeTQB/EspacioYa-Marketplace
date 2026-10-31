@@ -1022,3 +1022,51 @@
   y de los métodos que ahora son `public`. Las ramas abiertas que toquen esas clases tendrán conflictos de ruta al
   integrar `develop`.
 - **Resultado:** sin commitear; lo revisa y commitea el dueño.
+
+## 2026-10-31 — HU-15 Cancelación de reservas (done)
+
+- **Dueño:** Kevin Chan (sesión conducida por Jorge Quispe en su nombre) · **Rama:** `feature/HU-15-cancelacion-reservas`
+  (desde `develop` en `9a4ab53`) · **Fecha:** 2026-10-31. Sin commit ni push: el dueño revisa y abre el PR hacia `develop`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-15.md`) → spec-author (`specs/HU-15/`, R1–R39, DT-1–DT-12,
+  D1–D12, T1–T20; ★ Strategy) → aprobación del dueño → implementer (`progress/impl_HU-15.md`) → reviewer (`APPROVED`,
+  `progress/review_HU-15.md`) → implementer, cierre.
+- **Spec aprobado por:** Kevin Chan el 2026-10-31 ("Kevin: aprobado", dado en el chat de la sesión), con D1–D12
+  confirmadas (entre ellas D2 "no se cancela una reserva ya empezada", D5 "monto visto" y D7 "HU-15 solo dispara el
+  reembolso").
+- **Cambios:**
+  - Migración `V4_2__cancelacion_reserva.sql` (columnas `cancelada_por`, `cancelada_en`, `monto_reembolso` en `reserva` y
+    dos restricciones `CHECK`).
+  - Dominio `reservas`: `QuienCancela`, `MotivoNoCancelable`, `Reserva.cancelar`/`motivoNoCancelable`,
+    `ReservaConHorario.instanteDeInicio`; ★ Strategy `PoliticaReembolso` + `ReembolsoUsuarioConAnticipacion` (≥ 48 h →
+    100 %), `ReembolsoUsuarioSinAnticipacion` (< 48 h → 0 %), `ReembolsoCancelaArrendador` (100 %) y el Context
+    `CalculoReembolso` (política fija, exactamente una estrategia aplica).
+  - `CancelacionReservaService` (vista previa sin escritura y confirmación bajo bloqueo con `montoReembolsoVisto`),
+    `AvisosCancelacion` (dos correos después del commit), 3 DTO y 4 rutas en `ReservaController` y
+    `ReservasDeMisEspaciosController`; `ConversionReservas.idReserva` (sustituye a `ReservaServiceImpl.idValido`).
+  - `pagos`: contrato `PagoService.reembolsarCancelacion(ReembolsoPorCancelacion)` (`MANDATORY`); `PagoServiceImpl` solo
+    valida y audita `REEMBOLSO_SOLICITADO` (la pasarela y la tabla `reembolso` son de HU-16);
+    `PagoRepository.findByReservaIdAndEstado`.
+  - `cuentas`: `NotificadorCorreo` ganó `notificarCancelacionAlUsuario` y `notificarCancelacionAlArrendador` (records
+    `AvisoCancelacionUsuario`, `AvisoCancelacionArrendador`); los 6 dobles de prueba los implementan vacíos.
+  - Frontend: `Modal.textoCerrar`, 4 funciones en `api/reservas.js`, textos HU-15 en `textosReservas.js`,
+    `CancelarReserva.jsx` (+ CSS) y botón "Cancelar reserva" en Próximas de `MisReservas` y `ReservasDeMisEspacios`. En
+    el cierre, "Fecha" y "Horario" pasaron a `ETIQUETA_FECHA` y `ETIQUETA_HORARIO` (observación menor 1 del review).
+  - Docs: `docs/architecture.md` (contrato de `PagoService`, sección "Cancelación: qué deja HU-15", fila de patrones),
+    `docs/modelo-datos.md`, `docs/frontend.md`. Tabla de puertos sin cambios.
+- **Tests:** nuevos `CalculoReembolsoTest`, `ReservaConHorarioTest`, `ConversionReservasTest`, `AvisosCancelacionTest`,
+  `CancelacionReservaServiceTest`, `PagoServiceImplTest`, `CancelacionReservaControllerIT` (33 casos, punta a punta con la
+  pasarela simulada) y `CancelacionConcurrenciaIT`; casos agregados a `ReservaTest` (+7) y `NotificadorCorreoSimuladoTest`
+  (+2). Ningún caso existente cambió. R1–R39 con test (mapa en `progress/impl_HU-15.md`).
+- **Review:** `APPROVED` en la primera vuelta (`progress/review_HU-15.md`); 6 desviaciones declaradas, todas aceptadas.
+  Observación 1 (etiquetas literales) resuelta en el cierre; observación 2 (esta entrada y la plantilla) resuelta.
+- **Avisos a otros dueños (T19):**
+  - Ariel Enriquez (HU-16): `PagoService.reembolsarCancelacion(ReembolsoPorCancelacion(reservaId, monto, solicitadoPor,
+    ip))`, `MANDATORY`, una vez por reserva dentro de la transacción de la cancelación y solo con `monto > 0`. HU-16
+    reemplaza el cuerpo sin cambiar firma ni propagación (tabla `reembolso`, Command `SolicitudReembolso`,
+    `PasarelaPago.reembolsar` después del commit); si quita el registro `REEMBOLSO_SOLICITADO`, ajusta R24 de HU-15.
+    Migración: HU-16 toma la siguiente `V4_n` libre. Detalle en `specs/HU-15/design.md` § 11.1.
+  - Jorge Quispe (HU-25): dos eventos de correo nuevos en `NotificadorCorreo` a contemplar al moverlo a `comun/correo`.
+  - Sebastian Garate (HU-21): puede reutilizar `CancelacionReservaService` con `QuienCancela.ARRENDADOR` o agregar una
+    estrategia a `CalculoReembolso` (`design.md` § 11.4).
+- **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (954 unitarias y 660 IT,
+  0 fallos, errores ni omitidas; ESLint limpio y build OK). Status → `done`. Todo sin commitear.

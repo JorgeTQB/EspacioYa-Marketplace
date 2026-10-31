@@ -1,7 +1,7 @@
 package pe.edu.ulima.espacioya.cuentas.service;
 
 /**
- * Envío de correos (HU-01, HU-04, HU-06, HU-09, HU-13). HU-25 lo moverá a {@code comun/correo}. Ningún
+ * Envío de correos (HU-01, HU-04, HU-06, HU-09, HU-13, HU-15). HU-25 lo moverá a {@code comun/correo}. Ningún
  * correo lleva documentos (RNF-SEG-16): los avisos de identidad y de suspensión solo reciben el destinatario y, si hay,
  * el motivo.
  */
@@ -22,4 +22,8 @@ public interface NotificadorCorreo {
     void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante);
 
     void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso);
+
+    void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso);
+
+    void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso);
 }
