@@ -108,7 +108,7 @@
 | RF-E-01 | Permitir pagar una reserva pendiente vigente en el checkout de la pasarela; al confirmarse, pasar la reserva a "confirmada" y enviar al usuario un correo con el comprobante. | HU-13 CA1 | Alta |
 | RF-E-02 | Al confirmarse la reserva, enviar al arrendador un correo con fecha, horario y espacio. | HU-13 CA2 | Alta |
 | RF-E-03 | Ante un pago rechazado, mostrar un mensaje genérico y permitir reintentar mientras la reserva siga vigente. | HU-13 CA3 | Alta |
-| RF-E-04 | Hacer que el checkout expire junto con la reserva y permitir reservar de nuevo. | HU-13 CA4 | Alta |
+| RF-E-04 | Hacer que el checkout expire 1 minuto antes que la reserva (margen configurable, RN-08), no iniciar un pago en ese último minuto y permitir reservar de nuevo. | HU-13 CA4 | Alta |
 | RF-E-05 | Solicitar el reembolso a la pasarela contra el pago original y pasar la transacción a "reembolsada" al confirmarse. | HU-16 CA1 | Alta |
 | RF-E-06 | Si la pasarela falla, dejar la transacción en "reembolso fallido", mostrarla en el panel del admin y permitirle reintentar con un botón. | HU-16 CA2 | Alta |
 | RF-E-07 | Permitir al arrendador con identidad verificada registrar una cuenta bancaria a su nombre o al de su RUC, disponible para liquidaciones. | HU-18 CA1 | Media |
@@ -214,7 +214,7 @@
 | RN-05 | Máximo 3 reservas pendientes simultáneas por usuario; una reserva abarca uno o más bloques consecutivos. | HU-12 |
 | RN-06 | **Política de cancelación fija:** usuario con 48 h o más → 100 %; usuario con menos de 48 h → 0 %; arrendador cancela → 100 %. No es configurable. | §5, HU-15 |
 | RN-07 | **Estados de la transacción:** pagada → reembolsada, o reembolso fallido (el admin puede reintentarlo). | §5, HU-16 |
-| RN-08 | El checkout expira junto con la reserva; no hay reembolso de pagos tardíos porque ese caso no ocurre. | §5, §6, HU-13 CA4 |
+| RN-08 | El enlace del checkout vence 1 minuto antes que la reserva, y en ese último minuto no se inicia un pago. La notificación de la pasarela es asíncrona, así que un pago puede aprobarse y llegar con la reserva ya no vigente: se registra como `PAGADO_TARDIO`, se audita, no confirma la reserva y su devolución es manual (HU-13 D2, D3). | §5, §6, HU-13 CA4 |
 | RN-09 | Editar el precio de un espacio no afecta a las reservas ya pagadas. | HU-07 CA4 |
 | RN-10 | **Liquidación:** la genera el admin con un botón; incluye reservas usadas hace más de 48 h y no liquidadas; comisión de la plataforma 10 %; estados pagada (con número de operación) o pendiente de cuenta. La transferencia es manual. | §5, HU-19 |
 | RN-11 | Tras cambiar la cuenta bancaria, la siguiente liquidación se retiene 72 h. | HU-18 CA2 |
@@ -248,7 +248,7 @@ Las columnas **Pruebas unitarias**, **Capturas** y **Estado** las llena la parej
 | [HU-10](historias/HU-10.md) | C | R1 · S3 (9) | RF-C-01…03 | SEG-16, 17; USA-01 | RN-04, RN-15 | HU-07, HU-08 | Sebastian Garate | Adriana Callupe | — | | | |
 | [HU-11](historias/HU-11.md) | C | R1 · S3 (9) | RF-C-04, 05 | SEG-16, 17 | RN-04, RN-06 | HU-07, HU-08 | Adriana Callupe | Sebastian Garate | — | | | |
 | [HU-12](historias/HU-12.md) | D | R1 · S3 (9) | RF-D-01…04 | SEG-01, 07, 09, 12, 17 | RN-03, RN-05 | HU-03, HU-08, HU-11 | Eduardo Saldaña | Ariel Enriquez | — | | | |
-| [HU-13](historias/HU-13.md) ★ | E | R1 · S4 (9) | RF-E-01…04 | SEG-07, 11, 12, 17; CUM-01, 02; ARQ-08 | RN-03, RN-08 | HU-12 | Eduardo Saldaña | Ariel Enriquez | Adapter, Factory Method, Facade | | | |
+| [HU-13](historias/HU-13.md) ★ | E | R1 · S4 (9) | RF-E-01…04 | SEG-07, 11, 12, 17; CUM-01, 02; ARQ-08 | RN-03, RN-08 | HU-12 | Eduardo Saldaña | Ariel Enriquez | Adapter, Facade | | | |
 | [HU-14](historias/HU-14.md) ★ | D | R1 · S4 (9) | RF-D-05, 06 | SEG-01, 16 | RN-03 | HU-12, HU-13 | Adriana Callupe | Sebastian Garate | Iterator, DAO | | | |
 | [HU-15](historias/HU-15.md) ★ | D | R1 · S4 (9) | RF-D-07…09 | SEG-07, 12, 19 | RN-03, RN-06 | HU-13, HU-14 | Kevin Chan | Jorge Quispe | Strategy | | | |
 | [HU-16](historias/HU-16.md) ★ | E | R1 · S4 (9) | RF-E-05, 06 | SEG-11, 12; ARQ-08 | RN-07 | HU-13, HU-15 | Ariel Enriquez | Eduardo Saldaña | Command, Adapter | | | |
@@ -294,3 +294,4 @@ Piezas que implementan varios RNF a la vez. Conviene construirlas una vez, en el
 7. ~~**Límite de registros por IP**~~ **Resuelto (Jorge Quispe, 2026-10-27):** 5 intentos de registro por IP por hora (ventana deslizante), contando todos los intentos, no solo los exitosos; al superarlo, 429 con mensaje genérico. **Límite de intentos MFA** (HU-17 (D)): sigue pendiente; definirlo en el diseño.
 8. **Envío de recordatorios** (RF-D-10): requiere un proceso programado. La simplificación de §5 solo descarta jobs para la disponibilidad y la liquidación, no para este caso; confirmarlo en el diseño de HU-25. ~~**Expiración de reservas**~~ (RF-D-02) **Resuelto (Eduardo Saldaña, 2026-10-30, HU-12 D2):** tres capas. Las lecturas ignoran las reservas vencidas, un proceso programado cada minuto las pasa a `EXPIRADA` y audita (`RESERVAS_EXPIRACION_ACTIVA`, `RESERVAS_EXPIRACION_INTERVALO`), y al crear una reserva se liberan las vencidas que retienen esos bloques.
 9. ~~**Límite de búsqueda, ficha y filtros por IP**~~ **Resuelto (Sebastian Garate, 2026-10-29, HU-10):** 120 peticiones por IP por minuto (ventana deslizante), en un solo cupo compartido por la búsqueda (HU-10), la ficha y su disponibilidad (HU-11) y los filtros (HU-23); al superarlo, 429 con mensaje genérico. Cifra y ventana configurables en `application.properties` (`LIMITE_CATALOGO_MAXIMO`, `LIMITE_CATALOGO_VENTANA`). No cuentan el catálogo de zonas ni las imágenes. HU-10 extiende `ReglaLimite` para aceptar patrones de ruta (p. ej. `/api/espacios/{id}`), de modo que HU-11 y HU-23 solo registran sus reglas en el mismo grupo.
+10. **Mercado Pago sin conectar (HU-13, D8, Eduardo Saldaña, 2026-10-30):** UAT usa la pasarela simulada hasta conectarlo. T23 **no se ha ejecutado**: falta comprobar la **firma real de una notificación (S1)**, los **tipos de pago excluidos (S5)** y el **cierre del checkout (S6)**. Hasta entonces, RNF-CUM-01 y RNF-CUM-02 no se demuestran en UAT (C1 y C2 de `specs/HU-13/design.md` § 14.13). Guía de la prueba: `progress/impl_HU-13.md`.

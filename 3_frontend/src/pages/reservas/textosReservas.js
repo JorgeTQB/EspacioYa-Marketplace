@@ -8,6 +8,17 @@ export const ENLACE_VOLVER = 'Volver al espacio'
 export const ENLACE_BUSCAR = 'Buscar espacios'
 export const CARGANDO = 'Cargando…'
 
+// HU-13. Solo textos: si se puede pagar y si el pago se confirmó lo decide el servidor.
+export const BOTON_PAGAR = 'Pagar'
+export const CONFIRMANDO_PAGO = 'Estamos confirmando tu pago…'
+export const PAGO_EN_REVISION = 'Tu pago sigue en revisión. Si se aprueba, recibirás el comprobante por correo.'
+export const RESERVA_CONFIRMADA = 'Tu reserva está confirmada. Te enviamos el comprobante por correo.'
+export const PAGO_RECHAZADO = 'Tu pago no se aprobó. Puedes intentarlo de nuevo mientras tu reserva siga vigente.'
+export const INTENTOS_AGOTADOS =
+  'Alcanzaste el máximo de intentos de pago. Tus bloques siguen retenidos hasta que la reserva expire; después puedes reservar de nuevo.'
+export const PAGO_NO_DISPONIBLE = 'Esta reserva ya no se puede pagar. Cuando expire, puedes reservar de nuevo.'
+export const PAGO_NO_APLICADO = 'Recibimos un pago que no pudimos aplicar a esta reserva. Gestionaremos su devolución.'
+
 const FORMATO_FECHA = new Intl.DateTimeFormat('es-PE', {
   weekday: 'long',
   day: 'numeric',

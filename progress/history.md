@@ -776,3 +776,148 @@
 - 2026-10-30 — (orquestador, sdd:false) HU-12: Eduardo Saldaña comprobó el contador en el navegador con una reserva a 30 segundos: bajó hasta `00:00` sin subir, la pantalla pasó sola a "Expirada" y en la base la reserva quedó `EXPIRADA`, el bloque inactivo y la auditoría `RESERVA_EXPIRADA` con `origen=PROCESO`. Se cierra ese pendiente.
 
 - 2026-10-30 — (sdd:false, pedido visual) Rediseño de la página de inicio `/` (`pages/inicio/`) y del encabezado global según una imagen de referencia: hero con buscador hacia `/buscar`, tarjetas por tipo real (CANCHA, ESTADIO, AUDITORIO), banda de ventajas `#como-funciona` con el enlace a `/registro-arrendador`. Tokens nuevos de color en `tokens.css` y `docs/frontend.md`; el ancho de lectura pasa de `#root` a `.contenido` de `App.module.css`. Detalle en `progress/impl_inicio.md`. Sin commitear.
+
+- 2026-10-30 — (orquestador, sdd:false) HU-13 deja de usar Factory Method por decisión de su dueño, Eduardo Saldaña: elegir entre la pasarela sandbox y la simulada ya lo resuelve la configuración con inyección de dependencias de Spring, y una fábrica a mano solo agregaría clases. Factory Method sigue en HU-25 (correo según el evento). Cambiados `feature_list.json`, `docs/architecture.md`, `docs/requerimientos.md` §7 y `docs/historias/HU-13.md`. **Pendiente:** confirmar con Ariel Enriquez (PO).
+
+
+## 2026-10-31 — HU-13 Pago con tarjeta (done)
+
+> **`done` no significa que Mercado Pago funcione dentro de la aplicación.** Significa código terminado con la pasarela
+> simulada, con el reviewer en `APPROVED`. **T23 no se ejecutó.** **S1 (firma real), S5 (tipos de pago excluidos) y S6
+> (cierre del checkout) siguen sin comprobar.** `MercadoPagoAdapter` solo corrió contra `StubMercadoPago`, y su firma solo
+> se comprobó con el vector aceptado por el validador oficial. Lo único real con Mercado Pago es un pago de prueba aislado,
+> hecho por el dueño fuera de la aplicación. UAT usa la pasarela simulada, sin pasarela certificada. Si T23 falla al
+> conectar, la historia vuelve a `in_progress`, o a `blocked` si la firma no pasa.
+
+- **Dueño:** Eduardo Saldaña · **Prueba:** Ariel Enriquez · **Rama:** `feature/HU-13-pago-tarjeta` (desde `develop` en
+  `1fbf140`) · **Fechas:** 2026-10-30 y 2026-10-31. Sin commit ni push: el dueño revisa y abre el PR hacia `develop`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-13.md`: 8 decisiones de producto y 15 técnicas) → prueba del
+  proveedor por el dueño → decisiones D1–D7 → spec-author (`specs/HU-13/`, R1–R58, DT-1…DT-15, S1–S14, T1–T24; `design.md`
+  en unas 415 líneas, sobre el objetivo de 350) → aprobación del dueño (S1–S14 aceptados) → implementer
+  (`progress/impl_HU-13.md`) → reviewer vuelta 1 → D8, D9 y D7 revisada → spec-author, adenda (R59–R87, DT-16…DT-27,
+  S15–S20, C1–C5, T25–T43) → aprobación del dueño → implementer → reviewer vuelta 2. La sesión del implementer se
+  interrumpió el 2026-10-30 por un límite de uso y se retomó el 2026-10-31, revisando el estado antes de seguir.
+- **Patrones:** Adapter (`PasarelaPago`, `MercadoPagoAdapter`, `PasarelaSimulada`) y Facade (`CheckoutFacade`). Factory
+  Method se retiró de HU-13 por decisión del dueño: `@ConditionalOnProperty` elige la pasarela. Queda solo en HU-25.
+- **Prueba del proveedor por el dueño (2026-10-30, fuera de la aplicación):** Stripe no ofrece Perú en su registro y se
+  descartó; no se declaró otro país ni datos falsos. Con Mercado Pago Checkout Pro de prueba, un pago con vendedor y
+  comprador de prueba **sí envió notificaciones** a una URL pública (webhook.site, pago `185919482939`). Llegan varias por
+  un solo pago: `topic=payment`, `type=payment` con `action: payment.created` o `payment.updated`, y `topic=merchant_order`.
+  Ninguna trae estado ni monto. `live_mode` llegó en `true` con un vendedor de prueba, así que no distingue el ambiente.
+  La notificación `type=payment` trae `x-signature` y `x-request-id`. `GET /v1/payments/{id}` con credenciales de prueba
+  devolvió `status: approved`, `currency_id: PEN`, monto y últimos 4 dígitos. Comprar exige vendedor y comprador de prueba;
+  con otra cuenta sale "Una de las partes... es de prueba". La URL real decía `data.id=185919482939`: `data_id` era cómo lo
+  mostraba webhook.site (S2 resuelto). El panel no dejó leer la firma secreta, y por eso S1 quedó abierto.
+- **Prueba técnica del spec-author:** `sdk-java:3.7.0` corre en Java 25.0.5 con Boot 4.1.2, pero trae al menos 16 librerías y
+  configuración estática: se eligió `RestClient` + HMAC (DT-1), probado en un proyecto temporal fuera del repositorio.
+- **Decisiones (Eduardo Saldaña, 2026-10-30):**
+  - D1: Mercado Pago Checkout Pro, en modo de prueba y en soles. Stripe, Culqi e Izipay descartadas. Sigue siendo el
+    proveedor elegido, sin conectar por ahora (D8).
+  - D2: un pago aprobado que llega con la reserva no vigente se registra como `PAGADO_TARDIO` y se audita, sin confirmar la
+    reserva. Devolución manual, hasta que HU-16 la automatice si el PO cambia ese alcance. Corrige RN-08.
+  - D3: el enlace vence 1 minuto antes que la reserva (configurable) y en ese último minuto no se inicia un pago.
+  - D4: al tercer rechazo la reserva sigue hasta expirar, iniciar otro pago responde 429 y la pantalla indica reservar de
+    nuevo cuando expire.
+  - D5: comprobante con espacio, fecha, horario, monto, últimos 4 y referencia; correo al arrendador con espacio, fecha y
+    horario, sin datos del usuario ni monto. Correo simulado hasta HU-25.
+  - D6: con el espacio pausado u oculto o el arrendador suspendido no se inicia el pago; con el pago ya aprobado y la
+    reserva vigente, se confirma igual.
+  - D7 revisada (reemplaza a la original, "la simulada solo en pruebas y desarrollo; UAT usa Mercado Pago"): UAT usa la
+    pasarela simulada hasta conectar Mercado Pago, y el informe lo declara.
+  - D8: Mercado Pago no se conecta por ahora. El adaptador y sus pruebas quedan listos, la transacción se hace con la
+    simulada y T23 se difiere.
+  - D9: al pulsar **Pagar** con `PAGOS_PASARELA=simulada` se abre una pantalla con **Aprobar** y **Rechazar**, para el video
+    y la caja negra, sin terminal. Solo existe con la simulada.
+- **Supuestos aceptados por el dueño:**
+  - S1 firma sin comprobar con una notificación real (**sigue abierto**); S2 `data.id` y `data_id`, resuelto; S3 estado
+    `MONTO_DISTINTO`; S4 un segundo aprobado sobre una `CONFIRMADA` es `PAGADO_TARDIO`; S5 solo tarjeta y una cuota, con
+    modo binario (**lista de excluidos sin comprobar**); S6 cierre de mejor esfuerzo al tercer rechazo (**sin comprobar**;
+    riesgo aceptado: el corte real es el 429); S7 riesgo aceptado: límite por reserva, hasta 9 rechazos cada 15 minutos por
+    usuario; S8 sin tolerancia al `ts` de la firma; S9 firma inválida responde 401 sin cuerpo y va solo al log.
+  - S10 si la consulta falla, incluido un 404, responde 503; S11 sin `PAGOS_PASARELA` no arranca, ajustado por D7 revisada;
+    S12 `back_urls` solo con frontend HTTPS; S13 tabla `checkout_pago`, y `pago` gana `PAGADO_TARDIO` y `MONTO_DISTINTO`; S14
+    HU-19 y HU-28 cuentan solo `PAGADO`.
+  - S15 `POST …/simulacion` no repite vigencia, último tramo ni espacio: una pantalla abierta hasta vencer produce
+    `PAGADO_TARDIO`; S16 `PAGOS_SECRETO_WEBHOOK` vacío en UAT; S17 ids deterministas: `sim-<r>-APROBADO-1` y rechazos con el
+    conteo de filas más 1; S18 `ultimos4 = 4242`, fijo, y referencia `sim-…`; S19 simular exige la fila de `checkout_pago`;
+    S20 `MONTO_DISTINTO` no se produce desde la pantalla.
+- **Contradicciones con reglas del proyecto, aceptadas por el dueño al aprobar la adenda (`design.md` § 14.13):** C1 en UAT no
+  hay pasarela certificada (RNF-CUM-01); C2 el control de firma no se demuestra en UAT (RNF-CUM-02); C3 el cliente elige el
+  resultado, como excepción acotada a la simulada y auditada (principio 6); C4 T23 queda como texto sin casilla, así que
+  `init.sh` deja cerrar con una prueba sin ejecutar; C5 CA1 y CA4 de la historia no se tocaron y **quedan por decidir con
+  Ariel Enriquez**. Riesgos en § 14.13: RS-1 quien tenga cuenta en UAT puede aprobar su propio pago; RS-2 video y caja negra
+  demuestran el flujo, no la integración real; RS-3 la firma real podría no coincidir al conectar; RS-4 definir el secreto en
+  UAT abre la ruta pública; RS-5 filas `sim-`; RS-6 reservas pendientes al cambiar de pasarela; RS-7 límite del `curl` local.
+- **Cambios:**
+  - Base de datos: `V4_1__pago.sql` (`pago`, `checkout_pago`). El 2026-10-30 `V4_1` seguía libre en `origin/develop`; si está
+    ocupado al unir la rama, se renombra. La adenda no agrega migración.
+  - Módulo `pagos`, nuevo: dominio, repositorios, `CheckoutFacade`, `EvaluacionCobro`, `SesionesCheckout`,
+    `WebhookPagoService` (único camino que confirma), `AvisosPago`, pasarelas, puerto `ReservasPorCobrar`, `PagoController` y
+    `WebhookPagoController`. Adenda: `SimulacionPago`, `PagoSimuladoController` y sus DTO, solo con la simulada; entregan la
+    notificación a `WebhookPagoService.recibir`, que no cambió.
+  - Otros módulos: `Reserva.confirmar`, `ReservasPorCobrarImpl`, `bloquearEspacio`, `CuentaService.correoDe`, dos métodos en
+    `NotificadorCorreo`, `comun/transaccion/DespuesDelCommit` (movido de `CuentaServiceImpl`), `ServicioExternoException` y
+    la ruta pública del webhook.
+  - Frontend: **Pagar** en `/reservas/:id`, pantalla `/reservas/:id/pago-simulado`, `api/pagos.js`, DEF-01 y DEF-02.
+  - Docs: RN-08 y RF-E-04, pendiente "Mercado Pago sin conectar" en `docs/requerimientos.md` § 9, `docs/architecture.md`,
+    `docs/modelo-datos.md`, `docs/frontend.md`, README y `.env.example`. CA1 y CA4 no se tocaron (C5).
+  - Detalle de archivos y mapa R1–R87 → prueba: `progress/impl_HU-13.md`. Material del informe: `progress/doc_HU-13.md`, que
+    se conserva.
+- **Hallazgo durante la implementación:** la primera carrera de R37 solo producía `EXPIRADA+PAGADO_TARDIO` en 30 de 30
+  rondas, porque el webhook hace una llamada HTTP antes de bloquear. Se varió la espera (9 `CONFIRMADA` y 21 `EXPIRADA` en 30
+  rondas) y se agregaron dos pruebas deterministas que esperan un bloqueo real en `pg_stat_activity`.
+- **Vueltas del review (`progress/review_HU-13.md`):**
+  - Vuelta 1 (2026-10-30) — APPROVED sobre T1–T22 y T24, con T23 abierta, y cuatro defectos de severidad baja: DEF-01
+    (`pagando` tras volver con Atrás), DEF-02 (lectura fallida durante el sondeo), DEF-03 (huecos en la guía de T23 y
+    credenciales en `export` en el README) y DEF-04 (RF-E-04 contra RN-08). El dueño pidió corregirlos.
+  - Vuelta 2 (2026-10-31) — APPROVED sobre la adenda. DEF-01 a DEF-04 corregidos; DEF-01 y DEF-02 verificados leyendo el
+    código, sin reproducir en navegador. DEF-05 (texto viejo en `progress/doc_HU-13.md` §1 y §13), corregido en este cierre,
+    sin tocar código.
+- **Pendientes:**
+  1. **Dueño, probar en el navegador.** Ningún agente abrió estas pantallas: aprobar, rechazar, tres rechazos, pago tardío,
+     DEF-01 y DEF-02. Pasos en `progress/impl_HU-13.md`, "Pendiente para el dueño". Lo que se vea distinto de la guía es un
+     hallazgo: la historia vuelve a `in_progress`.
+  2. **Dueño, quitar la URL de webhook.site del panel de Mercado Pago.** Quedó de la prueba aislada: a esa página le llegarían
+     las notificaciones de la cuenta de prueba.
+  3. **Avisos al equipo, escritos aquí y aún sin entregar:**
+     - Todo el equipo (S11 ajustado): tras el merge, el backend no arranca sin `PAGOS_PASARELA`. En local,
+       `PAGOS_PASARELA=simulada`; `PAGOS_SECRETO_WEBHOOK` solo hace falta para simular por `curl`. En UAT, `simulada` con
+       `PAGOS_SECRETO_WEBHOOK` **vacío** (S16).
+     - Todo el equipo (RS-5): en UAT, un `id_transaccion_pasarela` que empieza por `sim-` no movió dinero. Las historias que
+       lean `pago` deben filtrar esas filas, y hay que decidir qué hacer con ellas al conectar.
+     - Quien agregue un doble de `NotificadorCorreo` debe implementar `notificarPagoConfirmado` y `notificarReservaPagada`,
+       que no tienen `default`.
+     - Kevin Chan (HU-15): `PagoService` no existe aún, lo crea HU-15. Una reserva tiene como mucho un pago `PAGADO`
+       (`uq_pago_reserva_pagado`).
+     - Adriana Callupe (HU-14): `CONFIRMADA` ya existe, sale de `Reserva.confirmar`, y `ReservaDTO` no cambió.
+     - Eduardo Saldaña (HU-19 y HU-28): contar solo `PAGADO` (HU-28, también los reembolsados) y excluir o limpiar las filas
+       `sim-`; `PAGADO_TARDIO` y `MONTO_DISTINTO` no son ingresos.
+  4. **Temas para Ariel Enriquez (PO y caja negra):**
+     - Factory Method: confirmar el retiro de HU-13.
+     - RN-08 cambió: `PAGADO_TARDIO`, devolución manual y enlace 1 minuto antes. También RF-E-04.
+     - Estados nuevos de pago: `PAGADO_TARDIO` y `MONTO_DISTINTO`.
+     - C5: decidir CA1 ("en el checkout de la pasarela") y CA4 ("expira junto con la reserva"), que no se tocaron. Además
+       debe aceptar la historia en la review, con D7 revisada, D8 y D9 a la vista.
+     - HU-16: `reembolsar` va en `PasarelaPago` y también en `PasarelaSimulada`, `id_transaccion_pasarela` sirve para pedirlo,
+       y puede decidir si atiende `PAGADO_TARDIO`, que hoy se devuelve a mano.
+     - Caja negra: todos los casos se prueban sin terminal, y `MONTO_DISTINTO` no es caso de pantalla (S20).
+  5. **T23, al conectar Mercado Pago.** Guía en `progress/impl_HU-13.md`, sin ejecutar. Comprueba S1, S2 con firma real, S5 y
+     S6. Antes de cambiar a `mercadopago`, esperar a que no haya reservas pendientes (RS-6) y decidir qué hacer con las filas
+     `sim-` (RS-5). Registrado también en `docs/requerimientos.md` § 9.
+  6. **Orquestador, arnés (`"sdd": false`):** la regla "Secretos trackeados en git" de `init.sh` solo mira nombres de archivo;
+     conviene ampliarla a contenidos (`APP_USR-`, `TEST-`). No se tocó `init.sh`.
+  7. **Orquestador, informe:** §2, §6 y §7 de `progress/doc_HU-13.md`, tras `APPROVED`. `WebhookPagoIT.puntaAPunta` corre
+     contra `StubMercadoPago`: no se cita como prueba con Mercado Pago sin esa aclaración.
+  8. **Observaciones del review que siguen abiertas (no bloquean):** `MercadoPagoAdapter.decimal` deja pasar un
+     `NumberFormatException` si `transaction_amount` no es numérico (500 y no 503); `PAGO_EN_REVISION` promete el comprobante
+     también si el pago termina tardío; `ReglasPago.idDeReserva` es la tercera copia de esa validación;
+     `SesionesCheckout.cerrar` retiene la conexión durante el `PUT`, hasta 10 s, solo al tercer rechazo; cada `APROBADO`
+     repetido escribe una fila `PAGO_SIMULADO` sin tope; `design.md` § 14.9 atribuye a `SimulacionPagoTest` una comprobación
+     que hace `PasarelaSimuladaTest.armaLaNotificacion`.
+- **Resultado:** `./init.sh` completo en verde en el cierre, con HU-13 ya en `done`: salida 0, 824 unitarias y 587 de
+  integración con Testcontainers, sin fallos, errores ni omitidas (631 y 432 antes de la historia; 339 pruebas en sus clases
+  nuevas: 184 unitarias y 155 de integración); lint y build OK; sin `R<n>` sin prueba (R1–R87). Único aviso, ajeno a la
+  historia: las llaves locales del backend. Status → `done`: código terminado con la pasarela simulada, no aceptación y no
+  Mercado Pago funcionando dentro de la aplicación. **T23 no se ejecutó; S1, S5 y S6 siguen sin comprobar.** Falta la prueba
+  del dueño en el navegador y la caja negra de Ariel Enriquez en UAT.
+  - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.

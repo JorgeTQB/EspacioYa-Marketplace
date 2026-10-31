@@ -15,7 +15,7 @@
 | Frontend       | React + Vite en `3_frontend/`: SPA que consume la API REST, con tokens CSS y un kit de componentes propio (`docs/frontend.md`) |
 | Comunicación   | API REST con JSON sobre HTTPS |
 | Base de datos  | **PostgreSQL 17**. El esquema lo crean solo las migraciones Flyway de `2_Backend/src/main/resources/db/migration/`; `1_Database/compose.yaml` solo levanta el servidor local vacío |
-| Pagos          | Pasarela certificada PCI DSS en modo de prueba (checkout de la pasarela + webhook con firma verificada) |
+| Pagos          | Pasarela certificada PCI DSS en modo de prueba: Mercado Pago Checkout Pro, en soles (checkout alojado + webhook con firma verificada). Se elige con `PAGOS_PASARELA`. **Mercado Pago no está conectado por ahora (HU-13 D8):** el adaptador está listo y UAT usa la pasarela simulada hasta conectarlo, sin pasarela certificada (D7 revisada; C1 de `specs/HU-13/design.md` § 14.13) |
 | Archivos       | Fuera de la base de datos. Documentos: almacenamiento privado cifrado, servido con URL firmada de corta duración. Fotos de espacios: sin cifrar y con URL estable `/api/fotos/<UUID>`, públicas solo si el espacio está publicado (decisión del dueño de HU-07) |
 | Notificaciones | Solo correo, mediante un componente reutilizable |
 
@@ -66,11 +66,13 @@ Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
 
 6. **Reglas de negocio y montos solo en el servidor.** El cliente nunca decide
    montos, roles ni estados. El frontend no contiene reglas de negocio.
+   Excepción acotada, pedida por el dueño de HU-13: ver C3 en
+   `specs/HU-13/design.md` § 14.13.
 
 7. **Integridad también en la base de datos.** Las reglas críticas se
    garantizan con restricciones, no solo en código:
    - bloque único por (espacio, fecha, hora) solo para bloques activos (HU-12);
-   - `pago.id_transaccion_pasarela` único (HU-13);
+   - `pago.id_transaccion_pasarela` único y un solo pago `PAGADO` por reserva, `uq_pago_reserva_pagado` (HU-13);
    - un reembolso por pago y origen (HU-16);
    - una reserva liquidada una sola vez (HU-19);
    - una reseña y un reclamo por reserva (HU-24, HU-26);
@@ -129,7 +131,7 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
 | `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
-| `pagos.ReservasPorCobrar`             | reservas                   | HU-13: obtener la reserva vigente con su monto y confirmarla |
+| `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19 |
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
 
@@ -151,7 +153,9 @@ HU-09 le agregó, para `administracion`, `buscarCuentas`, `detalleCuenta`, `susp
 - `arrendadoresNoActivos()` → `Set<Long>` con los ids de los arrendadores cuyo estado no es `ACTIVA` (o vacío).
 
 HU-12 le agregó `bloquearCuenta(usuarioId)` (D4, `@Transactional(propagation = MANDATORY)`): bloquea la fila de
-`usuario` hasta el fin de la transacción del llamador y responde 404 si no existe. Sin sesión ni rol.
+`usuario` hasta el fin de la transacción del llamador y responde 404 si no existe. Sin sesión ni rol. HU-13 le agregó
+`correoDe(usuarioId)`: correo de la cuenta o 404, sin sesión ni rol, porque lo usa el webhook. Nunca se devuelve a un
+cliente.
 
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
@@ -168,7 +172,9 @@ semanas, o una lista vacía. La reutilizan
 `busqueda` (HU-10, HU-11) y `reservas` (HU-12); no hace falta otro puerto porque esas direcciones están permitidas.
 HU-10 le agregó `conBloquesLibres(espacioIds, fecha) → Set<Long>`: los ids con `horasLibres` no vacía, consultando
 horario, bloqueos y el puerto una vez por lote. HU-12 le agregó `retenerSiLibres(espacioId, fecha, horas) →
-EspacioRetenido(nombre, precioHora)` (ver [Reservas](#reservas-qué-deja-hu-12-hu-13-hu-14-hu-15)).
+EspacioRetenido(nombre, precioHora)` (ver [Reservas](#reservas-qué-deja-hu-12-hu-13-hu-14-hu-15)). HU-13 le agregó
+`bloquearEspacio(espacioId) → EspacioBloqueado(arrendadorId, nombre)` (`MANDATORY`): toma el bloqueo sin filtrar por estado
+ni arrendador, porque un pago aprobado confirma su reserva aunque el espacio ya no se vea (D6).
 
 `espacios.service.CatalogoEspaciosService` es la segunda interfaz pública de `espacios` (la creó HU-10), sin sesión ni
 rol, para `busqueda` (HU-10, HU-11, HU-23): `esTipoValido`, `existeZona`, `publicados(tipo, zona)` → `EspacioPublicado`
@@ -256,11 +262,39 @@ bajo el bloqueo del espacio, `liberarVencidas` expira las que retienen esas hora
 tiempo, y sin esto una vencida daría un falso conflicto. Por lo mismo `desactivarDeReserva` es un `UPDATE` con
 `flushAutomatically`, que llega a la base antes del `INSERT` de los bloques nuevos.
 
-**Lo que necesita HU-13 (no existe aún):** `reservas` implementará `pagos.ReservasPorCobrar`, que define HU-13.
-`Reserva.confirmar()` no existe. `retenerSiLibres` **no sirve** para confirmar, porque las horas ya las retiene la
-propia reserva: hace falta otro método que solo tome el bloqueo del espacio y luego `ReservaRepository.findParaActualizar`,
-revalidando `esVigente(ahora)`, porque el proceso y el webhook compiten por esa fila. Antes del checkout se comprueba
-`cuentaActiva` del arrendador (S5); `EspacioRetenido` no trae `arrendadorId`, HU-13 lo amplía.
+**HU-13, hecho:** `ReservasPorCobrarImpl` implementa el puerto. `retenerSiLibres` no sirve para confirmar, porque las
+horas ya las retiene la propia reserva: `bloquear` lee `espacioId` con una proyección (`findEspacioIdById`, para no dejar
+en el contexto una copia vieja de la reserva), toma `bloquearEspacio`, luego `findParaActualizar`, y evalúa `esVigente`
+con un *ahora* tomado después de los dos bloqueos, porque el proceso y el webhook compiten por esa fila. El webhook no
+toma el bloqueo de `usuario`: solo protege el cupo y confirmar lo reduce; un subconjunto del orden no crea ciclos. Antes
+del checkout se comprueba `CatalogoEspaciosService.esVisible` (espacio publicado y arrendador activo, HU-12 S5, HU-13 D6).
+`EspacioRetenido` no cambió: `bloquearEspacio` devuelve `EspacioBloqueado`.
+
+### Pagos: qué deja HU-13 (HU-14, HU-15, HU-16, HU-19, HU-28)
+
+| Pieza | Qué hace |
+|-------|----------|
+| `pagos.service.pasarela.PasarelaPago` | Adapter. `crearCheckout`, `cerrarCheckout`, `idNotificado` (verifica la firma; vacío si no es de un pago) y `consultarPago`, sin tipos del proveedor. Lo implementan `MercadoPagoAdapter` (`RestClient` + HMAC, sin el SDK, DT-1) y `PasarelaSimulada`, cada una con `@ConditionalOnProperty`: no hay fábrica. HU-16 le agrega `reembolsar` |
+| `pagos.service.CheckoutFacade` | Facade: la única entrada de `PagoController`. Coordina `EvaluacionCobro` y `SesionesCheckout`, sin reglas y sin confirmar nada. El webhook **no** pasa por ella |
+| `pagos.service.SimulacionPago`, `pagos.controller.PagoSimuladoController` | Solo existen con la simulada (`@ConditionalOnProperty`): con `mercadopago` la ruta responde 404. La pantalla hace de página de la pasarela: `SimulacionPago` comprueba rol, reserva, rechazos y checkout, audita `PAGO_SIMULADO` y entrega la notificación a `WebhookPagoService.recibir`. No toca `pago` ni `ReservasPorCobrar`. El resultado es lo único que elige el cliente; el monto sale de la reserva |
+| `PasarelaSimulada.notificacionDe` | Fuera de `PasarelaPago`: el Target no cambia y `MercadoPagoAdapter` no gana un método vacío. Arma la notificación con un token interno que no sale del proceso y no prueba nada de la firma real |
+| `pagos.service.WebhookPagoService` | Único camino que confirma una reserva (RNF-CUM-02), también con la simulada. Firma → consulta del pago, sin transacción → `TransactionTemplate`: `bloquear`, ¿ya existe?, clasificar, `INSERT pago`, `confirmar`, auditoría. Ninguna llamada externa retiene filas |
+| `pagos.domain.ReglasPago` | Reglas puras: `motivoNoDisponible` (orden de R18), `estadoDeAprobado`, `intentosAgotados`, ventana de 30 min |
+| `comun.transaccion.DespuesDelCommit` | `ejecutar(Runnable)`: corre la acción solo si la transacción se confirma y atrapa su fallo. Viene de `CuentaServiceImpl` y lo reutilizan los correos de cualquier módulo. Exige una transacción activa |
+| `comun.error.ServicioExternoException` | 503 con `ErrorDTO.MENSAJE_SERVICIO_EXTERNO`, sin detalle. También servirá a correo y almacenamiento |
+
+**Propiedades `espacioya.pagos.*`.** `pasarela` (`PAGOS_PASARELA`, `mercadopago` o `simulada`; vacía a propósito: sin un valor
+válido no hay bean y el backend no arranca; `@ConditionalOnProperty` no distingue mayúsculas), `llave-secreta`
+(`PAGOS_LLAVE_SECRETA`), `secreto-webhook` (`PAGOS_SECRETO_WEBHOOK`) y `url-notificacion` (`PAGOS_URL_NOTIFICACION`), sin las
+que `mercadopago` no arranca; `url-api` (`PAGOS_URL_API`) y `margen-cierre` (`PAGOS_MARGEN_CIERRE`, `PT1M`). En UAT, `pasarela` vale
+`simulada` y `secreto-webhook` queda **vacío**: `POST /api/pagos/webhook` rechaza todo pago y la pantalla es la única entrada
+(S16). Las pruebas usan `simulada`; las IT del webhook, el adaptador real contra `StubMercadoPago`.
+
+**Lo que deben saber las historias que siguen.** HU-15 crea `PagoService`: nadie lo usaba aún. Una reserva tiene como mucho un
+pago `PAGADO`. HU-19 y HU-28 cuentan solo `PAGADO` (HU-28, también los reembolsados): `PAGADO_TARDIO` y `MONTO_DISTINTO`
+no cobraron nada. Las IT que crean pagos los borran antes que la reserva: `pago` no tiene cascada. **Filas `sim-`:** con la
+simulada, `id_transaccion_pasarela` empieza por `sim-` y ningún dinero se movió: HU-15, HU-16, HU-19 y HU-28 deben filtrarlas o
+limpiarlas al conectar Mercado Pago (RS-5). HU-16 implementa `reembolsar` también en `PasarelaSimulada`.
 
 ## Seguridad transversal (STRIDE)
 
@@ -292,7 +326,9 @@ Además, en todo el sistema:
   consulta. Las cuentas de administrador solo se crean por script interno
   (`cuentas/service/CreadorAdmin`, activado con `ADMIN_CREAR=true`; HU-06).
 - **PCI DSS:** la plataforma nunca recibe ni guarda datos de tarjeta. El estado
-  del pago cambia solo por un webhook con firma verificada e idempotente.
+  del pago cambia solo por un webhook con firma verificada e idempotente. Mientras
+  UAT use la pasarela simulada, este control no se demuestra ahí: ver C1 y C2 en
+  `specs/HU-13/design.md` § 14.13.
 - **Datos personales (Ley 29733):** consentimiento registrado con versión de la
   política (HU-01); derecho de acceso y supresión (HU-22).
 
@@ -322,15 +358,18 @@ En el modelo de datos se reparten en `usuario.correo_verificado`,
   (pago aprobado) o `EXPIRADA` (sin pago a tiempo); `CONFIRMADA` → `CANCELADA`.
   Mientras no expira no se puede soltar: `PENDIENTE_PAGO` → `CANCELADA` no existe (HU-12 S7).
 - **Pago:** `RECHAZADO` si la pasarela no aprueba (se puede reintentar mientras
-  la reserva siga vigente); `PAGADO` → `REEMBOLSADO` o `REEMBOLSO_FALLIDO`
-  (el admin puede reintentarlo).
+  la reserva siga vigente, hasta 3 rechazos cada 30 minutos); `PAGADO` →
+  `REEMBOLSADO` o `REEMBOLSO_FALLIDO` (el admin puede reintentarlo).
+  `PAGADO_TARDIO` (aprobado con la reserva no vigente) y `MONTO_DISTINTO`
+  (aprobado con otro monto o moneda) no confirman la reserva y se devuelven a
+  mano (HU-13 D2, S3).
 - **Liquidación:** `GENERADA` → `PAGADA` (con número de operación);
   `PENDIENTE_CUENTA` si el arrendador no registró cuenta bancaria.
 
 **Simplificaciones:**
 - Política de cancelación fija: usuario con 48 h o más → 100 %; con menos → 0 %;
   si cancela el arrendador → 100 %.
-- El checkout expira junto con la reserva.
+- El enlace del checkout vence 1 minuto antes que la reserva (HU-13 D3).
 - La liquidación la genera el admin con un botón y la transferencia es manual.
 - Los bloques libres se calculan al consultar: horario − bloqueos − reservas
   (`CalculoDisponibilidad`, HU-08); ventana de 8 semanas = hoy + 55 días (`VentanaReserva`).
@@ -342,7 +381,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 
 | Historia     | Patrones                        | Dónde vive y cómo se aplica |
 |--------------|---------------------------------|-----------------------------|
-| HU-13 ★      | Adapter, Factory Method, Facade | `pagos`: interfaz `PasarelaPago` + adaptador del proveedor; fábrica según configuración (sandbox o simulada); `CheckoutFacade` para reserva vigente → monto en servidor → checkout |
+| HU-13 ★      | Adapter, Facade                 | `pagos`: interfaz `PasarelaPago` + adaptador del proveedor; la implementación (sandbox o simulada) se elige por configuración con inyección de dependencias; `CheckoutFacade` para reserva vigente → monto en servidor → checkout |
 | HU-14 ★      | Iterator, DAO                   | `reservas`: recorrer reservas próximas y pasadas sin exponer la colección; consultas siempre filtradas por el usuario de la sesión |
 | HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
@@ -379,5 +418,5 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
   | Notificaciones push | Descartada |
   | Política de cancelación configurable | Simplificada: fija de 48 h |
   | Liquidación automática (job y transferencia por API) | Simplificada: botón del admin y transferencia manual |
-  | Reembolso de pagos que llegan tras expirar la reserva | Simplificada: el checkout expira con la reserva |
+  | Reembolso automático de pagos que llegan tras expirar la reserva | Simplificada: el pago se registra como `PAGADO_TARDIO` y su devolución es manual (HU-13 D2) |
   | Respuesta del arrendador a reseñas y fotos en reclamos | Simplificada: fuera de HU-24 y HU-26 |

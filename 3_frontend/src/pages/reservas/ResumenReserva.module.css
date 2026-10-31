@@ -34,3 +34,7 @@
   margin: 0;
   color: var(--color-texto-secundario);
 }
+
+.pagar {
+  margin-top: var(--espacio-4);
+}

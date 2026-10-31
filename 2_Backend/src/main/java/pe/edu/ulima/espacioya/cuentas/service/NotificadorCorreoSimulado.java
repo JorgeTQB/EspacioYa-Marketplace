@@ -55,4 +55,15 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
     public void notificarCuentaReactivada(String correoNormalizado) {
         log.info("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).");
     }
+
+    // Ni el correo ni los datos del comprobante van al log (HU-13, RNF-CUM-01).
+    @Override
+    public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+        log.info("Envío de comprobante de pago simulado: no se envió ningún correo (HU-13).");
+    }
+
+    @Override
+    public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+        log.info("Envío de aviso de reserva pagada simulado: no se envió ningún correo (HU-13).");
+    }
 }

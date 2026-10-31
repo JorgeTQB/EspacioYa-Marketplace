@@ -267,12 +267,11 @@
       "tester": "Ariel Enriquez",
       "patterns": [
         "Adapter",
-        "Factory Method",
         "Facade"
       ],
       "historia": "docs/historias/HU-13.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-14",

@@ -122,8 +122,25 @@ class ManejadorGlobalErroresTest {
                 .andExpect(jsonPath("$.errores").isEmpty());
     }
 
+    @Test
+    @DisplayName("HU-13 R17, R27: un servicio externo caído responde 503 con el mensaje genérico, sin detalle")
+    void servicioExternoResponde503() throws Exception {
+        mvc.perform(get("/prueba/servicio-externo"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No pudimos conectar con el servicio de pagos. Intenta de nuevo en unos minutos."))
+                .andExpect(jsonPath("$.errores").isEmpty())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(content().string(not(containsString("ServicioExternoException"))));
+    }
+
     @RestController
     static class ControladorDePrueba {
+
+        @GetMapping("/prueba/servicio-externo")
+        String servicioExterno() {
+            throw new ServicioExternoException();
+        }
 
         @GetMapping("/prueba/multipart-grande")
         String multipartGrande() {

@@ -104,6 +104,37 @@ class ReservaTest {
     }
 
     @Test
+    @DisplayName("HU-13 R31: confirmar una vigente la deja CONFIRMADA, hasta un segundo antes de expira_en")
+    void confirmaUnaVigente() {
+        var reserva = nueva();
+
+        reserva.confirmar(UN_SEGUNDO_ANTES);
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+        assertThat(reserva.estadoEn(VENCE)).isEqualTo(EstadoReserva.CONFIRMADA);
+    }
+
+    @Test
+    @DisplayName("HU-13 R31, R34: confirmar una vencida lanza y no cambia el estado")
+    void noConfirmaUnaVencida() {
+        var reserva = nueva();
+
+        assertThatThrownBy(() -> reserva.confirmar(VENCE)).isInstanceOf(IllegalStateException.class);
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PENDIENTE_PAGO);
+    }
+
+    @Test
+    @DisplayName("HU-13 R31, R34: confirmar una CONFIRMADA o una EXPIRADA lanza")
+    void noConfirmaOtrosEstados() {
+        var confirmada = conEstado(EstadoReserva.CONFIRMADA);
+        var expirada = conEstado(EstadoReserva.EXPIRADA);
+
+        assertThatThrownBy(() -> confirmada.confirmar(UN_SEGUNDO_ANTES)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> expirada.confirmar(UN_SEGUNDO_ANTES)).isInstanceOf(IllegalStateException.class);
+        assertThat(expirada.getEstado()).isEqualTo(EstadoReserva.EXPIRADA);
+    }
+
+    @Test
     @DisplayName("HU-12 R39: una vencida se lee EXPIRADA sin cambiar el estado guardado")
     void estadoEnUnaVencida() {
         var reserva = nueva();
