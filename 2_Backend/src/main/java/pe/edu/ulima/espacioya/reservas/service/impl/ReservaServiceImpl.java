@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -54,7 +53,6 @@ public class ReservaServiceImpl implements ReservaService {
     private static final String CAMPO_HORAS = "horas";
     private static final String ENTIDAD_RESERVA = "reserva";
     private static final String RESTRICCION_BLOQUE_ACTIVO = "uq_reserva_bloque_activo";
-    private static final Pattern ID_BIEN_ESCRITO = Pattern.compile("[0-9]{1,19}");
 
     private final ReservaRepository reservas;
     private final ReservaBloqueRepository bloques;
@@ -105,10 +103,7 @@ public class ReservaServiceImpl implements ReservaService {
     @Override
     @Transactional(readOnly = true)
     public ReservaDTO consultar(UsuarioAutenticado usuario, String id) {
-        var reservaId = idValido(id);
-        if (reservaId == null) {
-            throw new RecursoNoEncontradoException();
-        }
+        var reservaId = ConversionReservas.idReserva(id).orElseThrow(RecursoNoEncontradoException::new);
         var reserva = reservas.findByIdAndUsuarioId(reservaId, usuario.usuarioId())
                 .orElseThrow(RecursoNoEncontradoException::new);
         var filas = bloques.findByReservaIdOrderByHoraInicioAsc(reserva.getId());
@@ -174,18 +169,5 @@ public class ReservaServiceImpl implements ReservaService {
     private static boolean esBloqueYaRetenido(DataIntegrityViolationException conflicto) {
         var mensaje = conflicto.getMostSpecificCause().getMessage();
         return mensaje != null && mensaje.contains(RESTRICCION_BLOQUE_ACTIVO);
-    }
-
-    // null = no es un id bien escrito: 1 a 19 dígitos, sin desbordar un long y mayor que 0.
-    private static Long idValido(String texto) {
-        if (texto == null || !ID_BIEN_ESCRITO.matcher(texto).matches()) {
-            return null;
-        }
-        try {
-            var id = Long.parseLong(texto);
-            return id > 0 ? id : null;
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 }

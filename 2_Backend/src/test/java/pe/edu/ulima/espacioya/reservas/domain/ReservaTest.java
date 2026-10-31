@@ -18,6 +18,7 @@ class ReservaTest {
     private static final Instant INICIO = Instant.parse("2026-10-28T15:00:00Z");
     private static final Instant VENCE = INICIO.plus(Duration.ofMinutes(15));
     private static final Instant UN_SEGUNDO_ANTES = VENCE.minusSeconds(1);
+    private static final Instant EMPIEZA = INICIO.plus(Duration.ofDays(5));
 
     private final RelojControlable reloj = new RelojControlable(INICIO);
 
@@ -166,5 +167,81 @@ class ReservaTest {
     void segundosRestantesDeOtrosEstados() {
         assertThat(conEstado(EstadoReserva.CONFIRMADA).segundosRestantes(INICIO)).isZero();
         assertThat(conEstado(EstadoReserva.EXPIRADA).segundosRestantes(INICIO)).isZero();
+    }
+
+    // ── HU-15: cancelación ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-15 R19: una CONFIRMADA que aún no empieza es cancelable")
+    void confirmadaFuturaEsCancelable() {
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).motivoNoCancelable(EMPIEZA, INICIO)).isEmpty();
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).motivoNoCancelable(EMPIEZA, EMPIEZA.minusSeconds(1)))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-15 R8: una CANCELADA da YA_CANCELADA")
+    void canceladaDaYaCancelada() {
+        assertThat(conEstado(EstadoReserva.CANCELADA).motivoNoCancelable(EMPIEZA, INICIO))
+                .contains(MotivoNoCancelable.YA_CANCELADA);
+    }
+
+    @Test
+    @DisplayName("HU-15 R8: YA_CANCELADA gana aunque la reserva ya haya empezado")
+    void yaCanceladaVaPrimero() {
+        assertThat(conEstado(EstadoReserva.CANCELADA).motivoNoCancelable(EMPIEZA, EMPIEZA.plusSeconds(1)))
+                .contains(MotivoNoCancelable.YA_CANCELADA);
+    }
+
+    @Test
+    @DisplayName("HU-15 R9: una PENDIENTE_PAGO vigente, una vencida sin procesar y una EXPIRADA dan NO_CONFIRMADA")
+    void noConfirmadas() {
+        assertThat(nueva().motivoNoCancelable(EMPIEZA, UN_SEGUNDO_ANTES)).contains(MotivoNoCancelable.NO_CONFIRMADA);
+        assertThat(nueva().motivoNoCancelable(EMPIEZA, VENCE)).contains(MotivoNoCancelable.NO_CONFIRMADA);
+        assertThat(conEstado(EstadoReserva.EXPIRADA).motivoNoCancelable(EMPIEZA, INICIO))
+                .contains(MotivoNoCancelable.NO_CONFIRMADA);
+    }
+
+    @Test
+    @DisplayName("HU-15 R10: una CONFIRMADA cuyo inicio es ahora o ya pasó da YA_INICIADA")
+    void confirmadaYaIniciada() {
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).motivoNoCancelable(EMPIEZA, EMPIEZA))
+                .contains(MotivoNoCancelable.YA_INICIADA);
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).motivoNoCancelable(EMPIEZA, EMPIEZA.plusSeconds(3600)))
+                .contains(MotivoNoCancelable.YA_INICIADA);
+    }
+
+    @Test
+    @DisplayName("HU-15 R19, R20: cancelar deja CANCELADA con quién, cuándo y el monto a reembolsar")
+    void cancelarGuardaLosTresDatos() {
+        var reserva = conEstado(EstadoReserva.CONFIRMADA);
+
+        reserva.cancelar(QuienCancela.ARRENDADOR, EMPIEZA, new BigDecimal("241.50"), INICIO);
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(reserva.estadoEn(INICIO)).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(reserva.getCanceladaPor()).isEqualTo(QuienCancela.ARRENDADOR);
+        assertThat(reserva.getCanceladaEn()).isEqualTo(INICIO);
+        assertThat(reserva.getMontoReembolso()).isEqualByComparingTo("241.50");
+    }
+
+    @Test
+    @DisplayName("HU-15 R8, R9, R10: cancelar una no cancelable lanza y no cambia nada")
+    void cancelarNoCancelableLanza() {
+        var cancelada = conEstado(EstadoReserva.CANCELADA);
+        var pendiente = nueva();
+        var empezada = conEstado(EstadoReserva.CONFIRMADA);
+
+        assertThatThrownBy(() -> cancelada.cancelar(QuienCancela.USUARIO, EMPIEZA, BigDecimal.ZERO, INICIO))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> pendiente.cancelar(QuienCancela.USUARIO, EMPIEZA, BigDecimal.ZERO, INICIO))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> empezada.cancelar(QuienCancela.USUARIO, EMPIEZA, BigDecimal.ZERO, EMPIEZA))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(pendiente.getEstado()).isEqualTo(EstadoReserva.PENDIENTE_PAGO);
+        assertThat(empezada.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+        assertThat(empezada.getCanceladaPor()).isNull();
+        assertThat(empezada.getCanceladaEn()).isNull();
+        assertThat(empezada.getMontoReembolso()).isNull();
     }
 }

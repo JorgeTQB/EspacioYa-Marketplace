@@ -66,4 +66,15 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
     public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
         log.info("Envío de aviso de reserva pagada simulado: no se envió ningún correo (HU-13).");
     }
+
+    // Ni el correo ni los datos de la reserva o del reembolso van al log (HU-15, Ley 29733).
+    @Override
+    public void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso) {
+        log.info("Envío de aviso de cancelación al usuario simulado: no se envió ningún correo (HU-15).");
+    }
+
+    @Override
+    public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
+        log.info("Envío de aviso de cancelación al arrendador simulado: no se envió ningún correo (HU-15).");
+    }
 }

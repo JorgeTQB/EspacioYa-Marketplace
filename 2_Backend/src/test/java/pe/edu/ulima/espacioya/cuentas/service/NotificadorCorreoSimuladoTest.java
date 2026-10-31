@@ -2,6 +2,9 @@ package pe.edu.ulima.espacioya.cuentas.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,6 +119,38 @@ class NotificadorCorreoSimuladoTest {
                 .contains("INFO")
                 .contains("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).")
                 .doesNotContain("ana.secreta");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-15 R26: el aviso simulado de cancelación al usuario no escribe el correo ni los datos")
+    void cancelacionAlUsuarioSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCancelacionUsuario("Cancha Escondida", LocalDate.of(2026, 11, 2), 18, 20, "ARRENDADOR",
+                100, new BigDecimal("161.37"));
+
+        new NotificadorCorreoSimulado(true).notificarCancelacionAlUsuario("carla.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cancelación al usuario simulado: no se envió ningún correo (HU-15).")
+                .doesNotContain("carla.secreta")
+                .doesNotContain("Cancha Escondida")
+                .doesNotContain("161.37");
+        assertThat(salida.getErr()).doesNotContain("carla.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-15 R27: el aviso simulado de cancelación al arrendador no escribe el correo ni los datos")
+    void cancelacionAlArrendadorSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCancelacionArrendador("Cancha Escondida", LocalDate.of(2026, 11, 2), 18, 20, "USUARIO");
+
+        new NotificadorCorreoSimulado(true).notificarCancelacionAlArrendador("ana.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cancelación al arrendador simulado: no se envió ningún correo (HU-15).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("Cancha Escondida");
         assertThat(salida.getErr()).doesNotContain("ana.secreta");
     }
 }

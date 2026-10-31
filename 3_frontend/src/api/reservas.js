@@ -19,3 +19,27 @@ export function listarReservasDeMisEspacios({ grupo, pagina }) {
   const parametros = new URLSearchParams({ grupo, pagina: String(pagina) })
   return peticion(`/api/arrendadores/actual/reservas?${parametros}`)
 }
+
+// HU-15. La política, el porcentaje y el monto los calcula el servidor. montoReembolsoVisto es el montoReembolso de la
+// vista previa, sin tocarlo: el servidor solo lo compara con el que recalcula.
+export function obtenerCancelacion(id) {
+  return peticion(`/api/reservas/${encodeURIComponent(id)}/cancelacion`)
+}
+
+export function cancelarReserva(id, montoReembolsoVisto) {
+  return peticion(`/api/reservas/${encodeURIComponent(id)}/cancelacion`, {
+    metodo: 'POST',
+    cuerpo: { montoReembolsoVisto },
+  })
+}
+
+export function obtenerCancelacionDeMiEspacio(id) {
+  return peticion(`/api/arrendadores/actual/reservas/${encodeURIComponent(id)}/cancelacion`)
+}
+
+export function cancelarReservaDeMiEspacio(id, montoReembolsoVisto) {
+  return peticion(`/api/arrendadores/actual/reservas/${encodeURIComponent(id)}/cancelacion`, {
+    metodo: 'POST',
+    cuerpo: { montoReembolsoVisto },
+  })
+}

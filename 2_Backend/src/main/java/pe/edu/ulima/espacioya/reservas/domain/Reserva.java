@@ -3,6 +3,7 @@ package pe.edu.ulima.espacioya.reservas.domain;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,6 +51,16 @@ public class Reserva {
     @Column(name = "expira_en", nullable = false)
     private Instant expiraEn;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancelada_por", length = 20)
+    private QuienCancela canceladaPor;
+
+    @Column(name = "cancelada_en")
+    private Instant canceladaEn;
+
+    @Column(name = "monto_reembolso", precision = 10, scale = 2)
+    private BigDecimal montoReembolso;
+
     protected Reserva() {
     }
 
@@ -96,6 +107,36 @@ public class Reserva {
         estado = EstadoReserva.CONFIRMADA;
     }
 
+    /**
+     * Solo se cancela una {@code CONFIRMADA} que aún no empieza (HU-15 D2). Orden: {@code YA_CANCELADA},
+     * {@code NO_CONFIRMADA} (estado leído {@code PENDIENTE_PAGO} o {@code EXPIRADA}) y {@code YA_INICIADA}.
+     */
+    public Optional<MotivoNoCancelable> motivoNoCancelable(Instant inicio, Instant ahora) {
+        var leido = estadoEn(ahora);
+        if (leido == EstadoReserva.CANCELADA) {
+            return Optional.of(MotivoNoCancelable.YA_CANCELADA);
+        }
+        if (leido != EstadoReserva.CONFIRMADA) {
+            return Optional.of(MotivoNoCancelable.NO_CONFIRMADA);
+        }
+        if (!ahora.isBefore(inicio)) {
+            return Optional.of(MotivoNoCancelable.YA_INICIADA);
+        }
+        return Optional.empty();
+    }
+
+    /** Deja la reserva {@code CANCELADA} con quién, cuándo y el monto a reembolsar (HU-15 R19, R20). */
+    public void cancelar(QuienCancela quien, Instant inicio, BigDecimal montoReembolso, Instant ahora) {
+        var motivo = motivoNoCancelable(inicio, ahora);
+        if (motivo.isPresent()) {
+            throw new IllegalStateException("La reserva no se puede cancelar: " + motivo.get());
+        }
+        estado = EstadoReserva.CANCELADA;
+        canceladaPor = quien;
+        canceladaEn = ahora;
+        this.montoReembolso = montoReembolso;
+    }
+
     public Long getId() {
         return id;
     }
@@ -126,5 +167,17 @@ public class Reserva {
 
     public Instant getExpiraEn() {
         return expiraEn;
+    }
+
+    public QuienCancela getCanceladaPor() {
+        return canceladaPor;
+    }
+
+    public Instant getCanceladaEn() {
+        return canceladaEn;
+    }
+
+    public BigDecimal getMontoReembolso() {
+        return montoReembolso;
     }
 }

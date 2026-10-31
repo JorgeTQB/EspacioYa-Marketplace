@@ -4,6 +4,7 @@ import estilos from './Modal.module.css'
 
 // Confirmación de acciones importantes (HU-06). <dialog> con showModal() atrapa el foco y bloquea el resto de la
 // página; Esc no lo cierra por su cuenta: avisa a onCerrar para que el padre decida (y no mientras se envía).
+// textoCerrar (HU-15): en "¿Cancelar esta reserva?" un segundo botón "Cancelar" sería ambiguo.
 function Modal({
   abierto,
   titulo,
@@ -11,6 +12,7 @@ function Modal({
   onCerrar,
   children,
   textoConfirmar = 'Confirmar',
+  textoCerrar = 'Cancelar',
   variante = 'primario',
   cargando = false,
 }) {
@@ -37,7 +39,7 @@ function Modal({
       <div className={estilos.contenido}>{children}</div>
       <div className={estilos.pie}>
         <Boton variante="secundario" deshabilitado={cargando} onClick={onCerrar}>
-          Cancelar
+          {textoCerrar}
         </Boton>
         <Boton variante={variante} cargando={cargando} onClick={onConfirmar}>
           {textoConfirmar}

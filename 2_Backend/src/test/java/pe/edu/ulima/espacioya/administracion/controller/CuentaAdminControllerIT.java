@@ -51,6 +51,8 @@ import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionArrendador;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionUsuario;
 import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
 import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
@@ -164,6 +166,14 @@ class CuentaAdminControllerIT {
         @Override
         public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
             throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso) {
+        }
+
+        @Override
+        public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
         List<Aviso> avisos() {

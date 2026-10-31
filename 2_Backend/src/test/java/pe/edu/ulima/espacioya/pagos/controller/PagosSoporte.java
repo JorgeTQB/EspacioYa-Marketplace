@@ -36,6 +36,8 @@ import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionArrendador;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionUsuario;
 import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
 import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
@@ -163,6 +165,14 @@ abstract class PagosSoporte {
                 throw new IllegalStateException("el proveedor de correo falló");
             }
             avisos.add(new AvisoArrendador(correoArrendador, aviso));
+        }
+
+        @Override
+        public void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso) {
+        }
+
+        @Override
+        public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
         List<Comprobante> comprobantes() {
