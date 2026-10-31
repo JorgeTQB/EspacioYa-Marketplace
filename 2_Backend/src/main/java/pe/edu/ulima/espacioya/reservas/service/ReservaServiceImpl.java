@@ -147,10 +147,7 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     private ReservaDTO aDto(Reserva reserva, String nombre, LocalDate fecha, int horaInicio, int horaFin) {
-        var ahora = Instant.now(reloj);
-        return new ReservaDTO(reserva.getId(), reserva.getEspacioId(), nombre, reserva.estadoEn(ahora).name(), fecha,
-                horaInicio, horaFin, reserva.getPrecioHoraAplicado(), reserva.getMontoTotal(), reserva.getExpiraEn(),
-                reserva.segundosRestantes(ahora));
+        return ConversionReservas.aDto(reserva, nombre, fecha, horaInicio, horaFin, Instant.now(reloj));
     }
 
     private LocalDate fechaEnVentana(String texto) {

@@ -13,11 +13,17 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import pe.edu.ulima.espacioya.reservas.domain.EstadoReserva;
 import pe.edu.ulima.espacioya.reservas.domain.Reserva;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     Optional<Reserva> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    // HU-14: solo los usa ReservaDAOJpa; el servicio pide las reservas por el DAO, siempre con su dueño.
+    List<Reserva> findByUsuarioId(Long usuarioId);
+
+    List<Reserva> findByEspacioIdInAndEstado(Collection<Long> espacioIds, EstadoReserva estado);
 
     @Query("select count(r) from Reserva r "
             + "where r.usuarioId = :usuarioId "

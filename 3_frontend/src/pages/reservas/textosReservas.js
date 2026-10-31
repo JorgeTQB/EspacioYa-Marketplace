@@ -19,6 +19,20 @@ export const INTENTOS_AGOTADOS =
 export const PAGO_NO_DISPONIBLE = 'Esta reserva ya no se puede pagar. Cuando expire, puedes reservar de nuevo.'
 export const PAGO_NO_APLICADO = 'Recibimos un pago que no pudimos aplicar a esta reserva. Gestionaremos su devolución.'
 
+// HU-14. Solo textos: qué reservas son próximas o pasadas y en qué orden lo decide el servidor.
+export const TITULO_MIS_RESERVAS = 'Mis reservas'
+export const TITULO_RESERVAS_DE_MIS_ESPACIOS = 'Reservas de mis espacios'
+export const TITULO_PROXIMAS = 'Próximas'
+export const TITULO_PASADAS = 'Pasadas'
+export const SIN_PROXIMAS = 'Aún no tienes reservas próximas.'
+export const SIN_PASADAS = 'Aún no tienes reservas pasadas.'
+export const SIN_CONFIRMADAS_PROXIMAS = 'Aún no tienes reservas confirmadas próximas.'
+export const SIN_CONFIRMADAS_PASADAS = 'Aún no tienes reservas confirmadas pasadas.'
+export const BOTON_VER_MAS = 'Ver más'
+export const ENLACE_VER_ESPACIO = 'Ver espacio'
+export const ENLACE_VER_RESERVA = 'Ver reserva'
+export const RESERVADO_POR = 'Reservado por'
+
 const FORMATO_FECHA = new Intl.DateTimeFormat('es-PE', {
   weekday: 'long',
   day: 'numeric',

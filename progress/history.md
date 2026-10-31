@@ -921,3 +921,78 @@
   Mercado Pago funcionando dentro de la aplicación. **T23 no se ejecutó; S1, S5 y S6 siguen sin comprobar.** Falta la prueba
   del dueño en el navegador y la caja negra de Ariel Enriquez en UAT.
   - Todo está sin commitear: el dueño revisa y abre el PR hacia `develop`.
+
+## 2026-10-31 — HU-14 Mis reservas (done)
+
+- **Dueña:** Adriana Callupe · **Prueba:** Sebastian Garate · **Rama:** `feature/HU-14-mis-reservas` (desde `develop` en
+  `1fbf140`, avanzada por fast-forward a `6afb5bc` con HU-13) · **Fecha:** 2026-10-31. Sin commit ni push: la dueña revisa y
+  abre el PR hacia `develop`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-14.md`: P1–P8, T1–T9, H1–H6) → spec-author (`specs/HU-14/`,
+  R1–R38, DT-1…DT-13, D1–D12, T1–T19) → integración de HU-13 → explorador (`progress/explore_HU-14_HU-13.md`) →
+  spec-author, revisión → aprobación de la dueña → implementer (`progress/impl_HU-14.md`) → reviewer (`APPROVED`,
+  `progress/review_HU-14.md`) → implementer, cierre.
+- **Avanzar con HU-13 pendiente:** al empezar, HU-13 (Pago con tarjeta, Eduardo Saldaña) seguía `pending` y sin rama en el
+  remoto. Se le avisó a la dueña el 2026-10-30 y decidió avanzar igual; el spec aisló todo lo que dependía de pagos
+  (contrato § 11.3 que HU-13 debía respetar, D12 como verificación pendiente de integración).
+- **Revisión del spec tras integrar HU-13:** HU-13 llegó a `develop` (`ec51197`, merge `6afb5bc`). El explorador confirmó
+  el contrato § 11.3 ("spec válido con ajustes menores"). El spec-author ajustó: IP de `MisReservasControllerIT`
+  `10.15.x.x` → `10.16.x.x`; D9 con un caso de punta a punta de CA2 con la pasarela simulada (y `@AfterEach` que borra
+  `pago`); D12 sin verificación pendiente; D10 de la dueña; textos sobre HU-13. R1–R38, patrones, endpoints, DTO y mensajes
+  sin cambios.
+- **Decisiones D1–D12 (confirmadas por Adriana Callupe el 2026-10-31):**
+  - D1: al arrendador se le muestra el `nombre` del usuario si no está en blanco; si no, "Usuario de EspacioYa". Nunca se
+    deriva del correo. HU-20 lo completa sin cambiar el contrato.
+  - D2: próxima = fin posterior a *ahora* y estado (`estadoEn(ahora)`) `PENDIENTE_PAGO` vigente o `CONFIRMADA`; el resto
+    son pasadas, también `EXPIRADA`/`CANCELADA` con fecha futura. Corte en el servidor.
+  - D3: próximas ascendentes, pasadas descendentes, empate por id; de 10 en 10 con `pagina` y `hayMas`, sin total.
+  - D4: el usuario ve todos los estados con `EtiquetaEstado`.
+  - D5: el arrendador ve espacio, fecha, horario, nombre (D1), estado y monto; nunca correo, teléfono ni pago.
+  - D6: del espacio, solo nombre y "Ver espacio".
+  - D7: rutas `/mis-reservas` y `/panel/reservas`, enlaces desde `Panel.jsx`.
+  - D8: `GET /api/reservas` solo `USUARIO`; `GET /api/arrendadores/actual/reservas` solo `ARRENDADOR`; otro rol → 403.
+  - D9: `CONFIRMADA` se alcanza en las IT por la API con la pasarela simulada (caso de punta a punta de CA2).
+  - **D10 (decisión de la dueña):** "Ver reserva" → `/reservas/:id` en **todas** las reservas del usuario, en cualquier
+    estado, para llegar al aviso de pago no aplicado de HU-13. HU-14 no agrega botones de pago.
+  - D11: estado del pago, comprobante y `ultimos4` fuera (HU-28); HU-14 no lee `pago`.
+  - D12: la caja negra de CA2 se hace completa en UAT con la pasarela simulada.
+- **Patrones:** ★ **DAO** — `ReservaDAO` (interfaz, primer DAO explícito del repo) + `ReservaDAOJpa` (`@Repository` de
+  paquete, dos consultas: `reserva` y una agregada a `reserva_bloque`, unión en memoria, sin N+1) + `ReservaConHorario`
+  (TransferObject); `ConsultaReservasService` solo conoce la interfaz. ★ **Iterator** — `HistorialReservas` (colección
+  inmutable, fábrica de recorridos) + `IteradorReservas` (`hasNext` no consume) + `Pagina` (cliente, `hayMas = hasNext()`).
+- **Cambios:**
+  - Backend `reservas`: `GrupoReservas`, `ReservaConHorario`, `HistorialReservas`, `IteradorReservas`, `Pagina`,
+    `HorarioReserva`, `ReservaDAO`, `ReservaDAOJpa`, `ConversionReservas` (DT-11; `ReservaServiceImpl.aDto` delega),
+    `PaginaReservasDTO`, `ReservaDeMiEspacioDTO`, `ConsultaReservasService` (`readOnly`, un solo instante, sin auditoría),
+    `ReservaController` (`GET` sin id), `ReservasDeMisEspaciosController`; métodos nuevos en `ReservaRepository` y
+    `ReservaBloqueRepository`.
+  - Contratos nuevos en otros módulos (solo agregan): `CatalogoEspaciosService.nombresDelArrendador`;
+    `CuentaService.nombres` con `NombreCuenta` y `UsuarioRepository.nombresDe`. Sin puertos nuevos, sin migración.
+  - Frontend: `api/reservas.js`, `textosReservas.js`, `SeccionReservas`, `MisReservas`, `ReservasDeMisEspacios`, rutas en
+    `App.jsx`, enlaces en `Panel.jsx`. Sin componentes nuevos en el kit.
+  - Docs: `docs/architecture.md` (sección "Mis reservas: qué deja HU-14", contratos, fila de patrones) y
+    `docs/frontend.md`. En el cierre se actualizaron los encabezados de `requirements.md` y `design.md` (D1–D12
+    confirmadas) y se matizó en `docs/architecture.md` la frase sobre el dueño en la firma del DAO (observaciones 1 y 2).
+- **Tests:** nuevos `GrupoReservasTest`, `HistorialReservasTest`, `PaginaTest`, `ReservaDAOJpaTest`, `ReservaDAOJpaIT`,
+  `ConsultaReservasServiceTest`, `MisReservasControllerIT` (34 casos, incluido CA2 de punta a punta); casos agregados a
+  `CuentaServiceImplTest` (+2) y `CatalogoEspaciosServiceImplTest` (+3). Ningún test existente cambió. R1–R38 con test
+  (mapa en `progress/impl_HU-14.md`). `./init.sh` completo en verde dos veces: **889 unitarias y 626 IT**, 0 fallos, errores
+  ni omitidas; lint y build OK.
+- **Review:** `APPROVED` en la primera vuelta (`progress/review_HU-14.md`), con 4 observaciones que no bloquean: 1 (texto
+  de D1–D12 en el spec) y 2 (texto del DAO en `architecture.md`) resueltas en el cierre; 4 (esta entrada) resuelta; 3
+  pendiente (abajo).
+- **Pendientes:**
+  - **Avisos que Adriana debe enviar** (texto en `progress/impl_HU-14.md`, "Avisos para la dueña"):
+    - Sebastian Garate (`espacios`): nuevo `CatalogoEspaciosService.nombresDelArrendador(arrendadorId)`, todos los
+      espacios del arrendador en cualquier estado; nada existente cambió.
+    - Jorge Quispe (`cuentas`): nuevo `CuentaService.nombres(usuarioIds)`, solo el nombre no en blanco, nunca correo ni
+      teléfono; `NombreCuenta` y `UsuarioRepository.nombresDe`. HU-20 y HU-22 no deben romper el contrato.
+    - Eduardo Saldaña (HU-13): contrato § 11.3 verificado, sin acción.
+    - Kevin Chan (HU-15): `acciones` de `Tarjeta` libre para "Cancelar"; una `CANCELADA` cae en pasadas del usuario y
+      sale de la lista del arrendador. Si HU-15 amplía el DAO, considerar `confirmadasDelArrendador(arrendadorId,
+      espacioIds)` (observación 2).
+  - **Observación 3 del review, para HU-15:** `ReservasDeMisEspacios.module.css:33-37` define `.acciones` sin uso
+    (`ReservasDeMisEspacios.jsx` pone el `Link` directo). Quitarlo o usarlo en HU-15.
+  - Caja negra de Sebastian Garate en UAT (CA2 completa con la pasarela simulada, D12) y prueba de la dueña en el
+    navegador (`PAGOS_PASARELA=simulada` en el `.env` local).
+- **Resultado:** `./init.sh` completo en verde (889 unitarias y 626 IT); en el cierre, `./init.sh --rapido` para confirmar
+  la coherencia. Status → `done`. Todo sin commitear.

@@ -16,6 +16,12 @@ public interface ReservaBloqueRepository extends JpaRepository<ReservaBloque, Lo
 
     List<ReservaBloque> findByReservaIdOrderByHoraInicioAsc(Long reservaId);
 
+    // Sin filtro por activo: el horario de una pasada sale de sus filas liberadas (HU-12 DT-10, HU-14 R8).
+    @Query("select new pe.edu.ulima.espacioya.reservas.repository.HorarioReserva("
+            + "b.reservaId, min(b.fecha), min(b.horaInicio), max(b.horaInicio)) "
+            + "from ReservaBloque b where b.reservaId in :reservaIds group by b.reservaId")
+    List<HorarioReserva> horarios(@Param("reservaIds") Collection<Long> reservaIds);
+
     // Llega a la base en el acto: con entidades sucias, Hibernate insertaría los bloques nuevos antes de liberar
     // estos y chocaría con uq_reserva_bloque_activo (HU-12 DT-4).
     @Modifying(flushAutomatically = true)

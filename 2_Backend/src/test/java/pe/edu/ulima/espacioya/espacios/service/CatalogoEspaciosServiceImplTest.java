@@ -257,4 +257,36 @@ class CatalogoEspaciosServiceImplTest {
         assertThat(servicio.nombres(List.of())).isEmpty();
         verifyNoInteractions(espacios);
     }
+
+    @Test
+    @DisplayName("HU-14 R37: nombresDelArrendador incluye sus espacios en cualquier estado, sin filtro de visibilidad")
+    void nombresDelArrendadorEnCualquierEstado() {
+        when(espacios.findByArrendadorIdOrderByCreadoEnDesc(7L)).thenReturn(List.of(
+                enEstado(1L, EstadoEspacio.BORRADOR), enEstado(2L, EstadoEspacio.PUBLICADO),
+                enEstado(3L, EstadoEspacio.PAUSADO), enEstado(4L, EstadoEspacio.BAJA),
+                enEstado(5L, EstadoEspacio.OCULTO)));
+
+        assertThat(servicio.nombresDelArrendador(7L)).containsOnly(Map.entry(1L, "Cancha 1"),
+                Map.entry(2L, "Cancha 2"), Map.entry(3L, "Cancha 3"), Map.entry(4L, "Cancha 4"),
+                Map.entry(5L, "Cancha 5"));
+        verifyNoInteractions(cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-14 R37: nombresDelArrendador consulta solo por ese arrendador y nada de otro aparece")
+    void nombresDelArrendadorSoloLosSuyos() {
+        when(espacios.findByArrendadorIdOrderByCreadoEnDesc(8L)).thenReturn(List.of());
+
+        assertThat(servicio.nombresDelArrendador(8L)).isEmpty();
+        verify(espacios).findByArrendadorIdOrderByCreadoEnDesc(8L);
+        verify(espacios, never()).findAll();
+        verify(espacios, never()).findAllById(any());
+    }
+
+    @Test
+    @DisplayName("HU-14 R37: nombresDelArrendador con null devuelve vacío sin consultar")
+    void nombresDelArrendadorNull() {
+        assertThat(servicio.nombresDelArrendador(null)).isEmpty();
+        verifyNoInteractions(espacios);
+    }
 }

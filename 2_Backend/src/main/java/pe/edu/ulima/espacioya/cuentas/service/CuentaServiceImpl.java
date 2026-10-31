@@ -1,5 +1,6 @@
 package pe.edu.ulima.espacioya.cuentas.service;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,7 @@ import pe.edu.ulima.espacioya.cuentas.dto.DocumentoIdentidadDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.ExpedienteIdentidadDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.DocumentoIdentidadRepository;
+import pe.edu.ulima.espacioya.cuentas.repository.NombreCuenta;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository.EnRevision;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
@@ -228,6 +230,17 @@ public class CuentaServiceImpl implements CuentaService {
     @Transactional(readOnly = true)
     public String correoDe(Long usuarioId) {
         return usuarios.findById(usuarioId).map(Usuario::getCorreo).orElseThrow(RecursoNoEncontradoException::new);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombres(Collection<Long> usuarioIds) {
+        if (usuarioIds.isEmpty()) {
+            return Map.of();
+        }
+        return usuarios.nombresDe(Set.copyOf(usuarioIds)).stream()
+                .filter(cuenta -> !cuenta.nombre().isBlank())
+                .collect(Collectors.toMap(NombreCuenta::id, NombreCuenta::nombre));
     }
 
     // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).

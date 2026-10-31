@@ -40,4 +40,10 @@ public interface CatalogoEspaciosService {
      * se haya pausado o su arrendador esté suspendido (HU-12 S11). Los ids que no existen no aparecen.
      */
     Map<Long, String> nombres(Collection<Long> espacioIds);
+
+    /**
+     * Id → nombre de todos los espacios del arrendador, en cualquier estado y sin filtro de visibilidad (HU-14 CA2);
+     * vacío si el id es {@code null} o no tiene espacios. Sin sesión ni rol: el llamador pasa el id de la sesión.
+     */
+    Map<Long, String> nombresDelArrendador(Long arrendadorId);
 }

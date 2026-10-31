@@ -155,7 +155,10 @@ HU-09 le agregó, para `administracion`, `buscarCuentas`, `detalleCuenta`, `susp
 HU-12 le agregó `bloquearCuenta(usuarioId)` (D4, `@Transactional(propagation = MANDATORY)`): bloquea la fila de
 `usuario` hasta el fin de la transacción del llamador y responde 404 si no existe. Sin sesión ni rol. HU-13 le agregó
 `correoDe(usuarioId)`: correo de la cuenta o 404, sin sesión ni rol, porque lo usa el webhook. Nunca se devuelve a un
-cliente.
+cliente. HU-14 le agregó `nombres(usuarioIds) → Map<Long, String>`: solo el nombre de las cuentas cuyo `nombre` no es nulo
+ni está en blanco (las demás no aparecen), sin sesión ni rol y nunca correo ni teléfono (RNF-SEG-16). Una colección vacía
+devuelve `Map.of()` sin consultar. `reservas` lo usa para mostrarle al arrendador quién reservó; **no** se usa `correoDe`
+para eso.
 
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
@@ -184,7 +187,10 @@ URL `/api/fotos/<UUID>` de la foto con orden 1. HU-11 le agregó `publicado(espa
 `esVisible(espacioId)`; ambos aplican la misma regla (`PUBLICADO` y `cuentaActiva(arrendadorId)`) y devuelven vacío o
 `false` para `null`, inexistente o no visible. `busqueda` nunca lee repositorios de `espacios`. HU-12 le agregó
 `nombres(espacioIds)` → `Map<Long, String>`, **sin** filtro de visibilidad, para que `reservas` (HU-12, HU-14) muestre
-una reserva cuyo espacio ya no se ve.
+una reserva cuyo espacio ya no se ve. HU-14 le agregó `nombresDelArrendador(arrendadorId)` → `Map<Long, String>`: id y
+nombre de **todos** los espacios del arrendador, en cualquier estado (`BORRADOR`, `PUBLICADO`, `PAUSADO`, `BAJA`, `OCULTO`)
+y sin filtro de visibilidad; vacío para `null` o sin espacios. Sin sesión ni rol: el llamador pasa el id de la sesión. Así
+`reservas` sabe qué espacios son del arrendador sin leer `EspacioRepository`.
 
 **Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
 `PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
@@ -296,6 +302,36 @@ no cobraron nada. Las IT que crean pagos los borran antes que la reserva: `pago`
 simulada, `id_transaccion_pasarela` empieza por `sim-` y ningún dinero se movió: HU-15, HU-16, HU-19 y HU-28 deben filtrarlas o
 limpiarlas al conectar Mercado Pago (RS-5). HU-16 implementa `reembolsar` también en `PasarelaSimulada`.
 
+### Mis reservas: qué deja HU-14 (HU-15, HU-21, HU-22, HU-24, HU-26)
+
+Dos rutas de solo lectura, con la identidad tomada del token y `?grupo=proximas|pasadas&pagina=n` (de 10 en 10, con
+`hayMas` y sin total, como HU-10): `GET /api/reservas` (rol `USUARIO`, `PaginaReservasDTO<ReservaDTO>`, el DTO de HU-12
+sin cambios) y `GET /api/arrendadores/actual/reservas` (rol `ARRENDADOR`, `PaginaReservasDTO<ReservaDeMiEspacioDTO>`: solo
+`CONFIRMADA`, con `usuarioNombre` y sin `usuarioId`, correo, teléfono ni pago). Otro rol recibe 403 antes de validar los
+parámetros. Ninguna escribe ni audita. `ConsultaReservasService` coordina las dos.
+
+| Pieza | Patrón ★ | Qué hace |
+|-------|----------|----------|
+| `reservas.repository.ReservaDAO` | **DAO** (DataAccessObject) | **Primer DAO explícito del repo.** Interfaz sin métodos de consulta general: `delUsuario(usuarioId)` recibe el dueño directamente; `confirmadasDeEspacios(espacioIds)` recibe ids de espacios, no el arrendador, y la propiedad la garantiza `ConsultaReservasService`, que solo le pasa los espacios ya filtrados por el arrendador de la sesión (`CatalogoEspaciosService.nombresDelArrendador`); colección vacía → `List.of()` sin consultar (STRIDE E/I). El servicio solo conoce esta interfaz |
+| `reservas.repository.ReservaDAOJpa` | DAO (implementación) | `@Repository` de paquete. Usa Spring Data por dentro (`ReservaRepository.findByUsuarioId`, `findByEspacioIdInAndEstado` y `ReservaBloqueRepository.horarios`, que agrupa `min(fecha)`, `min` y `max(hora_inicio)` sobre **todas** las filas, activas o no) y une los dos resultados en memoria: dos consultas, sin N+1. Una reserva sin filas se omite. "Un repositorio por agregado" se mantiene: el DAO no lo reemplaza |
+| `reservas.domain.ReservaConHorario` | DAO (TransferObject) | Reserva + `fecha`, `horaInicio`, `horaFin` (1 a 24). `fin()` con 24 es las 00:00 del día siguiente. `esProxima(ahora, ahoraLocal)`: estado leído con `estadoEn` `PENDIENTE_PAGO` o `CONFIRMADA` y fin posterior a la hora de Lima. HU-21 y HU-22 pueden reutilizarla para "reservas futuras" |
+| `reservas.domain.HistorialReservas` | **Iterator** (Aggregate) | Recibe la lista del DAO, guarda una copia privada ordenada por inicio e id y **nunca la expone**: solo entrega recorridos `proximas()` (ascendente), `pasadas()` (descendente) y `recorrer(grupo)` como `java.util.Iterator` |
+| `reservas.domain.IteradorReservas` | Iterator (ConcreteIterator) | De paquete. Cursor sobre la copia en un sentido y con un criterio (`esProxima` o su negación); `hasNext` no consume, `next` agotado lanza `NoSuchElementException` y `remove` no está soportado |
+| `reservas.domain.Pagina` | Iterator (Client) | `Pagina.de(recorrido, n, 10)`: salta `(n − 1) × 10` con aritmética `long`, toma 10 y `hayMas = recorrido.hasNext()`, sin materializar el resto |
+
+**Clasificación con un solo instante.** Cada solicitud toma `Instant.now(reloj)` una vez y su hora de Lima: el corte y el
+`estado` de cada DTO usan el mismo, así una pendiente que vence durante la solicitud no aparece en próximas como
+`EXPIRADA`. El DAO no filtra por tiempo (la regla del vencimiento vive solo en `estadoEn`); la única condición de estado
+en SQL es `CONFIRMADA`, equivalente porque una `CONFIRMADA` se lee siempre `CONFIRMADA`. Una `EXPIRADA` o `CANCELADA` con
+fecha futura va a pasadas. La conversión `Reserva → ReservaDTO` está en `ConversionReservas` (la usa también HU-12).
+Clasificar y paginar en memoria es un riesgo aceptado (decenas de reservas por persona); si crece, se pasa el corte a SQL
+sin cambiar la API.
+
+**Lo que deben saber las historias que siguen.** HU-15: una `CANCELADA` cae en las pasadas del usuario y desaparece de la
+lista del arrendador (solo `CONFIRMADA`); si quiere mostrársela, amplía `confirmadasDeEspacios` o agrega un método al DAO,
+siempre con el dueño en la firma. HU-24 y HU-26 pueden **ampliar** `ReservaDTO`, sin quitar ni cambiar campos. Un índice en
+`reserva(espacio_id)` iría en una `V4_n` libre.
+
 ## Seguridad transversal (STRIDE)
 
 Cada historia trae sus propios controles STRIDE en `docs/historias/HU-XX.md`.
@@ -382,7 +418,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 | Historia     | Patrones                        | Dónde vive y cómo se aplica |
 |--------------|---------------------------------|-----------------------------|
 | HU-13 ★      | Adapter, Facade                 | `pagos`: interfaz `PasarelaPago` + adaptador del proveedor; la implementación (sandbox o simulada) se elige por configuración con inyección de dependencias; `CheckoutFacade` para reserva vigente → monto en servidor → checkout |
-| HU-14 ★      | Iterator, DAO                   | `reservas`: recorrer reservas próximas y pasadas sin exponer la colección; consultas siempre filtradas por el usuario de la sesión |
+| HU-14 ★      | Iterator, DAO                   | `reservas`: recorrer reservas próximas y pasadas sin exponer la colección (`HistorialReservas` + `IteradorReservas` + `Pagina`); consultas siempre filtradas por el usuario de la sesión (`ReservaDAO` + `ReservaDAOJpa`, primer DAO explícito). Ver [Mis reservas](#mis-reservas-qué-deja-hu-14-hu-15-hu-21-hu-22-hu-24-hu-26) |
 | HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
 | HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente |

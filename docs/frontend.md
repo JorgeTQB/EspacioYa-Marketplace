@@ -183,7 +183,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`) | `estado` |
-| `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas". Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
+| `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; `acciones` queda libre para "Cancelar" de HU-15). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
 | `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` "Cancelar" y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `variante` (`primario` o `peligro-confirmar`), `cargando` |
@@ -263,6 +263,16 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   `/reservas/:id?pago=exito|fallo`. Sin pago disponible no ofrece botones. **Solo el backend la habilita:** la pantalla se
   decide con `GET …/pago/simulacion`, sin ninguna variable `VITE_`; con `mercadopago` la ruta existe en el build, pero la API
   responde 404 y no muestra título, datos ni botones. No agrega componentes, estados ni colores.
+
+- **`/mis-reservas` y `/panel/reservas` (HU-14, `pages/reservas/MisReservas.jsx` y `ReservasDeMisEspacios.jsx`, con
+  `RutaProtegida`):** "Mis reservas" (enlace desde `Panel` para `USUARIO`) y "Reservas de mis espacios" (enlace junto a
+  "Mis espacios" para `ARRENDADOR`). Cada una tiene dos secciones, "Próximas" y "Pasadas", con
+  `pages/reservas/SeccionReservas.jsx` (no es del kit): pide la página 1 al montarse y, mientras la API diga `hayMas`,
+  muestra un `Boton secundario` "Ver más" que agrega la página siguiente sin repetir ids. El corte, el orden y el estado
+  los decide el servidor. Cada reserva es una `Tarjeta` con `EtiquetaEstado`, fecha, horario y monto (y "Reservado por"
+  para el arrendador). "Ver reserva" → `/reservas/:id` va en **todas** las del usuario, en cualquier estado (ahí están
+  "Pagar" y el aviso de pago no aplicado de HU-13); "Ver espacio" va a `/espacios/:id` (usuario) o `/panel/espacios/:id`
+  (arrendador). Lista vacía: texto secundario; error (p. ej. 403 por otro rol): `Alerta error` con el mensaje tal cual.
 
 ## Accesibilidad mínima
 
