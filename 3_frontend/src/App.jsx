@@ -24,6 +24,8 @@ import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
+import MisReservas from './pages/reservas/MisReservas.jsx'
+import ReservasDeMisEspacios from './pages/reservas/ReservasDeMisEspacios.jsx'
 import ResumenReserva from './pages/reservas/ResumenReserva.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
@@ -139,6 +141,15 @@ function App() {
               </RutaProtegida>
             }
           />
+          {/* HU-14 CA1: la API solo responde al rol USUARIO y con sus propias reservas. */}
+          <Route
+            path="/mis-reservas"
+            element={
+              <RutaProtegida>
+                <MisReservas />
+              </RutaProtegida>
+            }
+          />
           <Route path="/registro" element={<Registro />} />
           <Route path="/registro-arrendador" element={<RegistroArrendador />} />
           <Route path="/privacidad" element={<Privacidad />} />
@@ -191,6 +202,15 @@ function App() {
             element={
               <RutaProtegida>
                 <DisponibilidadEspacio />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-14 CA2: la API solo responde al rol ARRENDADOR y con las confirmadas de sus espacios. */}
+          <Route
+            path="/panel/reservas"
+            element={
+              <RutaProtegida>
+                <ReservasDeMisEspacios />
               </RutaProtegida>
             }
           />

@@ -1,5 +1,6 @@
 package pe.edu.ulima.espacioya.cuentas.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,4 +39,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
               and u.estado <> pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario.ACTIVA
             """)
     List<Long> findIdsArrendadoresNoActivos();
+
+    // El nombre en blanco se filtra en Java (HU-14 D1).
+    @Query("select new pe.edu.ulima.espacioya.cuentas.repository.NombreCuenta(u.id, u.nombre) "
+            + "from Usuario u where u.id in :ids and u.nombre is not null")
+    List<NombreCuenta> nombresDe(@Param("ids") Collection<Long> ids);
 }

@@ -34,11 +34,21 @@ function Panel() {
     <section className={estilos.pantalla}>
       <h2>{textos.titulo}</h2>
       {sesion.aviso && <Alerta tipo="atencion">{sesion.aviso}</Alerta>}
-      <p className={estilos.descripcion}>{textos.descripcion}</p>
+      {/* HU-14: para USUARIO la descripción pasa a ser el enlace a "Mis reservas". */}
+      {sesion.rol === 'USUARIO' ? (
+        <p>
+          <Link to="/mis-reservas">Mis reservas</Link>
+        </p>
+      ) : (
+        <p className={estilos.descripcion}>{textos.descripcion}</p>
+      )}
       {sesion.rol === 'ARRENDADOR' && (
         <>
           <p>
             <Link to="/panel/espacios">Mis espacios</Link>
+          </p>
+          <p>
+            <Link to="/panel/reservas">Reservas de mis espacios</Link>
           </p>
           <p>
             <Link to="/panel/identidad">Verificar mi identidad</Link>

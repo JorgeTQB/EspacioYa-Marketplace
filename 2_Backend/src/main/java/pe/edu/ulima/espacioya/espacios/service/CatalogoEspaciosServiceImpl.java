@@ -108,6 +108,16 @@ public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {
                 .collect(Collectors.toMap(Espacio::getId, Espacio::getNombre));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombresDelArrendador(Long arrendadorId) {
+        if (arrendadorId == null) {
+            return Map.of();
+        }
+        return espacios.findByArrendadorIdOrderByCreadoEnDesc(arrendadorId).stream()
+                .collect(Collectors.toMap(Espacio::getId, Espacio::getNombre));
+    }
+
     // Misma regla que la búsqueda, las fotos y horasLibres (HU-09 D1): PUBLICADO y arrendador ACTIVA.
     private Optional<Espacio> visible(Long espacioId) {
         if (espacioId == null) {

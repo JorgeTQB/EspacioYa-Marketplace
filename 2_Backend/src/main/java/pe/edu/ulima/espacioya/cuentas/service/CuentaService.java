@@ -1,6 +1,8 @@
 package pe.edu.ulima.espacioya.cuentas.service;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
@@ -115,4 +117,11 @@ public interface CuentaService {
      * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
      */
     String correoDe(Long usuarioId);
+
+    /**
+     * Id → nombre de las cuentas con nombre no nulo ni en blanco; las demás no aparecen. Nunca correo ni teléfono
+     * (RNF-SEG-16): {@code reservas} lo muestra al arrendador (HU-14 D1). Sin sesión ni rol. Colección vacía →
+     * {@code Map.of()} sin consultar.
+     */
+    Map<Long, String> nombres(Collection<Long> usuarioIds);
 }

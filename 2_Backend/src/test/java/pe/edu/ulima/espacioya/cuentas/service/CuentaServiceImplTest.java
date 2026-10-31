@@ -12,7 +12,9 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +49,7 @@ import pe.edu.ulima.espacioya.cuentas.dto.CuentaResumenDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.DetalleCuentaDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.DocumentoIdentidadRepository;
+import pe.edu.ulima.espacioya.cuentas.repository.NombreCuenta;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository.EnRevision;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
@@ -667,5 +670,24 @@ class CuentaServiceImplTest {
         when(usuarios.findIdsArrendadoresNoActivos()).thenReturn(List.of(4L, 9L));
 
         assertThat(servicio.arrendadoresNoActivos()).containsExactlyInAnyOrder(4L, 9L);
+    }
+
+    @Test
+    @DisplayName("HU-14 R36: nombres devuelve solo el nombre de las cuentas con nombre; el nulo y el blanco no aparecen")
+    void nombresSoloConNombre() {
+        when(usuarios.nombresDe(any())).thenReturn(List.of(new NombreCuenta(1L, "Carla Ríos"),
+                new NombreCuenta(3L, "   "), new NombreCuenta(4L, "")));
+
+        assertThat(servicio.nombres(List.of(1L, 2L, 3L, 4L, 1L)))
+                .containsExactly(Map.entry(1L, "Carla Ríos"));
+        verify(usuarios).nombresDe(Set.of(1L, 2L, 3L, 4L));
+        verifyNoInteractions(perfiles, documentos, archivos, notificador, sesiones);
+    }
+
+    @Test
+    @DisplayName("HU-14 R36: nombres con una colección vacía devuelve vacío sin consultar el repositorio")
+    void nombresVacio() {
+        assertThat(servicio.nombres(List.of())).isEmpty();
+        verifyNoInteractions(usuarios);
     }
 }
