@@ -88,6 +88,14 @@ public class Reserva {
         estado = EstadoReserva.EXPIRADA;
     }
 
+    /** Sus bloques siguen {@code activo = true}: desde ahora el puerto los informa como pagados (HU-13 R32). */
+    public void confirmar(Instant ahora) {
+        if (!esVigente(ahora)) {
+            throw new IllegalStateException("Solo se confirma una reserva vigente; estado " + estado);
+        }
+        estado = EstadoReserva.CONFIRMADA;
+    }
+
     public Long getId() {
         return id;
     }

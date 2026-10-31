@@ -42,6 +42,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
+import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 
 // El origen permitido se fija aquí para que los tests de CORS no dependan de FRONTEND_URL en el entorno.
@@ -127,6 +129,16 @@ class UsuarioControllerIT {
         @Override
         public void notificarCuentaReactivada(String correoNormalizado) {
             throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
         }
 
         void reiniciar() {

@@ -23,6 +23,7 @@ import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
+import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ResumenReserva from './pages/reservas/ResumenReserva.jsx'
 import RutaProtegida from './sesion/RutaProtegida.jsx'
 import useSesion from './sesion/useSesion.js'
@@ -126,6 +127,15 @@ function App() {
             element={
               <RutaProtegida>
                 <ResumenReserva />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-13 D9: solo con la pasarela simulada; si el backend no la habilita, no muestra datos ni botones. */}
+          <Route
+            path="/reservas/:id/pago-simulado"
+            element={
+              <RutaProtegida>
+                <PagoSimulado />
               </RutaProtegida>
             }
           />

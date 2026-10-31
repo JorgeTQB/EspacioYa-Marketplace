@@ -71,6 +71,12 @@ public class ManejadorGlobalErrores {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorDTO.de(ErrorDTO.MENSAJE_RECURSO_NO_ENCONTRADO));
     }
 
+    @ExceptionHandler(ServicioExternoException.class)
+    public ResponseEntity<ErrorDTO> servicioExterno(ServicioExternoException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_SERVICIO_EXTERNO));
+    }
+
     // El archivo superó el límite de multipart antes de llegar al controlador: no hay campo que señalar.
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorDTO> archivoDemasiadoGrande(MaxUploadSizeExceededException ex) {

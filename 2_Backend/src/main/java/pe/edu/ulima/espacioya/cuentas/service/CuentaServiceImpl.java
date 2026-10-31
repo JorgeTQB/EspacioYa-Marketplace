@@ -8,20 +8,17 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import pe.edu.ulima.espacioya.comun.almacenamiento.ArchivosPrivados;
 import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.comun.transaccion.DespuesDelCommit;
 import pe.edu.ulima.espacioya.cuentas.domain.DocumentoIdentidad;
 import pe.edu.ulima.espacioya.cuentas.domain.EstadoIdentidad;
 import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
@@ -50,8 +47,6 @@ public class CuentaServiceImpl implements CuentaService {
     public static final String MENSAJE_YA_SUSPENDIDA = "Esta cuenta ya está suspendida. Actualiza la página.";
     public static final String MENSAJE_YA_ACTIVA = "Esta cuenta ya está activa. Actualiza la página.";
     public static final int MAXIMO_RESULTADOS_BUSQUEDA = 20;
-
-    private static final Logger log = LoggerFactory.getLogger(CuentaServiceImpl.class);
 
     private final UsuarioRepository usuarios;
     private final PerfilArrendadorRepository perfiles;
@@ -127,7 +122,7 @@ public class CuentaServiceImpl implements CuentaService {
         var decision = paraDecidir(arrendadorId);
         decision.perfil().aprobarIdentidad();
         var correo = decision.cuenta().getCorreo();
-        despuesDelCommit(() -> notificador.notificarIdentidadAprobada(correo));
+        DespuesDelCommit.ejecutar(() -> notificador.notificarIdentidadAprobada(correo));
         return decision.perfil().getEstadoIdentidad().name();
     }
 
@@ -139,7 +134,7 @@ public class CuentaServiceImpl implements CuentaService {
         decision.perfil().rechazarIdentidad(motivo);
         var correo = decision.cuenta().getCorreo();
         var motivoGuardado = decision.perfil().getMotivoRechazo();
-        despuesDelCommit(() -> notificador.notificarIdentidadRechazada(correo, motivoGuardado));
+        DespuesDelCommit.ejecutar(() -> notificador.notificarIdentidadRechazada(correo, motivoGuardado));
         return decision.perfil().getEstadoIdentidad().name();
     }
 
@@ -190,7 +185,7 @@ public class CuentaServiceImpl implements CuentaService {
         var motivoRecortado = motivo.strip();
         // revocarTodas escribe antes el estado (flush) y deja la cuenta detached (clear): no se vuelve a usar.
         var revocadas = sesiones.revocarTodas(cuentaId);
-        despuesDelCommit(() -> notificador.notificarCuentaSuspendida(correo, motivoRecortado));
+        DespuesDelCommit.ejecutar(() -> notificador.notificarCuentaSuspendida(correo, motivoRecortado));
         return new CambioEstadoCuentaDTO(estado, revocadas);
     }
 
@@ -204,7 +199,7 @@ public class CuentaServiceImpl implements CuentaService {
         }
         cuenta.reactivar();
         var correo = cuenta.getCorreo();
-        despuesDelCommit(() -> notificador.notificarCuentaReactivada(correo));
+        DespuesDelCommit.ejecutar(() -> notificador.notificarCuentaReactivada(correo));
         return new CambioEstadoCuentaDTO(cuenta.getEstado().name(), 0);
     }
 
@@ -227,6 +222,12 @@ public class CuentaServiceImpl implements CuentaService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void bloquearCuenta(Long usuarioId) {
         usuarios.findParaActualizar(usuarioId).orElseThrow(RecursoNoEncontradoException::new);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String correoDe(Long usuarioId) {
+        return usuarios.findById(usuarioId).map(Usuario::getCorreo).orElseThrow(RecursoNoEncontradoException::new);
     }
 
     // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).
@@ -266,20 +267,6 @@ public class CuentaServiceImpl implements CuentaService {
             throw new ReglaNegocioException(MENSAJE_YA_REVISADA);
         }
         return new Decision(cuenta, perfil);
-    }
-
-    // No se avisa una acción que hizo rollback (HU-06 R40, HU-09 R39). Un fallo del envío no revierte lo confirmado.
-    private static void despuesDelCommit(Runnable aviso) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    aviso.run();
-                } catch (RuntimeException e) {
-                    log.warn("No se pudo enviar un aviso por correo tras confirmar la transacción");
-                }
-            }
-        });
     }
 
     private static ArrendadorEnRevisionDTO aDto(EnRevision fila, Usuario cuenta, PerfilArrendador perfil) {

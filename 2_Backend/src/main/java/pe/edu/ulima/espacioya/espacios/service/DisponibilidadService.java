@@ -34,4 +34,14 @@ public interface DisponibilidadService {
      * @throws pe.edu.ulima.espacioya.comun.error.ReglaNegocioException si alguna hora no es un bloque libre.
      */
     EspacioRetenido retenerSiLibres(Long espacioId, LocalDate fecha, List<Integer> horas);
+
+    /**
+     * Bloquea la fila del espacio hasta el fin de la transacción del llamador, sin filtrar por estado ni por arrendador:
+     * un pago aprobado confirma su reserva aunque el espacio ya no se vea (HU-13 D6). Cumple el contrato HU-08 DT-10 al
+     * confirmar, sin {@link #retenerSiLibres}, porque las horas ya las retiene la propia reserva.
+     *
+     * @throws org.springframework.transaction.IllegalTransactionStateException si no hay una transacción activa.
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si el espacio no existe.
+     */
+    EspacioBloqueado bloquearEspacio(Long espacioId);
 }

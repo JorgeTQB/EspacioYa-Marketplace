@@ -34,6 +34,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Query("select r from Reserva r where r.id = :id")
     Optional<Reserva> findParaActualizar(@Param("id") Long id);
 
+    // Una proyección y no la entidad: si no, findParaActualizar devolvería la copia ya cargada, sin releer el estado.
+    @Query("select r.espacioId from Reserva r where r.id = :id")
+    Optional<Long> findEspacioIdById(@Param("id") Long id);
+
     // Las vencidas que aún retienen estas horas: el índice parcial no entiende el tiempo (HU-12 DT-3).
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Reserva r "

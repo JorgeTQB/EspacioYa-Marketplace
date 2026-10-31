@@ -24,7 +24,8 @@
 | | `caracteristica` / `espacio_caracteristica` | id, nombre / espacio_id + caracteristica_id | HU-23 |
 | Reservas | `reserva` | id, usuario_id (FK a `usuario`, sin cascada), espacio_id (FK a `espacio`, sin cascada), estado (`VARCHAR(20)`: PENDIENTE_PAGO, CONFIRMADA, EXPIRADA, CANCELADA), precio_hora_aplicado (`NUMERIC(8,2)`, copia del precio al crear), monto_total (`NUMERIC(10,2)`: 24 × S/ 100 000.00 no cabe en `(8,2)`), creada_en, expira_en (`TIMESTAMPTZ`; creada_en + 15 min). `cancelada_por` y `cancelada_en` los agrega HU-15 con su migración | HU-12, HU-14, HU-15 |
 | | `reserva_bloque` | id, reserva_id (FK a `reserva`, en cascada), espacio_id (FK a `espacio`, sin cascada), fecha (`DATE`), hora_inicio (`SMALLINT` 0–23, la misma granularidad que `horario_semanal`, HU-08), activo (`BOOLEAN`, por defecto `TRUE`). Liberar un bloque pone `activo = false`: las filas se conservan porque HU-14 muestra el horario de las reservas pasadas | HU-12 |
-| Pagos | `pago` | id, reserva_id, id_transaccion_pasarela (único), monto, estado (PAGADO, RECHAZADO, REEMBOLSADO, REEMBOLSO_FALLIDO), ultimos4, creado_en | HU-13, HU-28 |
+| Pagos | `pago` | id, reserva_id (FK a `reserva`, sin cascada), id_transaccion_pasarela (`VARCHAR(100)`, único, id del pago en la pasarela: cada intento tiene el suyo), monto (`NUMERIC(10,2)`), estado (PAGADO, RECHAZADO, PAGADO_TARDIO, MONTO_DISTINTO, REEMBOLSADO, REEMBOLSO_FALLIDO), ultimos4 (`VARCHAR(4)`, nulo si la pasarela no lo informa), creado_en (`TIMESTAMPTZ`) | HU-13, HU-28 |
+| | `checkout_pago` | id, reserva_id (FK a `reserva`, en cascada, único), id_checkout, url_pago, creado_en. Un enlace por reserva, para reutilizarlo y no dejar dos cobros abiertos; no tiene estado porque su vencimiento depende solo de `reserva.expira_en` | HU-13 |
 | | `reembolso` | id, pago_id, monto, origen (CANCELACION, RECLAMO), estado, intentos, creado_en | HU-16, HU-26 |
 | | `cuenta_bancaria` | id, arrendador_id, banco, numero (cifrado), titular, retener_hasta | HU-18 |
 | | `liquidacion` / `liquidacion_detalle` | id, arrendador_id, periodo, monto_bruto, comision, monto_neto, estado (PENDIENTE_CUENTA, GENERADA, PAGADA), numero_operacion / liquidacion_id + reserva_id | HU-19 |
@@ -41,7 +42,10 @@
 | --- | --- | --- |
 | Bloque único: `uq_reserva_bloque_activo` en (espacio_id, fecha, hora_inicio) solo para bloques activos (índice único parcial `WHERE activo`) | Dos usuarios no pueden reservar el mismo bloque | HU-12 |
 | `reserva`: `CHECK` de estado (`ck_reserva_estado`), de montos positivos (`ck_reserva_montos`) y de `expira_en > creada_en` (`ck_reserva_expira`); `reserva_bloque`: `CHECK` de `hora_inicio` entre 0 y 23 (`ck_reserva_bloque_hora`). Índices `ix_reserva_usuario_estado` (usuario_id, estado), `ix_reserva_vencimiento` (expira_en, `WHERE estado = 'PENDIENTE_PAGO'`) e `ix_reserva_bloque_reserva` (reserva_id) | Una reserva nace con valores válidos y el cupo y la expiración se consultan sin recorrer la tabla | HU-12 |
-| `pago.id_transaccion_pasarela` único | El webhook es idempotente: un pago no se registra dos veces | HU-13 |
+| `pago.id_transaccion_pasarela` único y `NOT NULL` (`uq_pago_id_transaccion`) | El webhook es idempotente: un pago no se registra dos veces | HU-13 |
+| Índice único parcial `uq_pago_reserva_pagado` en (reserva_id) `WHERE estado = 'PAGADO'` | Una reserva no se cobra dos veces; admite varios rechazos | HU-13 |
+| `pago`: `CHECK` de estado (`ck_pago_estado`), de monto positivo (`ck_pago_monto`) y de `ultimos4` con 4 dígitos (`ck_pago_ultimos4`). Índice `ix_pago_reserva_estado` (reserva_id, estado, creado_en) | Un pago nace con valores válidos y los rechazos recientes se cuentan sin recorrer la tabla | HU-13 |
+| `checkout_pago.reserva_id` único (`uq_checkout_pago_reserva`) | Una reserva tiene un solo enlace de pago | HU-13 |
 | Un reembolso por pago y origen | Una cancelación no genera dos reembolsos | HU-16 |
 | `liquidacion_detalle.reserva_id` único | Una reserva no se liquida dos veces | HU-19 |
 | `resena.reserva_id` único y calificación entre 1 y 5 (`CHECK`) | Una reseña por reserva | HU-24 |
@@ -80,6 +84,7 @@ erDiagram
   ESPACIO ||--o{ RESERVA : recibe
   RESERVA ||--|{ RESERVA_BLOQUE : retiene
   RESERVA ||--o{ PAGO : "se paga con"
+  RESERVA ||--o| CHECKOUT_PAGO : "abre"
   PAGO ||--o{ REEMBOLSO : genera
   LIQUIDACION ||--|{ LIQUIDACION_DETALLE : incluye
   LIQUIDACION_DETALLE }o--|| RESERVA : liquida

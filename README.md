@@ -75,6 +75,18 @@ paso 4) y genera otras. La de firma sí puedes regenerarla cuando quieras: solo
 invalida las URL de archivos emitidas en los últimos 5 minutos. Nunca subas
 ninguna al repo.
 
+**Solo la primera vez: elige la pasarela (HU-13).** Sin `PAGOS_PASARELA` el
+backend no arranca: cada entorno debe elegirla de forma explícita. En local usa
+la simulada. Mercado Pago todavía no está conectado (D8):
+
+```bash
+echo "export PAGOS_PASARELA=simulada" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Si el log dice que falta un bean de tipo `PasarelaPago`, es que falta
+`PAGOS_PASARELA` o tiene un valor distinto de `mercadopago` o `simulada`.
+
 Luego, cada vez:
 
 ```bash
@@ -82,9 +94,9 @@ cd 2_Backend
 ./mvnw spring-boot:run
 ```
 
-Aparte de las llaves, en local no necesitas `.env`: `application.properties`
-ya apunta a la base del paso 1 y permite peticiones desde
-`http://localhost:5173`. Está listo cuando el log dice
+Aparte de esas variables, en local no necesitas `.env`:
+`application.properties` ya apunta a la base del paso 1 y permite peticiones
+desde `http://localhost:5173`. Está listo cuando el log dice
 `Started EspacioYaApplication`.
 
 **Cuenta de administrador (HU-06).** No hay registro de admins por la API ni
@@ -185,6 +197,65 @@ curl -i -X POST http://localhost:8080/api/usuarios \
   -H "Content-Type: application/json" \
   -d '{"correo":"prueba@ejemplo.com","contrasena":"clave1234","aceptaPrivacidad":true,"versionPolitica":"2026-10"}'
 ```
+
+#### HU-13 — Pago con tarjeta
+
+**Con la pasarela simulada** (`PAGOS_PASARELA=simulada`, sin cuentas, sin
+terminal y sin internet). Reserva un espacio y pulsa **Pagar**: se abre la
+pantalla de pago simulado, marcada como simulación. No pide tarjeta y no cobra
+nada.
+
+| Prueba | Qué haces | Qué debes ver |
+|--------|-----------|---------------|
+| CA1 — pago aprobado | **Aprobar pago simulado** | La reserva queda **Confirmada**, con «Tu reserva está confirmada…». En el log, `Envío de comprobante de pago simulado`: el correo aún no se envía (HU-25) |
+| CA3 — pago rechazado | **Rechazar pago simulado** | «Tu pago no se aprobó…» y sigue **Pagar**, que vuelve a la misma pantalla |
+| D4 — tres rechazos | Rechaza 3 veces | «Alcanzaste el máximo de intentos…», sin **Pagar** |
+| D2 — pago tardío | Deja la pantalla abierta hasta que la reserva venza y pulsa **Aprobar** | «Recibimos un pago que no pudimos aplicar a esta reserva…». La reserva no se confirma |
+| CA4 — sin pago disponible | Abre la pantalla en el último minuto o con la reserva expirada | «Este pago simulado ya no está disponible.», sin botones |
+
+Un pago con otro monto (`MONTO_DISTINTO`) no se puede producir desde la pantalla:
+el cliente no envía el monto. Esa regla la prueba `WebhookPagoIT`.
+
+**Opcional, solo en local: simular por `curl`.** Define `PAGOS_SECRETO_WEBHOOK`
+con cualquier valor y reinicia el backend. Primero pulsa **Pagar**, porque esta
+ruta toma el monto de la memoria: tras reiniciar el backend responde `503` hasta
+que se pulse **Pagar** en una reserva nueva. La pantalla no tiene ese límite.
+
+```bash
+RESERVA=7   # el número de la URL /reservas/7
+curl -i -X POST "http://localhost:8080/api/pagos/webhook?type=payment&data.id=sim-$RESERVA-APROBADO-1" \
+  -H "x-signature: $PAGOS_SECRETO_WEBHOOK"
+```
+
+Con otro `x-signature`, o sin secreto configurado, responde `401` sin cuerpo y
+nada cambia.
+
+**En UAT**, hasta conectar Mercado Pago (D7 revisada, D8). No hay pasarela
+certificada: se demuestran el flujo y las reglas de la aplicación, no la
+integración real.
+
+| Variable | Valor en UAT |
+|----------|--------------|
+| `PAGOS_PASARELA` | `simulada` |
+| `PAGOS_SECRETO_WEBHOOK` | **Vacía:** la ruta pública del webhook rechaza todo pago y la pantalla es la única entrada. Si la defines, quien la conozca puede aprobar pagos de cualquier reserva con `curl` |
+| `PAGOS_LLAVE_SECRETA`, `PAGOS_URL_NOTIFICACION` | Sin definir |
+
+**Con Mercado Pago de prueba (no conectado todavía).** `MercadoPagoAdapter` está
+listo, pero solo se ha probado contra un doble: la firma real sigue sin
+comprobar. Hace falta una URL HTTPS pública, porque Mercado Pago no admite
+`localhost`: un túnel hacia el puerto 8080, o UAT. Con `FRONTEND_URL` sin HTTPS el
+comprador no vuelve solo a la reserva. Se paga con el comprador de prueba y usa
+credenciales de prueba. `read -s` evita que queden en el historial:
+
+```bash
+read -r -s -p "Llave secreta: " PAGOS_LLAVE_SECRETA; echo
+read -r -s -p "Firma secreta: " PAGOS_SECRETO_WEBHOOK; echo
+export PAGOS_LLAVE_SECRETA PAGOS_SECRETO_WEBHOOK
+export PAGOS_PASARELA=mercadopago
+export PAGOS_URL_NOTIFICACION=https://<tu-túnel>/api/pagos/webhook
+```
+
+La guía completa está en `progress/impl_HU-13.md`.
 
 ## Cómo trabajar una historia con Claude Code
 

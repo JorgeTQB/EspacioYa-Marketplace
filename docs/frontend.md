@@ -139,7 +139,7 @@ siempre muestra el **texto** del estado, no solo el color.
 | Entidad | Éxito | Atención | Error | Neutro |
 |---------|-------|----------|-------|--------|
 | Reserva | `CONFIRMADA` | `PENDIENTE_PAGO` (con el contador de 15 min) | — | `CANCELADA`, `EXPIRADA` |
-| Pago | `PAGADO` | — | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
+| Pago | `PAGADO` | `PAGADO_TARDIO`, `MONTO_DISTINTO` | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
 | Espacio | `PUBLICADO` | `PAUSADO` | `OCULTO` (moderación) | `BORRADOR`, `BAJA` |
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
@@ -249,7 +249,20 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   se conservan al volver.
 - **`/reservas/:id` (HU-12, `pages/reservas/ResumenReserva.jsx`, con `RutaProtegida`):**
   resumen con `EtiquetaEstado`, fecha, horario, precio, monto y `CuentaRegresiva`. Al
-  llegar a cero relee con `obtenerReserva(id)` y el servidor decide. HU-13 pone aquí "Pagar".
+  llegar a cero relee con `obtenerReserva(id)` y el servidor decide.
+- **Pagar (HU-13, en la misma pantalla):** el único primario es "Pagar", solo si la API dice `pagoDisponible`. Va a `urlPago`
+  con `window.location.assign`, en la misma pestaña, porque el token vive en `sessionStorage`. La pasarela vuelve a
+  `/reservas/:id?pago=exito|fallo`: ese parámetro **solo elige el mensaje** y nunca confirma nada. Con `?pago=exito` y la
+  reserva sin confirmar, relee cada 3 s, hasta 10 veces, sin "Se acabó el tiempo" ni "Pagar": quien pagó no debe pagar otra
+  vez.
+  HU-13 no muestra el estado del pago con `EtiquetaEstado`: HU-28 agregará al mapa los valores de la fila Pago.
+- **`/reservas/:id/pago-simulado` (HU-13 D9, `pages/pagos/PagoSimulado.jsx`, con `RutaProtegida`):** con la pasarela simulada,
+  "Pagar" lleva aquí en lugar de a un checkout. Hace de página de la pasarela: no tiene ningún campo, y sobre todo lo demás va
+  siempre la `Alerta atencion` que dice que es una simulación, que no se cobra nada ni se usa ninguna tarjeta. Tiene
+  **"Aprobar pago simulado"** como único primario y **"Rechazar pago simulado"** como secundario, y vuelve con `replace` a
+  `/reservas/:id?pago=exito|fallo`. Sin pago disponible no ofrece botones. **Solo el backend la habilita:** la pantalla se
+  decide con `GET …/pago/simulacion`, sin ninguna variable `VITE_`; con `mercadopago` la ruta existe en el build, pero la API
+  responde 404 y no muestra título, datos ni botones. No agrega componentes, estados ni colores.
 
 ## Accesibilidad mínima
 

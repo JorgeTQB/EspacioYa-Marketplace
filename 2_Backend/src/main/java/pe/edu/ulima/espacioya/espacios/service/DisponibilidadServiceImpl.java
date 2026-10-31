@@ -137,6 +137,13 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         return new EspacioRetenido(espacio.getNombre(), espacio.getPrecioHora());
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public EspacioBloqueado bloquearEspacio(Long espacioId) {
+        var espacio = espacios.findParaReservar(espacioId).orElseThrow(RecursoNoEncontradoException::new);
+        return new EspacioBloqueado(espacio.getArrendadorId(), espacio.getNombre());
+    }
+
     VentanaReserva ventana() {
         return VentanaReserva.desde(ZonaHoraria.hoy(reloj));
     }

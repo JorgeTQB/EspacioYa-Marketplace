@@ -107,4 +107,12 @@ public interface CuentaService {
      * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
      */
     void bloquearCuenta(Long usuarioId);
+
+    /**
+     * Correo de la cuenta, para que {@code pagos} envíe el comprobante y el aviso al arrendador (HU-13). No exige sesión
+     * ni rol: lo llama el webhook. Nunca se devuelve a un cliente.
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     */
+    String correoDe(Long usuarioId);
 }

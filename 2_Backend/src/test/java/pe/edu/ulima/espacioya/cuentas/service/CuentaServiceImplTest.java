@@ -107,6 +107,22 @@ class CuentaServiceImplTest {
         assertThatThrownBy(() -> servicio.bloquearCuenta(ID)).isInstanceOf(RecursoNoEncontradoException.class);
     }
 
+    @Test
+    @DisplayName("HU-13 R48, R49: correoDe devuelve el correo de la cuenta, sin sesión ni rol")
+    void correoDeDevuelveElCorreo() {
+        when(usuarios.findById(ID)).thenReturn(Optional.of(Usuario.registrar(CORREO, "hash", "2026-10", AHORA)));
+
+        assertThat(servicio.correoDe(ID)).isEqualTo(CORREO);
+    }
+
+    @Test
+    @DisplayName("HU-13 R48: correoDe de una cuenta inexistente lanza 404")
+    void correoDeInexistente() {
+        when(usuarios.findById(ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.correoDe(ID)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
     private static Usuario arrendador(long id, EstadoUsuario estado) {
         var usuario = Usuario.registrarArrendador("arrendador" + id + "@correo.pe", "$2a$12$hash", "Ana " + id,
                 "987654321", "2026-10", AHORA);

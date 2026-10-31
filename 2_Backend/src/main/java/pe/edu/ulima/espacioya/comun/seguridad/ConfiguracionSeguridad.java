@@ -60,6 +60,8 @@ public class ConfiguracionSeguridad {
                         // Ficha pública y sus bloques libres (HU-11 DT-12); cualquier otra subruta exige sesión.
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*/disponibilidad").permitAll()
+                        // Lo llama la pasarela, sin sesión (HU-13 R22): la autorización es su firma.
+                        .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

@@ -45,6 +45,8 @@ import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.dto.RestablecimientoContrasenaDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.TokenRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
+import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 import pe.edu.ulima.espacioya.cuentas.service.RecuperacionContrasenaService;
 import tools.jackson.core.type.TypeReference;
@@ -147,6 +149,16 @@ class RecuperacionContrasenaControllerIT {
         @Override
         public void notificarCuentaReactivada(String correoNormalizado) {
             throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
         }
 
         List<Envio> envios() {

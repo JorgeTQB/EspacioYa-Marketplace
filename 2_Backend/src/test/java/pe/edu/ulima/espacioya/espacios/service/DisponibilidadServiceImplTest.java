@@ -99,6 +99,34 @@ class DisponibilidadServiceImplTest {
     }
 
     @Test
+    @DisplayName("HU-13 R36: bloquearEspacio toma el bloqueo de la fila y devuelve arrendador y nombre")
+    void bloquearEspacioDevuelveLoLeidoBajoBloqueo() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PUBLICADO)));
+
+        var bloqueado = servicio.bloquearEspacio(ESPACIO_ID);
+
+        assertThat(bloqueado).isEqualTo(new EspacioBloqueado(ARRENDADOR_ID, "Cancha Los Olivos"));
+    }
+
+    @Test
+    @DisplayName("HU-13 R35: bloquearEspacio no filtra un espacio PAUSADO ni consulta al arrendador")
+    void bloquearEspacioNoFiltra() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.of(espacio(EstadoEspacio.PAUSADO)));
+
+        assertThat(servicio.bloquearEspacio(ESPACIO_ID).arrendadorId()).isEqualTo(ARRENDADOR_ID);
+        verifyNoInteractions(cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-13 R36: bloquearEspacio de un espacio inexistente lanza 404")
+    void bloquearEspacioInexistente() {
+        when(espacios.findParaReservar(ESPACIO_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.bloquearEspacio(ESPACIO_ID))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
     @DisplayName("HU-08 R21: sin implementación del puerto no hay reservas y los bloques quedan LIBRE")
     void sinPuertoNoHayReservas() {
         when(proveedor.getIfAvailable()).thenReturn(null);

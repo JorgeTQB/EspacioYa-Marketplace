@@ -42,6 +42,8 @@ import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
 import pe.edu.ulima.espacioya.comun.cifrado.CifradorCampos;
 import pe.edu.ulima.espacioya.comun.cifrado.HuellaCampos;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
+import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 
 @SpringBootTest
@@ -137,6 +139,16 @@ class ArrendadorControllerIT {
         @Override
         public void notificarCuentaReactivada(String correoNormalizado) {
             throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
         }
 
         void reiniciar() {
