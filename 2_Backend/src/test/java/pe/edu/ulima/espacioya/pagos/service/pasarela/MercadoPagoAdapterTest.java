@@ -18,9 +18,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import pe.edu.ulima.espacioya.comun.error.ServicioExternoException;
 import tools.jackson.core.type.TypeReference;
@@ -39,6 +42,10 @@ class MercadoPagoAdapterTest {
     private static final String FIRMA_VECTOR = "ts=" + TS_VECTOR + ",v1=" + V1_VECTOR;
     private static final SolicitudCheckout SOLICITUD = new SolicitudCheckout(7L, new BigDecimal("241.50"), VENCE,
             "http://localhost:5173/reservas/7");
+    private static final SolicitudReembolsoPasarela REEMBOLSO = new SolicitudReembolsoPasarela("123",
+            new BigDecimal("161.00"), "espacioya-reembolso-4");
+    private static final String SECRETO_DEL_PROVEEDOR = "detalle-interno-del-proveedor";
+    private static final String CUERPO_DEL_PROVEEDOR = "{\"message\":\"" + SECRETO_DEL_PROVEEDOR + "\"}";
 
     private static StubMercadoPago doble;
 
@@ -337,5 +344,66 @@ class MercadoPagoAdapterTest {
         doble.pago("555", "{\"id\":555,\"status\":\"approved\"}");
 
         assertThatThrownBy(() -> adaptador.consultarPago("555")).isInstanceOf(ServicioExternoException.class);
+    }
+
+    // ── Reembolsar (HU-16) ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-16 R12: reembolsa con POST /v1/payments/{id}/refunds, amount, la llave y X-Idempotency-Key")
+    void enviaElReembolso() {
+        var realizado = adaptador.reembolsar(REEMBOLSO);
+
+        assertThat(realizado).isEqualTo(new ReembolsoRealizado("9001"));
+        var solicitud = doble.solicitudes("POST").getLast();
+        assertThat(solicitud.ruta()).isEqualTo("/v1/payments/123/refunds");
+        assertThat(solicitud.autorizacion()).isEqualTo("Bearer " + LLAVE);
+        assertThat(solicitud.claveIdempotencia()).isEqualTo("espacioya-reembolso-4");
+        assertThat(solicitud.cuerpo()).isEqualTo("{\"amount\":161.00}");
+    }
+
+    @Test
+    @DisplayName("HU-16 R12: con status approved e id devuelve ese id, aunque venga como texto")
+    void reembolsoAprobadoConIdDeTexto() {
+        doble.cuerpoReembolso("{\"id\":\"rf-77\",\"status\":\"approved\"}");
+
+        assertThat(adaptador.reembolsar(REEMBOLSO).idReembolso()).isEqualTo("rf-77");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 404, 500})
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("HU-16 R13: si el reembolso responde con error, lanza ServicioExternoException sin registrar el cuerpo")
+    void reembolsoConError(int estado, CapturedOutput salida) {
+        doble.estadoReembolso(estado);
+        doble.cuerpoReembolso(CUERPO_DEL_PROVEEDOR);
+
+        assertThatThrownBy(() -> adaptador.reembolsar(REEMBOLSO)).isInstanceOf(ServicioExternoException.class);
+        assertThat(salida.getAll()).doesNotContain(SECRETO_DEL_PROVEEDOR);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("HU-16 R13: si el reembolso no responde a tiempo, lanza ServicioExternoException")
+    void reembolsoConTiempoAgotado(CapturedOutput salida) {
+        doble.demora(Duration.ofSeconds(8));
+        doble.cuerpoReembolso(CUERPO_DEL_PROVEEDOR);
+
+        assertThatThrownBy(() -> adaptador.reembolsar(REEMBOLSO)).isInstanceOf(ServicioExternoException.class);
+        assertThat(salida.getAll()).doesNotContain(SECRETO_DEL_PROVEEDOR);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"status\":\"approved\",\"detalle\":\"" + SECRETO_DEL_PROVEEDOR + "\"}",
+            "{\"id\":9001,\"status\":\"rejected\",\"detalle\":\"" + SECRETO_DEL_PROVEEDOR + "\"}",
+            "{\"id\":9001,\"status\":\"in_process\",\"detalle\":\"" + SECRETO_DEL_PROVEEDOR + "\"}",
+            "{\"id\":9001,\"detalle\":\"" + SECRETO_DEL_PROVEEDOR + "\"}"})
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("HU-16 R13: sin id o con status distinto de approved, lanza ServicioExternoException sin el cuerpo")
+    void reembolsoNoAprobado(String cuerpo, CapturedOutput salida) {
+        doble.cuerpoReembolso(cuerpo);
+
+        assertThatThrownBy(() -> adaptador.reembolsar(REEMBOLSO)).isInstanceOf(ServicioExternoException.class);
+        assertThat(salida.getAll()).doesNotContain(SECRETO_DEL_PROVEEDOR);
     }
 }

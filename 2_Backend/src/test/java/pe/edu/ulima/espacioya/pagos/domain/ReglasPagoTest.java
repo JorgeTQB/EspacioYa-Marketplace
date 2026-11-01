@@ -114,4 +114,19 @@ class ReglasPagoTest {
     void idMalEscrito(String texto) {
         assertThat(ReglasPago.idDeReserva(texto)).isNull();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", "9223372036854775807"})
+    @DisplayName("HU-16 R32: 1 y un id de 19 dígitos que cabe en un long son ids bien escritos")
+    void idBienEscritoDeReembolso(String texto) {
+        assertThat(ReglasPago.idBienEscrito(texto)).isEqualTo(Long.parseLong(texto));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "abc", "0", "-1", "1.5", "12345678901234567890", "9223372036854775808"})
+    @DisplayName("HU-16 R32: vacío, letras, cero, negativo, decimal, 20 dígitos o desborde no son un id")
+    void idMalEscritoDeReembolso(String texto) {
+        assertThat(ReglasPago.idBienEscrito(texto)).isNull();
+    }
 }

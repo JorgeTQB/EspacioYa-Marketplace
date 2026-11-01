@@ -58,6 +58,8 @@ public class MercadoPagoAdapter implements PasarelaPago {
     private static final String TIPO_PAGO = "payment";
     private static final String ID_NOTIFICADO = "data.id";
     private static final String ID_NOTIFICADO_ALTERNO = "data_id";
+    private static final String ENCABEZADO_IDEMPOTENCIA = "X-Idempotency-Key";
+    private static final String REEMBOLSO_APROBADO = "approved";
     private static final List<String> TIPOS_EXCLUIDOS =
             List.of("ticket", "atm", "bank_transfer", "digital_wallet", "digital_currency");
 
@@ -140,6 +142,24 @@ public class MercadoPagoAdapter implements PasarelaPago {
         }
         return new PagoConsultado(id, resultado, monto, texto(pago, "currency_id"), ultimos4(pago),
                 texto(pago, "external_reference"));
+    }
+
+    // La misma clave en cada intento: si una respuesta se perdió, Mercado Pago devuelve el reembolso ya hecho (HU-16 D6).
+    @Override
+    public ReembolsoRealizado reembolsar(SolicitudReembolsoPasarela solicitud) {
+        var respuesta = llamar("reembolsar el pago", () -> cliente.post()
+                .uri("/v1/payments/{id}/refunds", solicitud.idTransaccion())
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(ENCABEZADO_IDEMPOTENCIA, solicitud.claveIdempotencia())
+                .body(Map.of("amount", solicitud.monto()))
+                .retrieve()
+                .body(MAPA));
+        var id = texto(respuesta, "id");
+        if (id == null || !REEMBOLSO_APROBADO.equals(texto(respuesta, "status"))) {
+            log.warn("La pasarela no aprobó el reembolso o respondió sin id");
+            throw new ServicioExternoException();
+        }
+        return new ReembolsoRealizado(id);
     }
 
     private Map<String, Object> preferencia(SolicitudCheckout solicitud) {

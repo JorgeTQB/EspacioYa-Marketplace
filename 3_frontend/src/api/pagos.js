@@ -20,3 +20,13 @@ export function simularPago(reservaId, resultado) {
     cuerpo: { resultado },
   })
 }
+
+// HU-16 CA2. Panel admin: la API exige IP permitida y rol ADMIN.
+export function listarReembolsosPorAtender() {
+  return peticion('/api/admin/reembolsos')
+}
+
+// Sin cuerpo: el monto y la transacción salen de la fila del reembolso en el servidor.
+export function reintentarReembolso(id) {
+  return peticion(`/api/admin/reembolsos/${encodeURIComponent(id)}/reintento`, { metodo: 'POST' })
+}

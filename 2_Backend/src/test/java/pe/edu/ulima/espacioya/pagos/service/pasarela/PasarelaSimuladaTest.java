@@ -27,7 +27,7 @@ class PasarelaSimuladaTest {
 
     @BeforeEach
     void preparar() {
-        pasarela = new PasarelaSimulada(SECRETO);
+        pasarela = new PasarelaSimulada(SECRETO, 0);
     }
 
     private void checkoutDeLaReservaSiete() {
@@ -62,7 +62,7 @@ class PasarelaSimuladaTest {
     @Test
     @DisplayName("HU-13 R72: en una instancia nueva, sin checkout en memoria, lo de notificacionDe pasa y se consulta")
     void funcionaTrasReiniciar() {
-        var nueva = new PasarelaSimulada(SECRETO);
+        var nueva = new PasarelaSimulada(SECRETO, 0);
 
         var notificacion = nueva.notificacionDe(9L, MONTO, ResultadoPasarela.RECHAZADO, 2);
 
@@ -73,7 +73,7 @@ class PasarelaSimuladaTest {
     @Test
     @DisplayName("HU-13 R84: sin secreto configurado, la notificación interna pasa igual")
     void sinSecretoLaInternaPasa() {
-        var sinSecreto = new PasarelaSimulada("");
+        var sinSecreto = new PasarelaSimulada("", 0);
 
         var notificacion = sinSecreto.notificacionDe(7L, MONTO, ResultadoPasarela.APROBADO, 1);
 
@@ -83,7 +83,7 @@ class PasarelaSimuladaTest {
     @Test
     @DisplayName("HU-13 R85: cada instancia tiene su token, distinto del secreto, y el de una no sirve en otra")
     void cadaInstanciaTieneSuToken() {
-        var otra = new PasarelaSimulada(SECRETO);
+        var otra = new PasarelaSimulada(SECRETO, 0);
 
         var notificacion = pasarela.notificacionDe(7L, MONTO, ResultadoPasarela.APROBADO, 1);
         var deLaOtra = otra.notificacionDe(7L, MONTO, ResultadoPasarela.APROBADO, 1);
@@ -127,7 +127,7 @@ class PasarelaSimuladaTest {
     @Test
     @DisplayName("HU-13 R24: sin secreto configurado rechaza toda notificación, incluso con la firma vacía")
     void sinSecretoNadaPasa() {
-        var sinSecreto = new PasarelaSimulada("");
+        var sinSecreto = new PasarelaSimulada("", 0);
 
         assertThatThrownBy(() -> sinSecreto.idNotificado(notificacion(""))).isInstanceOf(FirmaInvalidaException.class);
     }
@@ -157,5 +157,57 @@ class PasarelaSimuladaTest {
     @DisplayName("HU-13 R41: cerrar el checkout simulado no falla")
     void cerrarNoFalla() {
         assertThatCode(() -> pasarela.cerrarCheckout("sim-checkout-7")).doesNotThrowAnyException();
+    }
+
+    // ── Reembolsos (HU-16) ───────────────────────────────────────────────
+
+    private static SolicitudReembolsoPasarela reembolso(String idTransaccion, String clave) {
+        return new SolicitudReembolsoPasarela(idTransaccion, new BigDecimal("161.00"), clave);
+    }
+
+    @Test
+    @DisplayName("HU-16 R14: el reembolso de un pago sim- se aprueba con un id sim-reembolso-")
+    void apruebaElReembolsoSimulado() {
+        var realizado = pasarela.reembolsar(reembolso(ID, "espacioya-reembolso-4"));
+
+        assertThat(realizado.idReembolso()).isEqualTo("sim-reembolso-espacioya-reembolso-4");
+    }
+
+    @Test
+    @DisplayName("HU-16 R15: con fallos-reembolso = 1 falla la primera llamada de una clave y aprueba la segunda; otra "
+            + "clave empieza de nuevo")
+    void fallaLasPrimerasLlamadasDeCadaClave() {
+        var conFallo = new PasarelaSimulada(SECRETO, 1);
+
+        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-4")))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThat(conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-4")).idReembolso())
+                .isEqualTo("sim-reembolso-espacioya-reembolso-4");
+        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-5")))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThat(conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-5")).idReembolso())
+                .isEqualTo("sim-reembolso-espacioya-reembolso-5");
+    }
+
+    @Test
+    @DisplayName("HU-16 R15: con fallos-reembolso = 2 fallan exactamente las dos primeras llamadas")
+    void fallaExactamenteNLlamadas() {
+        var conFallos = new PasarelaSimulada(SECRETO, 2);
+
+        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, "k"))).isInstanceOf(ServicioExternoException.class);
+        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, "k"))).isInstanceOf(ServicioExternoException.class);
+        assertThat(conFallos.reembolsar(reembolso(ID, "k")).idReembolso()).isEqualTo("sim-reembolso-k");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    @DisplayName("HU-16 R43: el reembolso de una transacción que no empieza por sim- falla siempre")
+    void noReembolsaLoQueNoEmitio(int fallos) {
+        var simulada = new PasarelaSimulada(SECRETO, fallos);
+
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", "espacioya-reembolso-4")))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", "espacioya-reembolso-4")))
+                .isInstanceOf(ServicioExternoException.class);
     }
 }

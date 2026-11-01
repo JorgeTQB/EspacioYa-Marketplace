@@ -21,4 +21,13 @@ public interface PasarelaPago {
     Optional<String> idNotificado(NotificacionRecibida notificacion);
 
     PagoConsultado consultarPago(String idTransaccion);
+
+    /**
+     * Reembolsa {@code monto} de la transacción {@code idTransaccion} con la clave de idempotencia dada (HU-16). Solo
+     * devuelve si la pasarela aprobó el reembolso.
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.ServicioExternoException ante cualquier falla, rechazo o respuesta
+     *         incompleta (R12, R13).
+     */
+    ReembolsoRealizado reembolsar(SolicitudReembolsoPasarela solicitud);
 }

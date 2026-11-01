@@ -34,8 +34,10 @@ public class StubMercadoPago implements AutoCloseable {
     private volatile int estadoCierre = 200;
     private volatile String cuerpoPreferencia;
     private volatile Duration demora = Duration.ZERO;
+    private volatile int estadoReembolso = 200;
+    private volatile String cuerpoReembolso;
 
-    public record Solicitud(String metodo, String ruta, String autorizacion, String cuerpo) {
+    public record Solicitud(String metodo, String ruta, String autorizacion, String cuerpo, String claveIdempotencia) {
     }
 
     public StubMercadoPago() throws IOException {
@@ -66,6 +68,8 @@ public class StubMercadoPago implements AutoCloseable {
         estadoCierre = 200;
         cuerpoPreferencia = null;
         demora = Duration.ZERO;
+        estadoReembolso = 200;
+        cuerpoReembolso = null;
     }
 
     public void pago(String id, String cuerpoJson) {
@@ -96,6 +100,16 @@ public class StubMercadoPago implements AutoCloseable {
         estadoCierre = estado;
     }
 
+    /** Estado HTTP de {@code POST /v1/payments/{id}/refunds} (HU-16); por defecto 200. */
+    public void estadoReembolso(int estado) {
+        estadoReembolso = estado;
+    }
+
+    /** Cuerpo de la respuesta de reembolso; por defecto, un reembolso {@code approved} con id 9001. */
+    public void cuerpoReembolso(String cuerpo) {
+        cuerpoReembolso = cuerpo;
+    }
+
     public void demora(Duration valor) {
         demora = valor;
     }
@@ -112,12 +126,16 @@ public class StubMercadoPago implements AutoCloseable {
             var metodo = intercambio.getRequestMethod();
             var ruta = intercambio.getRequestURI().getPath();
             solicitudes.add(new Solicitud(metodo, ruta,
-                    intercambio.getRequestHeaders().getFirst("Authorization"), cuerpo));
+                    intercambio.getRequestHeaders().getFirst("Authorization"), cuerpo,
+                    intercambio.getRequestHeaders().getFirst("X-Idempotency-Key")));
             esperar();
             if ("POST".equals(metodo) && ruta.equals("/checkout/preferences")) {
                 responder(intercambio, estadoPreferencia, preferencia());
             } else if ("PUT".equals(metodo) && ruta.startsWith("/checkout/preferences/")) {
                 responder(intercambio, estadoCierre, "{}");
+            } else if ("POST".equals(metodo) && ruta.startsWith("/v1/payments/") && ruta.endsWith("/refunds")) {
+                responder(intercambio, estadoReembolso, cuerpoReembolso != null ? cuerpoReembolso
+                        : "{\"id\":9001,\"status\":\"approved\",\"amount\":161.00}");
             } else if ("GET".equals(metodo) && ruta.startsWith("/v1/payments/")) {
                 consultar(intercambio, ruta.substring("/v1/payments/".length()));
             } else {

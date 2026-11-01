@@ -8,7 +8,7 @@ import estilos from './Panel.module.css'
 const TEXTOS_POR_ROL = {
   USUARIO: { titulo: 'Mi cuenta', descripcion: 'Aquí verás tus reservas.' },
   ARRENDADOR: { titulo: 'Panel de arrendador', descripcion: 'Aquí verás tus espacios.' },
-  ADMIN: { titulo: 'Panel de administración', descripcion: 'Revisa identidades y gestiona cuentas.' },
+  ADMIN: { titulo: 'Panel de administración', descripcion: 'Revisa identidades, gestiona cuentas y atiende reembolsos.' },
 }
 
 function Panel() {
@@ -62,6 +62,9 @@ function Panel() {
           </p>
           <p>
             <Link to="/admin/cuentas">Buscar cuentas</Link>
+          </p>
+          <p>
+            <Link to="/admin/reembolsos">Reembolsos por atender</Link>
           </p>
         </>
       )}

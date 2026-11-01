@@ -283,7 +283,7 @@ del checkout se comprueba `CatalogoEspaciosService.esVisible` (espacio publicado
 
 | Pieza | Qué hace |
 |-------|----------|
-| `pagos.service.pasarela.PasarelaPago` | Adapter. `crearCheckout`, `cerrarCheckout`, `idNotificado` (verifica la firma; vacío si no es de un pago) y `consultarPago`, sin tipos del proveedor. Lo implementan `MercadoPagoAdapter` (`RestClient` + HMAC, sin el SDK, DT-1) y `PasarelaSimulada`, cada una con `@ConditionalOnProperty`: no hay fábrica. HU-16 le agrega `reembolsar` |
+| `pagos.service.pasarela.PasarelaPago` | Adapter. `crearCheckout`, `cerrarCheckout`, `idNotificado` (verifica la firma; vacío si no es de un pago) y `consultarPago`, sin tipos del proveedor. Lo implementan `MercadoPagoAdapter` (`RestClient` + HMAC, sin el SDK, DT-1) y `PasarelaSimulada`, cada una con `@ConditionalOnProperty`: no hay fábrica. HU-16 le agregó `reembolsar(SolicitudReembolsoPasarela(idTransaccion, monto, claveIdempotencia)) → ReembolsoRealizado(idReembolso)`: solo devuelve si la pasarela aprobó; cualquier falla, rechazo o respuesta incompleta → `ServicioExternoException`. En Mercado Pago es `POST /v1/payments/{id}/refunds` con `X-Idempotency-Key` |
 | `pagos.service.CheckoutFacade` | Facade: la única entrada de `PagoController`. Coordina `EvaluacionCobro` y `SesionesCheckout`, sin reglas y sin confirmar nada. El webhook **no** pasa por ella |
 | `pagos.service.SimulacionPago`, `pagos.controller.PagoSimuladoController` | Solo existen con la simulada (`@ConditionalOnProperty`): con `mercadopago` la ruta responde 404. La pantalla hace de página de la pasarela: `SimulacionPago` comprueba rol, reserva, rechazos y checkout, audita `PAGO_SIMULADO` y entrega la notificación a `WebhookPagoService.recibir`. No toca `pago` ni `ReservasPorCobrar`. El resultado es lo único que elige el cliente; el monto sale de la reserva |
 | `PasarelaSimulada.notificacionDe` | Fuera de `PasarelaPago`: el Target no cambia y `MercadoPagoAdapter` no gana un método vacío. Arma la notificación con un token interno que no sale del proceso y no prueba nada de la firma real |
@@ -306,15 +306,60 @@ de la transacción de la cancelación, con la reserva ya `CANCELADA`, sus bloque
 llama), y el monto nunca supera el del pago `PAGADO`. En HU-15 `PagoServiceImpl` solo busca ese pago
 (`IllegalStateException` si no hay → 500 y rollback de la cancelación), valida `0 < monto ≤ pago.monto`
 (`IllegalArgumentException`) y audita `REEMBOLSO_SOLICITADO` sobre el pago (`origen=CANCELACION;reservaId=…;monto=…`): **no**
-llama a la pasarela, **no** cambia `pago.estado` y **no** crea `reembolso`. HU-16 reemplaza ese cuerpo sin cambiar la firma ni
-la propagación: crea la fila de `reembolso` y ejecuta el Command contra `PasarelaPago.reembolsar` **después del commit**; un
-fallo de la pasarela no lanza ahí (va a `REEMBOLSO_FALLIDO`). HU-15 no filtra las filas `sim-`: lo decide HU-16.
+llama a la pasarela, **no** cambia `pago.estado` y **no** crea `reembolso`. **Desde HU-16** (misma firma y propagación),
+además de esas validaciones: si ya hay un reembolso `CANCELACION` del pago → `IllegalStateException`; crea la fila de
+`reembolso` `PENDIENTE` con `saveAndFlush` (la violación de `uq_reembolso_pago_origen` revierte al llamador), audita
+`REEMBOLSO_SOLICITADO` igual que antes y entrega el Command a `EjecutorReembolsos.ejecutarDespuesDelCommit`: la pasarela se
+llama **después del commit**, en el mismo hilo, antes de que la cancelación responda. Un fallo de la pasarela nunca lanza
+ahí: deja el reembolso `FALLIDO` y el pago `REEMBOLSO_FALLIDO`, y la cancelación responde igual 200. Ver
+[Reembolsos](#reembolsos-qué-deja-hu-16-hu-26-hu-28).
 
 **Lo que deben saber las historias que siguen.** Una reserva tiene como mucho un
 pago `PAGADO`. HU-19 y HU-28 cuentan solo `PAGADO` (HU-28, también los reembolsados): `PAGADO_TARDIO` y `MONTO_DISTINTO`
 no cobraron nada. Las IT que crean pagos los borran antes que la reserva: `pago` no tiene cascada. **Filas `sim-`:** con la
 simulada, `id_transaccion_pasarela` empieza por `sim-` y ningún dinero se movió: HU-15, HU-16, HU-19 y HU-28 deben filtrarlas o
-limpiarlas al conectar Mercado Pago (RS-5). HU-16 implementa `reembolsar` también en `PasarelaSimulada`.
+limpiarlas al conectar Mercado Pago (RS-5). HU-16: la simulada **aprueba** los reembolsos de sus filas `sim-` (id
+`sim-reembolso-<clave>`, sin dinero movido) y rechaza cualquier otro id; con `mercadopago`, el reembolso de una fila `sim-`
+falla (Mercado Pago no conoce ese pago) y queda `FALLIDO` en el panel del admin.
+
+### Reembolsos: qué deja HU-16 (HU-26, HU-28)
+
+Tabla `reembolso` (`V4_3`): la **fuente de verdad** del reembolso, con `PENDIENTE` → `REEMBOLSADO` / `FALLIDO` (y `FALLIDO` →
+`PENDIENTE` al reintentar). `pago.estado` pasa a `REEMBOLSADO` o `REEMBOLSO_FALLIDO` **solo** en la misma transacción que el
+reembolso (`Pago.marcarReembolsado` / `marcarReembolsoFallido`). Un reembolso por pago y origen (`uq_reembolso_pago_origen`).
+
+| Pieza | Patrón ★ | Qué hace |
+|-------|----------|----------|
+| `pagos.service.reembolso.ComandoReembolso` | **Command** | `ResultadoReembolso ejecutar()` (`REEMBOLSADO`, `FALLIDO`, `NO_EJECUTADO`). Es lo único que conoce el Invoker |
+| `pagos.service.reembolso.SolicitudReembolso` | Command (ConcreteCommand) | `final`, no es bean. Guarda `reembolsoId`, `Disparo` (`AUTOMATICO`/`ADMIN`), `solicitadoPor` e `ip`. `ejecutar()`: (1) reclama el intento con `RegistroReembolsos.iniciar`; vacío → `NO_EJECUTADO` sin llamar a nadie; (2) `PasarelaPago.reembolsar` **sin** transacción ni bloqueos; (3) `registrarExito` o, ante cualquier `RuntimeException`, `registrarFallo`. Idempotente y reintentable |
+| `pagos.service.reembolso.SolicitudesReembolso` | (fábrica) | `crear(reembolsoId, disparo, solicitadoPor, ip)`: inyecta `PasarelaPago`, `RegistroReembolsos` y `Clock` para que los Clients no los conozcan |
+| `pagos.service.reembolso.EjecutorReembolsos` | Command (Invoker) | `ejecutarDespuesDelCommit` (automático, vía `DespuesDelCommit`: con rollback no corre) y `ejecutarAhora` (reintento; `IllegalStateException` si hay una transacción activa: la llamada externa no retiene filas) |
+| `PagoServiceImpl` (cancelación) y `pagos.service.ReembolsoAdminService` (reintento) | Command (Clients) | Crean el comando con su `Disparo` y se lo pasan al Invoker. Ninguno conoce `PasarelaPago` |
+| `pagos.service.pasarela.PasarelaPago` | Command (Receiver) y Adapter (Target) | `reembolsar`, ver [Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28) |
+| `pagos.service.reembolso.RegistroReembolsos` | (apoyo) | Las transacciones cortas del comando, cada una **`REQUIRES_NEW`** con su propio `TransactionTemplate` (en `afterCommit` la transacción original sigue ligada al hilo y una `REQUIRED` no escribiría). `iniciar`: `findParaActualizar` (bloqueo), `admiteIntento`, `iniciarIntento` (+1 intento, `ultimo_intento_en`) y commit. `registrarExito`/`registrarFallo`: bloqueo `reembolso` → `pago`, cambian los dos estados y auditan `REEMBOLSO_REALIZADO`/`REEMBOLSO_FALLIDO` (entidad `reembolso`, `pagoId=…;reservaId=…;intento=n;disparo=…;monto=…[;idReembolso=…]`, nunca texto del proveedor) con el `usuario_id` e IP del comando. Es el único que cambia `reembolso.estado` y, tras pagar, `pago.estado` |
+
+**Reglas.** *En proceso*: `PENDIENTE` cuyo `coalesce(ultimo_intento_en, creado_en)` es posterior a *ahora* −
+`Reembolso.MARGEN_SIN_RESPUESTA` (2 min); pasado ese margen está *sin respuesta* y se puede reintentar (un proceso que cayó a
+mitad no deja el reembolso atascado). `Reembolso.motivoNoReintentable` → `YA_REEMBOLSADO` o `EN_PROCESO` (lo usa el admin);
+`admiteIntento` además admite el **primer** intento (`PENDIENTE` sin intentos, el automático) aunque esté en proceso. La
+**clave de idempotencia** es estable, `espacioya-reembolso-<id>`, igual en todos los intentos: un reintento tras una respuesta
+perdida no reembolsa dos veces. Dos intentos a la vez se serializan en el bloqueo de `iniciar`: el segundo ve el reembolso
+en proceso.
+
+**Rutas del admin** (`pagos.controller.ReembolsoAdminController`, bajo `/api/admin/**`, así que `FiltroIpsAdmin` exige IP
+permitida; el rol `ADMIN` lo exige el servicio antes de leer): `GET /api/admin/reembolsos` (los `FALLIDO` y `PENDIENTE` sin
+respuesta, por `creado_en` e `id`, `ReembolsoAdminDTO` sin datos del usuario ni de la tarjeta) y `POST
+/api/admin/reembolsos/{id}/reintento` (sin cuerpo; 200 con el estado resultante, 400 *ya reembolsado* / *en proceso*, 404).
+Ambas con `Cache-Control: no-store`.
+
+**Propiedad `espacioya.pagos.simulada.fallos-reembolso`** (`PAGOS_SIMULADA_FALLOS_REEMBOLSO`, 0 por defecto): con *N* > 0, la
+simulada falla las primeras *N* llamadas de cada clave de idempotencia. Con `1` se demuestra CA2 sin reiniciar: el automático
+falla y el reintento del admin funciona. El contador vive en memoria y vuelve a 0 al reiniciar.
+
+**Lo que deben saber las historias que siguen.** HU-26 crea su reembolso con `origen = RECLAMO` (agrega una fábrica
+`Reembolso.porReclamo`) y lo ejecuta con `SolicitudesReembolso.crear(...)` + `EjecutorReembolsos`, sin tocar el comando;
+como el pago puede estar ya `REEMBOLSADO`, decide qué estado le deja. HU-28 cuenta `PAGADO` y `REEMBOLSADO`; el monto devuelto
+está en `reembolso.monto`. Las IT que borran `pago` borran antes `reembolso` (sin cascada).
 
 ### Mis reservas: qué deja HU-14 (HU-15, HU-21, HU-22, HU-24, HU-26)
 

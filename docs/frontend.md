@@ -140,6 +140,7 @@ siempre muestra el **texto** del estado, no solo el color.
 |---------|-------|----------|-------|--------|
 | Reserva | `CONFIRMADA` | `PENDIENTE_PAGO` (con el contador de 15 min) | — | `CANCELADA`, `EXPIRADA` |
 | Pago | `PAGADO` | `PAGADO_TARDIO`, `MONTO_DISTINTO` | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
+| Reembolso (HU-16) | — (`REEMBOLSADO` no se muestra en el panel) | `PENDIENTE` ("Sin respuesta de la pasarela") | `FALLIDO` ("Reembolso fallido") | — |
 | Espacio | `PUBLICADO` | `PAUSADO` | `OCULTO` (moderación) | `BORRADOR`, `BAJA` |
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
@@ -182,7 +183,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`) | `estado` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
@@ -281,6 +282,15 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   que el monto cambió, `Alerta atencion` dentro del modal y nueva vista previa; otro error, `Alerta error` bajo la tarjeta.
   Tras cancelar, `Alerta exito` y un contador `recarga` como `key` de las dos secciones: la reserva pasa a Pasadas como
   "Cancelada" (usuario) o desaparece (arrendador). No agrega componentes al kit, estados ni colores.
+- **`/admin/reembolsos` (HU-16, `pages/pagos/ReembolsosPorAtender.jsx`, con `RutaProtegida`):** "Reembolsos por atender"
+  (enlace desde `Panel` para `ADMIN`); otro rol vuelve a `/panel` con `Navigate` (la API igual responde 403). Lista lo que
+  devuelve `GET /api/admin/reembolsos` (`listarReembolsosPorAtender`): una `Tarjeta` por reembolso con "Reserva #N",
+  `EtiquetaEstado`, monto en negrita (`formatoPrecio`), origen, intentos y fechas (`fechaHora`). Cada tarjeta tiene un
+  `Boton secundario` "Reintentar" (hay varios: ninguno es primario) que abre el `Modal` `primario` "¿Reintentar el
+  reembolso?"; al confirmar, `reintentarReembolso(id)` con `cargando`. 200 `REEMBOLSADO` → `Alerta exito` "Reembolso de
+  S/ X realizado."; 200 `FALLIDO` → `Alerta error` "La pasarela volvió a fallar…"; 400/404 u otro error → `Alerta error`
+  con el mensaje tal cual. En los tres casos se cierra el modal y se recarga la lista. No agrega componentes al kit ni
+  colores; agrega los estados de la fila Reembolso.
 
 ## Accesibilidad mínima
 

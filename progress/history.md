@@ -1070,3 +1070,52 @@
     estrategia a `CalculoReembolso` (`design.md` § 11.4).
 - **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (954 unitarias y 660 IT,
   0 fallos, errores ni omitidas; ESLint limpio y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-01 — HU-16 Reembolso automático (done)
+
+- **Dueño:** Ariel Enriquez · **Rama:** `feature/HU-16-reembolso-automatico` (desde `develop` en `d977a45`, con HU-15 ya
+  fusionada) · **Fecha:** 2026-10-31 a 2026-11-01. Sin commit ni push: el dueño revisa y abre el PR hacia `develop`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-16.md`) → spec-author (`specs/HU-16/`, R1–R43, D1–D13,
+  T1–T24; ★ Command y ★ Adapter) → aprobación del dueño → implementer (`progress/impl_HU-16.md`; una pausa `blocked` por
+  Docker Desktop apagado, reanudada al encenderlo) → reviewer (`APPROVED`, `progress/review_HU-16.md`) → implementer, cierre.
+- **Spec aprobado por:** Ariel Enriquez el 2026-11-01, con D1–D13 confirmadas (entre ellas D1 "`reembolso` es la fuente
+  de verdad", D2 "confirmación síncrona `approved`, sin webhook", D3 "llamada después del commit, en el mismo hilo", D5
+  "`PENDIENTE` sin respuesta en 2 min se puede reintentar", D6 "clave de idempotencia `espacioya-reembolso-<id>`", D7
+  "la simulada falla según `PAGOS_SIMULADA_FALLOS_REEMBOLSO`" y D11 "sin correo de reembolso").
+- **Cambios:**
+  - Migración `V4_3__reembolso.sql` (tabla `reembolso`, `uq_reembolso_pago_origen` y restricciones con nombre).
+  - Dominio `pagos`: `Reembolso` (`admiteIntento`, `motivoNoReintentable`, margen de 2 min), `Pago.marcarReembolsado` /
+    fallido, `ReglasPago.idBienEscrito`; `ReembolsoRepository`.
+  - ★ Command en `pagos/service/reembolso/`: `ComandoReembolso`, `SolicitudReembolso` (ConcreteCommand),
+    `EjecutorReembolsos` (Invoker, después del commit), fábrica `SolicitudesReembolso` y `RegistroReembolsos`
+    (`REQUIRES_NEW`). Clients `PagoServiceImpl.reembolsarCancelacion` (`AUTOMATICO`, misma firma y `MANDATORY`) y
+    `ReembolsoAdminService` (`ADMIN`).
+  - ★ Adapter: `PasarelaPago.reembolsar(SolicitudReembolsoPasarela) → ReembolsoRealizado` en `MercadoPagoAdapter`
+    (`X-Idempotency-Key`, cuerpo fuera del log) y `PasarelaSimulada` (aprueba los `sim-`, falla N veces por clave).
+  - `ReembolsoAdminController`: `GET /api/admin/reembolsos` y `POST /api/admin/reembolsos/{id}/reintento` (sesión, rol
+    ADMIN, IP permitida; DTO `ReembolsoAdminDTO`). Auditoría `REEMBOLSO_SOLICITADO`, `REEMBOLSO_REALIZADO`,
+    `REEMBOLSO_FALLIDO`.
+  - Frontend: `EtiquetaEstado` (`FALLIDO` error, `PENDIENTE` atención), `api/pagos.js`, `textosPagos.js`,
+    `ReembolsosPorAtender.jsx` (+ CSS) en `/admin/reembolsos` y enlace en `Panel`.
+  - Docs: `docs/architecture.md` (sección "Reembolsos: qué deja HU-16", `reembolsar`, filas `sim-`),
+    `docs/modelo-datos.md` (tabla `reembolso`), `docs/frontend.md` (estados y ruta). Tabla de puertos sin cambios.
+  - `.env.example`: una línea comentada `PAGOS_SIMULADA_FALLOS_REEMBOLSO`.
+- **Tests:** nuevos `ReembolsoTest`, `SolicitudReembolsoTest`, `EjecutorReembolsosTest`, `ReembolsoAdminServiceTest`,
+  `ArquitecturaReembolsoTest`, `RegistroReembolsosIT`, `ReembolsoRestriccionesIT`, `ReembolsoAutomaticoIT`,
+  `ReembolsoAdminControllerIT`, `ReembolsoConcurrenciaIT`; casos agregados a `PagoTest`, `ReglasPagoTest`,
+  `MercadoPagoAdapterTest`, `PasarelaSimuladaTest`, `PagoServiceImplTest`. De HU-15 solo cambian
+  `CancelacionReservaControllerIT.solicitaElReembolso` (espera el pago `REEMBOLSADO`) y las limpiezas `DELETE FROM
+  reembolso` en 6 IT. R1–R43 con test (mapa en `progress/impl_HU-16.md`).
+- **Review:** `APPROVED` en la primera vuelta (`progress/review_HU-16.md`); desviaciones D-A a D-G declaradas, todas
+  aceptadas.
+- **Pendiente para el dueño antes del merge:** confirmar la desviación **D-A** (`Reembolso.admiteIntento`: el primer
+  intento automático se admite aunque el reembolso recién creado cuente como *en proceso*; el admin sigue recibiendo 400
+  *en proceso*, R34).
+- **Avisos a otros dueños (T23):**
+  - Kevin Chan (HU-15): `PagoService.reembolsarCancelacion` conserva firma, `MANDATORY` y excepciones, pero ahora deja el
+    pago `REEMBOLSADO` o `REEMBOLSO_FALLIDO` tras el commit. Las IT nuevas que borren `pago` deben borrar antes
+    `reembolso`.
+  - Eduardo Saldaña (HU-28): el monto devuelto está en `reembolso.monto`. Para UAT, `PAGOS_SIMULADA_FALLOS_REEMBOLSO=1`
+    hace fallar el primer intento (aparece en `/admin/reembolsos`) y el reintento lo aprueba.
+- **Resultado:** `./init.sh` completo en verde en la implementación y en el review (1027 unitarias y 690 IT, 0 fallos,
+  errores ni omitidas; ESLint limpio y build OK). Status → `done`. Todo sin commitear.

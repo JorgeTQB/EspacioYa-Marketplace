@@ -40,6 +40,7 @@ class CancelacionConcurrenciaIT extends ReservasControllerSoporte {
 
     @AfterEach
     void borrarPagos() {
+        jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
     }
 
@@ -101,6 +102,7 @@ class CancelacionConcurrenciaIT extends ReservasControllerSoporte {
             assertThat(auditorias("RESERVA_CANCELADA")).hasSize(1);
             assertThat(auditorias("REEMBOLSO_SOLICITADO")).hasSize(1);
 
+            jdbc.update("DELETE FROM reembolso");
             jdbc.update("DELETE FROM pago");
             jdbc.update("DELETE FROM reserva");
             jdbc.update("DELETE FROM auditoria WHERE accion IN ('RESERVA_CANCELADA', 'REEMBOLSO_SOLICITADO')");

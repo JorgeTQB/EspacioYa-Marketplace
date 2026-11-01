@@ -68,6 +68,7 @@ class MisReservasControllerIT extends ReservasControllerSoporte {
     // pago no tiene cascada desde reserva y el soporte no lo borra; este @AfterEach corre antes que su limpiar().
     @AfterEach
     void borrarPagos() {
+        jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
     }
 
