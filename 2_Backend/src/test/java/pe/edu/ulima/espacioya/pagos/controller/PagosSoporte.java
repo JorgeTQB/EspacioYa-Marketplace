@@ -210,6 +210,7 @@ abstract class PagosSoporte {
 
     @AfterEach
     void limpiar() {
+        jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
         jdbc.update("DELETE FROM reserva");
         jdbc.update("DELETE FROM bloqueo_fecha");

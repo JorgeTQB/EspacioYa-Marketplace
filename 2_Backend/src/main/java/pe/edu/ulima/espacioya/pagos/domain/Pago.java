@@ -55,6 +55,24 @@ public class Pago {
         return pago;
     }
 
+    /** Lo deja solo {@code RegistroReembolsos}, junto con el reembolso (HU-16 D1, RN-07). */
+    public void marcarReembolsado() {
+        exigirReembolsable();
+        estado = EstadoPago.REEMBOLSADO;
+    }
+
+    /** Lo deja solo {@code RegistroReembolsos}, junto con el reembolso (HU-16 D1, RN-07). */
+    public void marcarReembolsoFallido() {
+        exigirReembolsable();
+        estado = EstadoPago.REEMBOLSO_FALLIDO;
+    }
+
+    private void exigirReembolsable() {
+        if (estado != EstadoPago.PAGADO && estado != EstadoPago.REEMBOLSO_FALLIDO) {
+            throw new IllegalStateException("El pago " + id + " en " + estado + " no se puede reembolsar");
+        }
+    }
+
     public Long getId() {
         return id;
     }

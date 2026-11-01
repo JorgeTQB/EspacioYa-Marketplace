@@ -24,6 +24,7 @@ import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
+import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
 import ReservasDeMisEspacios from './pages/reservas/ReservasDeMisEspacios.jsx'
 import ResumenReserva from './pages/reservas/ResumenReserva.jsx'
@@ -245,6 +246,15 @@ function App() {
             element={
               <RutaProtegida>
                 <DetalleCuenta />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-16: mismo panel admin; la API valida IP y rol, y decide qué reembolsos se pueden reintentar. */}
+          <Route
+            path="/admin/reembolsos"
+            element={
+              <RutaProtegida>
+                <ReembolsosPorAtender />
               </RutaProtegida>
             }
           />

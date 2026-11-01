@@ -22,6 +22,9 @@ const ESTADOS = {
   CONFIRMADA: { texto: 'Confirmada', tipo: 'exito' },
   EXPIRADA: { texto: 'Expirada', tipo: 'neutro' },
   CANCELADA: { texto: 'Cancelada', tipo: 'neutro' },
+  // Reembolso (HU-16): solo los por atender; un REEMBOLSADO no se muestra en el panel.
+  FALLIDO: { texto: 'Reembolso fallido', tipo: 'error' },
+  PENDIENTE: { texto: 'Sin respuesta de la pasarela', tipo: 'atencion' },
 }
 
 function EtiquetaEstado({ estado }) {

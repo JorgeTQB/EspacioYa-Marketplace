@@ -170,6 +170,7 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
     // pago no tiene cascada desde reserva y el soporte no lo borra; este @AfterEach corre antes que su limpiar().
     @AfterEach
     void borrarPagos() {
+        jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
     }
 
@@ -615,7 +616,8 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
     }
 
     @Test
-    @DisplayName("HU-15 R22, R24: con 100 % audita REEMBOLSO_SOLICITADO sobre el pago y el pago sigue PAGADO")
+    @DisplayName("HU-15 R22, R24 · HU-16 R1, R11: con 100 % audita REEMBOLSO_SOLICITADO sobre el pago y el reembolso "
+            + "automático deja el pago REEMBOLSADO")
     void solicitaElReembolso() throws Exception {
         var reserva = pagadaLejos();
         var pago = pagoDe(reserva);
@@ -630,9 +632,15 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
         assertThat(registro.get("usuario_id")).isEqualTo(usuarioId);
         assertThat(registro.get("ip")).isEqualTo(ip);
         assertThat(registro.get("detalle")).isEqualTo("origen=CANCELACION;reservaId=" + reserva + ";monto=161.00");
+        // HU-16: tras el commit, el reembolso automático contra la simulada deja el pago REEMBOLSADO.
         assertThat(jdbc.queryForObject("SELECT estado FROM pago WHERE id = ?", String.class, pago))
-                .isEqualTo("PAGADO");
+                .isEqualTo("REEMBOLSADO");
         assertThat(filas("pago")).isEqualTo(1);
+        var reembolsos = jdbc.queryForList("SELECT * FROM reembolso WHERE pago_id = ?", pago);
+        assertThat(reembolsos).hasSize(1);
+        assertThat(reembolsos.getFirst().get("estado")).isEqualTo("REEMBOLSADO");
+        assertThat(reembolsos.getFirst().get("origen")).isEqualTo("CANCELACION");
+        assertThat(new BigDecimal(reembolsos.getFirst().get("monto").toString())).isEqualByComparingTo("161.00");
     }
 
     @Test

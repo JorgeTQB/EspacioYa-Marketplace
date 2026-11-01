@@ -59,6 +59,7 @@ class PagoConcurrenciaIT extends PagosConMercadoPagoSoporte {
     }
 
     private void borrarReservas() {
+        jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
         jdbc.update("DELETE FROM reserva");
     }

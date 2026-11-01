@@ -53,8 +53,13 @@ public final class ReglasPago {
         return vigente ? EstadoPago.PAGADO : EstadoPago.PAGADO_TARDIO;
     }
 
-    /** {@code null} si el texto no es un id bien escrito: 1 a 19 dígitos, sin desbordar un long y mayor que 0. */
+    /** {@code null} si el texto no es un id bien escrito (ver {@link #idBienEscrito}). */
     public static Long idDeReserva(String texto) {
+        return idBienEscrito(texto);
+    }
+
+    /** {@code null} si el texto no es un id bien escrito: 1 a 19 dígitos, sin desbordar un long y mayor que 0. */
+    public static Long idBienEscrito(String texto) {
         if (texto == null || !ID_BIEN_ESCRITO.matcher(texto).matches()) {
             return null;
         }

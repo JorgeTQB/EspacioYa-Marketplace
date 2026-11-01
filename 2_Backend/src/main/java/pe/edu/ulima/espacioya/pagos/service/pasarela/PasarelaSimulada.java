@@ -8,6 +8,7 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -25,6 +26,10 @@ import pe.edu.ulima.espacioya.pagos.domain.ReglasPago;
  * siguen en {@code WebhookPagoService}. El token interno no sale del proceso y no es una firma de proveedor: no prueba
  * nada de la firma real (S1). Por {@code POST /api/pagos/webhook} solo se entra con el secreto configurado, si existe,
  * e id {@code sim-<reserva>-<APROBADO|RECHAZADO|SIN_RESULTADO>-<n>}: sin secreto, esa ruta rechaza todo pago (S16).
+ * <p>
+ * Reembolsos (HU-16 D7): aprueba los de pagos {@code sim-} (ningún dinero se movió) y falla los demás. Con
+ * {@code fallos-reembolso = N}, las primeras N llamadas de cada clave de idempotencia fallan, para demostrar CA2 sin
+ * reiniciar. El contador vive en memoria: tras un reinicio vuelve a 0.
  */
 @Component
 @ConditionalOnProperty(name = "espacioya.pagos.pasarela", havingValue = "simulada")
@@ -36,13 +41,19 @@ public class PasarelaSimulada implements PasarelaPago {
     private static final String ULTIMOS4_SIMULADOS = "4242";
     private static final String PANTALLA_SIMULADA = "/pago-simulado";
     private static final int BYTES_TOKEN = 32;
+    private static final String PREFIJO_SIMULADO = "sim-";
+    private static final String PREFIJO_REEMBOLSO = "sim-reembolso-";
 
     private final Map<String, BigDecimal> montos = new ConcurrentHashMap<>();
     private final byte[] secretoWebhook;
     private final String tokenInterno;
+    private final int fallosReembolso;
+    private final Map<String, AtomicInteger> llamadasDeReembolso = new ConcurrentHashMap<>();
 
-    public PasarelaSimulada(@Value("${espacioya.pagos.secreto-webhook:}") String secretoWebhook) {
+    public PasarelaSimulada(@Value("${espacioya.pagos.secreto-webhook:}") String secretoWebhook,
+                            @Value("${espacioya.pagos.simulada.fallos-reembolso:0}") int fallosReembolso) {
         this.secretoWebhook = secretoWebhook.getBytes(StandardCharsets.UTF_8);
+        this.fallosReembolso = fallosReembolso;
         var aleatorios = new byte[BYTES_TOKEN];
         new SecureRandom().nextBytes(aleatorios);
         this.tokenInterno = HexFormat.of().formatHex(aleatorios);
@@ -100,5 +111,20 @@ public class PasarelaSimulada implements PasarelaPago {
         var reserva = partes.group(1);
         return new PagoConsultado(idTransaccion, ResultadoPasarela.valueOf(partes.group(2)), montos.get(reserva),
                 ReglasPago.MONEDA, ULTIMOS4_SIMULADOS, reserva);
+    }
+
+    @Override
+    public ReembolsoRealizado reembolsar(SolicitudReembolsoPasarela solicitud) {
+        if (!solicitud.idTransaccion().startsWith(PREFIJO_SIMULADO)) {
+            throw new ServicioExternoException();
+        }
+        var clave = solicitud.claveIdempotencia();
+        var llamada = llamadasDeReembolso.computeIfAbsent(clave, sinLlamadas -> new AtomicInteger()).incrementAndGet();
+        if (llamada <= fallosReembolso) {
+            log.info("Reembolso simulado: falla configurada en la llamada {}", llamada);
+            throw new ServicioExternoException();
+        }
+        log.info("Reembolso simulado: no se llamó a ninguna pasarela");
+        return new ReembolsoRealizado(PREFIJO_REEMBOLSO + clave);
     }
 }
