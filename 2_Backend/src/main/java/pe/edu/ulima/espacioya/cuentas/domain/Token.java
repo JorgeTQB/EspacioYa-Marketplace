@@ -20,6 +20,7 @@ import org.hibernate.type.SqlTypes;
 public class Token {
 
     public static final Duration VIGENCIA_RECUPERACION = Duration.ofMinutes(30);
+    public static final Duration VIGENCIA_CAMBIO_CORREO = Duration.ofMinutes(30);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,12 +50,21 @@ public class Token {
     }
 
     public static Token recuperacion(Long usuarioId, String hashToken, Instant ahora) {
+        return nuevo(usuarioId, TipoToken.RECUPERACION, hashToken, ahora, VIGENCIA_RECUPERACION);
+    }
+
+    // El token no guarda el correo destino: vive en usuario.correo_pendiente, uno a la vez (HU-20 D1).
+    public static Token cambioCorreo(Long usuarioId, String hashToken, Instant ahora) {
+        return nuevo(usuarioId, TipoToken.CAMBIO_CORREO, hashToken, ahora, VIGENCIA_CAMBIO_CORREO);
+    }
+
+    private static Token nuevo(Long usuarioId, TipoToken tipo, String hashToken, Instant ahora, Duration vigencia) {
         var token = new Token();
         token.usuarioId = usuarioId;
-        token.tipo = TipoToken.RECUPERACION;
+        token.tipo = tipo;
         token.hashToken = hashToken;
         token.creadoEn = ahora;
-        token.expiraEn = ahora.plus(VIGENCIA_RECUPERACION);
+        token.expiraEn = ahora.plus(vigencia);
         return token;
     }
 

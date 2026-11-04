@@ -159,7 +159,7 @@
 | RNF-SEG-14 | **(I)** Datos sensibles cifrados en reposo: facturación, documentos, datos bancarios (mostrados enmascarados) y secretos MFA. | §4, HU-02 (I), HU-05 (I), HU-18 (I), HU-17 |
 | RNF-SEG-15 | **(I)** Documentos en almacenamiento privado, servidos con URL firmada de corta duración. | §4, HU-05 (I), HU-06 (I) |
 | RNF-SEG-16 | **(I)** Minimización de datos expuestos: la ficha y la búsqueda no muestran teléfono, correo ni documentos del arrendador; el arrendador no ve correo, teléfono ni datos de pago del usuario; los correos no incluyen tarjeta ni documentos. | HU-10 (I), HU-11 (I), HU-14 (I), HU-25 (I) |
-| RNF-SEG-17 | **(D)** Rate limiting: registros por IP por hora; login 5 fallos / 15 min; recuperación 3 por correo / hora; búsqueda, ficha y filtros por IP (compartido); 3 pagos fallidos por reserva / 30 min; 3 reservas pendientes por usuario; intentos de código MFA por sesión; 1 reclamo por reserva; 10 reportes por usuario al día. | §4, HU-01, 03, 04, 10, 11, 12, 13, 17, 23, 26, 27 (D) |
+| RNF-SEG-17 | **(D)** Rate limiting: registros por IP por hora; login 5 fallos / 15 min; recuperación 3 por correo / hora; búsqueda, ficha y filtros por IP (compartido); 3 pagos fallidos por reserva / 30 min; 3 reservas pendientes por usuario; intentos de código MFA por sesión; 1 reclamo por reserva; 10 reportes por usuario al día; contraseña de perfil (cambio de correo y facturación) 5 fallos / 15 min por cuenta; cambio de correo 3 por cuenta / hora. | §4, HU-01, 03, 04, 10, 11, 12, 13, 17, 20, 23, 26, 27 (D) |
 | RNF-SEG-18 | **(E)** Roles asignados y validados en el backend en cada solicitud; el rol nunca se acepta del cliente; cuentas admin creadas solo por script interno. | §4, HU-02 (E), HU-06 (E), HU-09 (E), HU-19 (E) |
 | RNF-SEG-19 | **(E)** Validación de propiedad del recurso antes de cada edición o consulta: espacios, calendario, documentos, reservas, cancelaciones, transacciones, comprobantes y reclamos. | §4, HU-05, 07, 08, 15, 21, 26, 28 (E) |
 
@@ -208,7 +208,7 @@
 | ID | Regla | Origen |
 | --- | --- | --- |
 | RN-01 | **Estados del arrendador:** correo verificado (inicia sesión, crea borradores, sube documentos) → identidad en revisión → identidad verificada (publica, recibe reservas pagadas, registra cuenta bancaria) o identidad rechazada (vuelve a subir documentos). Suspendida: no inicia sesión y sus espacios se ocultan. Nunca se dice "verificado" a secas. | §5, HU-02, HU-05, HU-06, HU-09 |
-| RN-02 | Cambiar el RUC/DNI con identidad verificada devuelve la identidad a "en revisión". | HU-20 CA3 |
+| RN-02 | Cambiar el RUC/DNI con identidad verificada devuelve la identidad a "en revisión". Cambiar la razón social también (HU-20 D9: es el nombre que el admin verificó y el titular que copia HU-18); cambiar solo la dirección fiscal no. | HU-20 CA3 |
 | RN-03 | **Estados de la reserva:** pendiente de pago (retiene los bloques 15 min) → confirmada (pago aprobado) o expirada (sin pago a tiempo); confirmada → cancelada. | §5, HU-12, HU-13, HU-15 |
 | RN-04 | **Disponibilidad:** horario semanal en bloques de 1 h, reservable en las próximas 8 semanas; bloques libres = horario − bloqueos − reservas, calculados al consultar. No se bloquea una fecha con reserva pagada. | §5, HU-08 |
 | RN-05 | Máximo 3 reservas pendientes simultáneas por usuario; una reserva abarca uno o más bloques consecutivos. | HU-12 |

@@ -155,4 +155,136 @@ class PerfilArrendadorTest {
             assertThat(perfil.getMotivoRechazo()).isNull();
         }
     }
+
+    // ── HU-20 ────────────────────────────────────────────────────────────
+
+    private static final String RUC_NUEVO = "20131312955";
+    private static final String HASH_NUEVO = "c".repeat(64);
+
+    @Test
+    @DisplayName("HU-20 R37: con la identidad VERIFICADA, otro número de documento la deja EN_REVISION")
+    void verificadaConOtroDocumentoVuelveARevision() {
+        var perfil = perfilEn(EstadoIdentidad.VERIFICADA, null);
+
+        var cambio = perfil.actualizarFacturacion(TipoDocumento.RUC, RUC_NUEVO, HASH_NUEVO, "Canchas SAC", "Lima");
+
+        assertThat(cambio.campos()).containsExactly(CampoFacturacion.NUMERO_DOCUMENTO);
+        assertThat(cambio.identidadAnterior()).isEqualTo(EstadoIdentidad.VERIFICADA);
+        assertThat(cambio.identidadNueva()).isEqualTo(EstadoIdentidad.EN_REVISION);
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.EN_REVISION);
+        assertThat(perfil.getNumeroDocumento()).isEqualTo(RUC_NUEVO);
+        assertThat(perfil.getHashDocumento()).isEqualTo(HASH_NUEVO);
+    }
+
+    @Test
+    @DisplayName("HU-20 R37: con la identidad VERIFICADA, cambiar el tipo y el número la deja EN_REVISION")
+    void verificadaConOtroTipoVuelveARevision() {
+        var perfil = perfilEn(EstadoIdentidad.VERIFICADA, null);
+
+        var cambio = perfil.actualizarFacturacion(TipoDocumento.DNI, "44556677", HASH_NUEVO, "Canchas SAC", "Lima");
+
+        assertThat(cambio.campos()).containsExactlyInAnyOrder(CampoFacturacion.TIPO_DOCUMENTO,
+                CampoFacturacion.NUMERO_DOCUMENTO);
+        assertThat(cambio.nombresDeCampos()).isEqualTo("tipoDocumento,numeroDocumento");
+        assertThat(perfil.getTipoDocumento()).isEqualTo(TipoDocumento.DNI);
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.EN_REVISION);
+    }
+
+    @Test
+    @DisplayName("HU-20 R38: con la identidad VERIFICADA, otra razón social la deja EN_REVISION")
+    void verificadaConOtraRazonSocialVuelveARevision() {
+        var perfil = perfilEn(EstadoIdentidad.VERIFICADA, null);
+
+        var cambio = perfil.actualizarFacturacion(TipoDocumento.RUC, null, null, " Canchas Nuevas SAC ", "Lima");
+
+        assertThat(cambio.campos()).containsExactly(CampoFacturacion.RAZON_SOCIAL);
+        assertThat(cambio.cambiaDocumento()).isFalse();
+        assertThat(cambio.cambiaIdentidad()).isTrue();
+        assertThat(perfil.getRazonSocial()).isEqualTo("Canchas Nuevas SAC");
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.EN_REVISION);
+        assertThat(perfil.getNumeroDocumento()).isEqualTo("20100070970");
+    }
+
+    @Test
+    @DisplayName("HU-20 R39: con la identidad VERIFICADA, cambiar solo la dirección la mantiene VERIFICADA")
+    void verificadaSoloDireccionSigueVerificada() {
+        var perfil = perfilEn(EstadoIdentidad.VERIFICADA, null);
+
+        var cambio = perfil.actualizarFacturacion(TipoDocumento.RUC, "20100070970", null, "Canchas SAC",
+                "Av. Nueva 456");
+
+        assertThat(cambio.campos()).containsExactly(CampoFacturacion.DIRECCION_FISCAL);
+        assertThat(cambio.cambiaIdentidad()).isFalse();
+        assertThat(cambio.identidadNueva()).isEqualTo(EstadoIdentidad.VERIFICADA);
+        assertThat(perfil.getDireccionFiscal()).isEqualTo("Av. Nueva 456");
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.VERIFICADA);
+        assertThat(perfil.getHashDocumento()).isEqualTo("a".repeat(64));
+    }
+
+    @Test
+    @DisplayName("HU-20 R40: NO_INICIADA y RECHAZADA cambian el documento sin cambiar su estado ni su motivo")
+    void noIniciadaYRechazadaConservanEstado() {
+        var noIniciada = perfilEn(EstadoIdentidad.NO_INICIADA, null);
+        var rechazada = perfilEn(EstadoIdentidad.RECHAZADA, "Ilegible");
+
+        noIniciada.actualizarFacturacion(TipoDocumento.RUC, RUC_NUEVO, HASH_NUEVO, "Otra SAC", "Lima");
+        rechazada.actualizarFacturacion(TipoDocumento.RUC, RUC_NUEVO, HASH_NUEVO, "Otra SAC", "Lima");
+
+        assertThat(noIniciada.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.NO_INICIADA);
+        assertThat(rechazada.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.RECHAZADA);
+        assertThat(rechazada.getMotivoRechazo()).isEqualTo("Ilegible");
+        assertThat(rechazada.getNumeroDocumento()).isEqualTo(RUC_NUEVO);
+    }
+
+    @Test
+    @DisplayName("HU-20 R41: EN_REVISION no admite otro documento ni razón social, pero sí otra dirección")
+    void enRevisionNoAdmiteCambioDeIdentidad() {
+        var perfil = perfilEn(EstadoIdentidad.EN_REVISION, null);
+
+        assertThat(perfil.admiteCambioDeIdentidad()).isFalse();
+        assertThat(perfilEn(EstadoIdentidad.VERIFICADA, null).admiteCambioDeIdentidad()).isTrue();
+        assertThat(perfil.cambiosPropuestos(TipoDocumento.RUC, RUC_NUEVO, "Canchas SAC", "Lima").cambiaIdentidad())
+                .isTrue();
+        assertThatThrownBy(() -> perfil.actualizarFacturacion(TipoDocumento.RUC, RUC_NUEVO, HASH_NUEVO,
+                "Canchas SAC", "Lima")).isInstanceOf(IllegalStateException.class);
+        assertThat(perfil.getNumeroDocumento()).isEqualTo("20100070970");
+
+        perfil.actualizarFacturacion(TipoDocumento.RUC, null, null, "Canchas SAC", "Av. Nueva 456");
+
+        assertThat(perfil.getDireccionFiscal()).isEqualTo("Av. Nueva 456");
+        assertThat(perfil.getEstadoIdentidad()).isEqualTo(EstadoIdentidad.EN_REVISION);
+    }
+
+    @Test
+    @DisplayName("HU-20 R36, R43: sin número conserva el actual; con los mismos datos no hay cambios")
+    void sinCambios() {
+        var perfil = perfilEn(EstadoIdentidad.VERIFICADA, null);
+
+        var propuesto = perfil.cambiosPropuestos(TipoDocumento.RUC, null, " Canchas SAC ", "Lima");
+
+        assertThat(propuesto.hayCambios()).isFalse();
+        assertThat(propuesto.nombresDeCampos()).isEmpty();
+        assertThat(perfil.cambiosPropuestos(TipoDocumento.RUC, "20100070970", "Canchas SAC", "Lima").hayCambios())
+                .isFalse();
+        assertThat(propuesto.identidadNueva()).isEqualTo(EstadoIdentidad.VERIFICADA);
+    }
+
+    @Test
+    @DisplayName("HU-20 R35: cambiar el tipo sin número nuevo o el número sin huella no se aplica")
+    void tipoSinNumeroYNumeroSinHuella() {
+        var perfil = perfilEn(EstadoIdentidad.NO_INICIADA, null);
+
+        assertThatThrownBy(() -> perfil.actualizarFacturacion(TipoDocumento.DNI, null, null, "Canchas SAC", "Lima"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> perfil.actualizarFacturacion(TipoDocumento.RUC, RUC_NUEVO, null, "Canchas SAC",
+                "Lima")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(perfil.getTipoDocumento()).isEqualTo(TipoDocumento.RUC);
+        assertThat(perfil.getNumeroDocumento()).isEqualTo("20100070970");
+    }
+
+    @Test
+    @DisplayName("HU-20 R6: numeroEnmascarado deja solo los 4 últimos dígitos")
+    void numeroEnmascarado() {
+        assertThat(perfilEn(EstadoIdentidad.VERIFICADA, null).numeroEnmascarado()).isEqualTo("****0970");
+    }
 }

@@ -4,7 +4,7 @@ import { obtenerSesionActual } from '../../api/cuentas.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import useSesion from '../../sesion/useSesion.js'
 import { ENLACE_CUENTA_BANCARIA, ENLACE_LIQUIDACIONES, ENLACE_MIS_LIQUIDACIONES } from '../pagos/textosPagos.js'
-import { ENLACE_SEGURIDAD } from './textosCuentas.js'
+import { ENLACE_PERFIL, ENLACE_SEGURIDAD } from './textosCuentas.js'
 import estilos from './Panel.module.css'
 
 const TEXTOS_POR_ROL = {
@@ -81,6 +81,11 @@ function Panel() {
             <Link to="/admin/liquidaciones">{ENLACE_LIQUIDACIONES}</Link>
           </p>
         </>
+      )}
+      {sesion.rol !== 'ADMIN' && (
+        <p>
+          <Link to="/panel/perfil">{ENLACE_PERFIL}</Link>
+        </p>
       )}
       <p>
         <Link to="/panel/seguridad">{ENLACE_SEGURIDAD}</Link>

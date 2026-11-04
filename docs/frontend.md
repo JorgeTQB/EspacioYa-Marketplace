@@ -256,6 +256,24 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   "Te quedan N códigos de respaldo."; si la API dice `desactivable`, `Boton peligro` "Desactivar" con `Modal`
   `peligro-confirmar` (contraseña y código); si no (admin), "es obligatoria". No agrega componentes al kit, estados ni
   colores.
+- **`/panel/perfil` (HU-20, `pages/cuentas/Perfil.jsx`, con `RutaProtegida`):** "Mi perfil" (enlace desde `Panel` para
+  `USUARIO` y `ARRENDADOR`; un `ADMIN` vuelve a `/panel`). Cuatro `Tarjeta`: "Datos personales" (`actualizarDatosPerfil`, sin
+  contraseña; el formulario toma los valores de la respuesta), "Foto" (`obtenerFotoPerfil` con `peticionArchivo` →
+  `URL.createObjectURL`, revocado al reemplazarla o salir; sin foto, `Imagen` "Sin foto"; `subirFotoPerfil` y
+  `quitarFotoPerfil`), "Correo" (`Alerta info` con el pendiente; `solicitarCambioCorreo`) y, solo `ARRENDADOR`, "Datos de
+  facturación" (`EtiquetaEstado` de identidad, `actualizarFacturacion`; con `VERIFICADA`, `Alerta atencion` de vuelta a
+  revisión; con `EN_REVISION`, documento y razón social como texto y solo la dirección como `Campo`; tras guardar llama a
+  `refrescar()` de `useSesion` para que el aviso del panel cambie). El correo y la facturación piden la contraseña en un
+  `Modal primario` "Confirma con tu contraseña": un error de `contrasena` o sin campo (429, en revisión, documento no
+  disponible) se queda en el modal; uno de otro campo lo cierra y se ve bajo su `Campo`. La contraseña vive solo en el
+  estado del modal y se vacía tras cada respuesta. No agrega componentes al kit, estados ni colores.
+- **`/confirmar-correo` (HU-20, `pages/cuentas/ConfirmarCorreo.jsx`, pública):** como `/restablecer-contrasena`, lee el
+  token del `#token=…` y lo quita de la URL con `navegar(pathname, { replace: true })`. No confirma al cargar (D19): un
+  único `Boton primario` "Confirmar mi nuevo correo" llama a `confirmarCambioCorreo` (`autenticada: false`). 200 → `Alerta
+  exito` con el mensaje de la API y enlace a "Iniciar sesión" (o "Ir a mi perfil" con sesión); 400 o sin token → `Alerta
+  error` y "Ir a mi perfil".
+- **`ProveedorSesion.refrescar()` (HU-20):** vuelve a leer `obtenerSesionActual()` y actualiza `{ rol, aviso }`; si falla,
+  deja la sesión como estaba. Se expone junto a `entrar` y `salir`.
 - **Rutas con sesión:** se envuelven en `<RutaProtegida>`; el estado
   `{ rol, aviso }` se lee con `useSesion()`. El rol solo elige qué mostrar.
 - **Volver tras el login (HU-12):** se navega a `/iniciar-sesion` con

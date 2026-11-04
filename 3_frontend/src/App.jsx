@@ -12,8 +12,10 @@ import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
 import Inicio from './pages/inicio/Inicio.jsx'
+import ConfirmarCorreo from './pages/cuentas/ConfirmarCorreo.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
+import Perfil from './pages/cuentas/Perfil.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
 import RecuperarContrasena from './pages/cuentas/RecuperarContrasena.jsx'
 import Registro from './pages/cuentas/Registro.jsx'
@@ -162,11 +164,22 @@ function App() {
           <Route path="/iniciar-sesion" element={<IniciarSesion />} />
           <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
           <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
+          {/* HU-20: pública, como /restablecer-contrasena; el token del enlace viaja en el #. */}
+          <Route path="/confirmar-correo" element={<ConfirmarCorreo />} />
           <Route
             path="/panel"
             element={
               <RutaProtegida>
                 <Panel />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-20: perfil del titular; un ADMIN vuelve a /panel y la API igual le responde 403. */}
+          <Route
+            path="/panel/perfil"
+            element={
+              <RutaProtegida>
+                <Perfil />
               </RutaProtegida>
             }
           />

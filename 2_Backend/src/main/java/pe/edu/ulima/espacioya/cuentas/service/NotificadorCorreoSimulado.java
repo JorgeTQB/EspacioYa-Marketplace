@@ -83,4 +83,20 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
     public void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso) {
         log.info("Envío de aviso de cambio de cuenta bancaria simulado: no se envió ningún correo (HU-18).");
     }
+
+    // Como la recuperación (HU-04): el enlace solo con la propiedad de desarrollo y nunca junto al correo (HU-20 R46).
+    @Override
+    public void notificarCambioCorreo(String correoNuevo, String enlace) {
+        if (registrarEnlace) {
+            log.info("[Solo desarrollo] Enlace de cambio de correo simulado: {}", enlace);
+            return;
+        }
+        log.info("Envío de correo para confirmar el cambio de correo simulado: no se envió ningún correo (HU-20).");
+    }
+
+    // Ni el correo actual ni el nuevo (aunque vaya enmascarado) van al log (HU-20 R46).
+    @Override
+    public void notificarAvisoCambioCorreo(String correoActual, String correoNuevoEnmascarado) {
+        log.info("Envío de aviso de cambio de correo simulado: no se envió ningún correo (HU-20).");
+    }
 }
