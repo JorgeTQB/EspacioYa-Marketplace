@@ -429,13 +429,23 @@ Además, en todo el sistema:
   sesión o tras 30 minutos de inactividad. Al suspender una cuenta se revocan
   todas sus sesiones y, además, `SesionService.validar` rechaza (401, sin
   renovar) cualquier sesión de una cuenta cuyo estado no es `ACTIVA` (HU-09 D3).
-- **(S) Panel admin hasta HU-17 (MFA):** toda ruta `/api/admin/**` pasa primero
+- **(S) Panel admin: IPs permitidas + MFA:** toda ruta `/api/admin/**` pasa primero
   por `comun/seguridad/FiltroIpsAdmin`, que solo deja pasar las IPs de
   `ADMIN_IPS_PERMITIDAS` (IPs o rangos CIDR; vacía = nadie) y si no responde 403
-  genérico; el admin además solo inicia sesión desde esas IPs (HU-06). La IP del
+  genérico; el admin además solo inicia sesión desde esas IPs (HU-06). Desde
+  HU-17 el control de IPs **complementa** a MFA (P3): el admin debe configurar
+  MFA en su primer inicio de sesión y usarlo en cada uno, y
+  `SesionService.validar` rechaza (401, sin renovar) la sesión de un admin sin
+  MFA activo (DT-3). La IP del
   cliente la resuelve Tomcat (`server.forward-headers-strategy=native`) y solo
   cree a `X-Forwarded-For` si la conexión viene de `PROXIES_CONFIANZA`; nunca se
   lee ese encabezado a mano. HU-09 y HU-27 ponen sus rutas bajo el mismo prefijo.
+- **(S) Inicio de sesión con MFA (HU-17):** con MFA activo (o si es admin),
+  `POST /api/sesiones` responde 202 con un **desafío** de un solo uso y 5 min
+  (`desafio_mfa`, solo su SHA-256) que no es una sesión: solo se canjea por ella en
+  `POST /api/sesiones/mfa` con un código TOTP (RFC 6238, `cuentas/domain/Totp`) o
+  de respaldo. Secretos cifrados con `CifradorCampos`, códigos de respaldo con
+  `HuellaCampos`; 5 fallos por desafío y 10 por cuenta en 15 min.
 - **(T) Manipulación:** contraseñas con hash y sal (bcrypt o argon2). Todo lo
   que viene del cliente se valida en el servidor; los montos se calculan solo ahí.
 - **(R) Repudio:** las acciones sensibles se registran en la auditoría con

@@ -50,9 +50,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 
+import pe.edu.ulima.espacioya.MfaDePrueba;
 import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
 import pe.edu.ulima.espacioya.comun.almacenamiento.ArchivosDePrueba;
+import pe.edu.ulima.espacioya.comun.cifrado.CifradorCampos;
 import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
@@ -105,6 +107,8 @@ class RevisionIdentidadControllerIT {
     private JsonMapper json;
     @Autowired
     private NotificadorFalso notificador;
+    @Autowired
+    private CifradorCampos cifrador;
     @Value("${espacioya.almacenamiento.directorio}")
     private Path directorio;
 
@@ -208,6 +212,8 @@ class RevisionIdentidadControllerIT {
             hashContrasena = encoder.encode(CONTRASENA);
         }
         admin = usuarios.save(Usuario.registrarAdmin(CORREO_ADMIN, hashContrasena, "2026-10", reloj.instant()));
+        // Sin MFA activo el admin no tiene sesión (HU-17 CA1, R28).
+        MfaDePrueba.activar(jdbc, cifrador, admin.getId(), reloj.instant());
     }
 
     private static String siguienteIp() {
@@ -286,7 +292,7 @@ class RevisionIdentidadControllerIT {
     }
 
     private String tokenAdmin() throws Exception {
-        return token(CORREO_ADMIN, IP_ADMIN);
+        return MfaDePrueba.iniciarSesion(mvc, jdbc, CORREO_ADMIN, CONTRASENA, IP_ADMIN, reloj.instant());
     }
 
     private static <T extends AbstractMockHttpServletRequestBuilder<T>> T con(T solicitud, String token, String ip) {

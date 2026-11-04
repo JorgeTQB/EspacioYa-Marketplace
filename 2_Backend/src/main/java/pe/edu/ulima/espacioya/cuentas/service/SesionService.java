@@ -14,6 +14,7 @@ import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.comun.seguridad.ValidadorSesion;
 import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
 import pe.edu.ulima.espacioya.cuentas.dto.SesionActualDTO;
+import pe.edu.ulima.espacioya.cuentas.repository.MfaRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
@@ -28,20 +29,23 @@ public class SesionService implements ValidadorSesion {
     private final SesionRepository sesiones;
     private final UsuarioRepository usuarios;
     private final PerfilArrendadorRepository perfiles;
+    private final MfaRepository mfas;
     private final AuditoriaService auditoria;
     private final Clock reloj;
 
     public SesionService(SesionRepository sesiones, UsuarioRepository usuarios, PerfilArrendadorRepository perfiles,
-                         AuditoriaService auditoria, Clock reloj) {
+                         MfaRepository mfas, AuditoriaService auditoria, Clock reloj) {
         this.sesiones = sesiones;
         this.usuarios = usuarios;
         this.perfiles = perfiles;
+        this.mfas = mfas;
         this.auditoria = auditoria;
         this.reloj = reloj;
     }
 
     // Una cuenta no ACTIVA no usa sus sesiones aunque sigan vigentes: cierra la carrera entre un inicio de sesión y una
-    // suspensión, en la que nacería una sesión que nadie revoca (HU-09 D3, R21). No se renueva.
+    // suspensión, en la que nacería una sesión que nadie revoca (HU-09 D3, R21). Tampoco la de un admin sin MFA
+    // activo: sesiones anteriores a HU-17 o de un admin al que se le borró el MFA (HU-17 DT-3, R28). No se renueva.
     @Override
     @Transactional
     public Optional<UsuarioAutenticado> validar(String token) {
@@ -50,6 +54,7 @@ public class SesionService implements ValidadorSesion {
                 .filter(sesion -> sesion.estaVigente(ahora))
                 .flatMap(sesion -> usuarios.findById(sesion.getUsuarioId())
                         .filter(usuario -> usuario.getEstado() == EstadoUsuario.ACTIVA)
+                        .filter(usuario -> !usuario.esAdmin() || mfas.existsByUsuarioIdAndActivoTrue(usuario.getId()))
                         .map(usuario -> {
                             sesion.renovar(ahora);
                             return new UsuarioAutenticado(usuario.getId(), sesion.getId(), usuario.getRol().name());

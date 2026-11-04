@@ -235,6 +235,19 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   con token recibe 401, `cliente.js` borra el token y avisa a
   `alPerderSesion`; `ProveedorSesion` lleva entonces a `/iniciar-sesion` con el
   mensaje. El frontend no tiene temporizador de inactividad: decide el backend.
+- **Inicio de sesión en dos pasos (HU-17, `pages/cuentas/IniciarSesion.jsx`):** si `POST /api/sesiones` responde
+  `{ desafio, paso }` (202) en vez de `token`, la pantalla pasa al paso `codigo` (`PasoCodigoMfa.jsx`:
+  `verificarMfa`) o, para el admin sin MFA, a `configuracion` (`ConfiguracionMfa.jsx`: `configurarMfaEnInicio`,
+  clave en grupos de 4 y enlace `otpauth://`, sin QR) y luego a `codigos` (`CodigosRespaldo.jsx`: los 5 códigos una
+  sola vez; `entrar` recién tras "Ya los guardé, continuar"). El desafío vive **solo en el estado de React**, nunca en
+  `sessionStorage`; las dos llamadas van con `autenticada: false`, así que su 401 (verificación expirada) vuelve al paso
+  de la contraseña con el mensaje y no cuenta como sesión perdida. Un código incorrecto es 400 bajo el `Campo`.
+- **`/panel/seguridad` (HU-17, `pages/cuentas/SeguridadCuenta.jsx`, con `RutaProtegida`):** "Seguridad de la cuenta"
+  (enlace desde `Panel` para los tres roles). Lee `obtenerMfa()`: inactivo → "Activar verificación en dos pasos"
+  (`iniciarConfiguracionMfa`, `ConfiguracionMfa.jsx`, `activarMfa`, `CodigosRespaldo.jsx`); activo → `Alerta exito` y
+  "Te quedan N códigos de respaldo."; si la API dice `desactivable`, `Boton peligro` "Desactivar" con `Modal`
+  `peligro-confirmar` (contraseña y código); si no (admin), "es obligatoria". No agrega componentes al kit, estados ni
+  colores.
 - **Rutas con sesión:** se envuelven en `<RutaProtegida>`; el estado
   `{ rol, aviso }` se lee con `useSesion()`. El rol solo elige qué mostrar.
 - **Volver tras el login (HU-12):** se navega a `/iniciar-sesion` con

@@ -104,7 +104,7 @@ public class Usuario {
         return Optional.empty();
     }
 
-    // El admin no recupera su contraseña por correo hasta que exista MFA (HU-04 S2, se mantiene en HU-06 D1).
+    // El admin no recupera su contraseña por correo (HU-04 S2, HU-06 D1; HU-17 lo mantiene, P4).
     public Optional<MotivoRechazoInicioSesion> motivoRechazoRecuperacion() {
         if (esAdmin()) {
             return Optional.of(MotivoRechazoInicioSesion.ROL_NO_PERMITIDO);

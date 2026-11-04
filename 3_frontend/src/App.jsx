@@ -19,6 +19,7 @@ import RecuperarContrasena from './pages/cuentas/RecuperarContrasena.jsx'
 import Registro from './pages/cuentas/Registro.jsx'
 import RegistroArrendador from './pages/cuentas/RegistroArrendador.jsx'
 import RestablecerContrasena from './pages/cuentas/RestablecerContrasena.jsx'
+import SeguridadCuenta from './pages/cuentas/SeguridadCuenta.jsx'
 import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
@@ -162,6 +163,15 @@ function App() {
             element={
               <RutaProtegida>
                 <Panel />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-17: verificación en dos pasos de la cuenta, para los tres roles; la API decide qué se puede hacer. */}
+          <Route
+            path="/panel/seguridad"
+            element={
+              <RutaProtegida>
+                <SeguridadCuenta />
               </RutaProtegida>
             }
           />

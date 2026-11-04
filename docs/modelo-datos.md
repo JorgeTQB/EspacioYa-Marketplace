@@ -15,7 +15,9 @@
 | | `documento_identidad` | id, arrendador_id, tipo (IDENTIDAD, PROPIEDAD), ruta_archivo (clave aleatoria `identidad/<UUID>` del almacenamiento privado; el archivo va cifrado fuera de la BD y el nombre original no se guarda), tipo_mime (application/pdf, image/jpeg, image/png, según el contenido real), tamano (bytes recibidos, 1 a 5 242 880), subido_en. Solo los documentos vigentes: un reenvío reemplaza los anteriores | HU-05, HU-06 |
 | | `token` | id, usuario_id, tipo (VERIFICACION, RECUPERACION; hoy solo se usa RECUPERACION), hash_token (único, SHA-256 hex del token; el token nunca se guarda en claro), creado_en, expira_en (creado_en + 30 min en RECUPERACION), usado_en (al usarlo o anularlo; las filas no se borran) | HU-01, HU-04 |
 | | `sesion` | id, usuario_id, hash_token (único, SHA-256 hex del token; el token nunca se guarda en claro), creada_en, expira_en (se mueve a ahora + 30 min en cada solicitud autenticada), revocada | HU-03, HU-04, HU-09 |
-| | `mfa` / `codigo_respaldo` | usuario_id, secreto (cifrado), activo / hash_codigo, usado | HU-17 |
+| | `mfa` | usuario_id (PK y FK a `usuario`, en cascada), secreto (`TEXT`, Base32 de 20 bytes cifrado con AES-256-GCM `v1:`; nunca en claro), activo (`false` = configuración pendiente, secreto generado sin confirmar), creado_en, activado_en (solo si activo), ultimo_paso (último paso TOTP aceptado: un código de un paso igual o anterior no vale, RFC 6238 § 5.2). Una fila por cuenta (`V5_1`) | HU-17 |
+| | `codigo_respaldo` | id, usuario_id (FK a `mfa`, en cascada: desactivar MFA borra sus códigos), hash_codigo (`CHAR(64)`, HMAC-SHA256 hex del código normalizado; el código nunca se guarda en claro), creado_en, usado_en (`TIMESTAMPTZ` al usarlo; reemplaza al `usado` booleano del modelo original, como `token.usado_en`). 5 por activación | HU-17 |
+| | `desafio_mfa` | id, usuario_id (FK a `usuario`, en cascada), hash_token (único, SHA-256 hex del desafío del paso intermedio del inicio de sesión; nunca en claro), paso (CODIGO, CONFIGURACION), creado_en, expira_en (creado_en + 5 min), intentos_fallidos (0–5; al 5.º se cierra), cerrado_en (al canjearlo o agotarlo). No es una sesión; las filas no se borran: se rechazan al consultarlas | HU-17 |
 | Espacios | `zona` | codigo (PK, p. ej. `MIRAFLORES`), nombre (único, con tildes). Catálogo cerrado sembrado por la migración: 43 distritos de Lima Metropolitana y 7 del Callao | HU-07, HU-10 |
 | | `espacio` | id, arrendador_id, nombre (3–100), tipo (CANCHA, ESTADIO, AUDITORIO), direccion (5–200), zona (FK a `zona.codigo`), capacidad (1–100 000), precio_hora (`NUMERIC(8,2)`, S/ 1.00–100 000.00, un único precio por hora), descripcion (obligatoria, 10–2000), estado (BORRADOR, PUBLICADO, PAUSADO, BAJA, OCULTO), creado_en, actualizado_en. Índice `ix_espacio_busqueda` (estado, tipo, zona, precio_hora, id) para la búsqueda pública (HU-10, solo rendimiento) | HU-07, HU-10, HU-21, HU-27 |
 | | `foto_espacio` | id, espacio_id, ruta_archivo (clave aleatoria `espacios/<UUID>` del almacenamiento; el archivo va **sin cifrar** fuera de la BD, re-codificado y sin metadatos, y su UUID forma la URL estable `/api/fotos/<UUID>`; el nombre original no se guarda), tipo_mime (image/jpeg, image/png, según el contenido real), orden (1–5; la principal es la 1) | HU-07 |
@@ -62,6 +64,7 @@
 | `revision_identidad`: `CHECK` de decision (APROBADA, RECHAZADA) y de motivo (RECHAZADA con motivo no en blanco, APROBADA sin motivo) | Toda decisión de identidad queda registrada y un rechazo siempre dice por qué | HU-06 |
 | `suspension_cuenta`: `CHECK` de accion (SUSPENSION, REACTIVACION) y de motivo (SUSPENSION con motivo no en blanco, REACTIVACION sin motivo) | Toda suspensión o reactivación queda registrada y una suspensión siempre dice por qué | HU-09 |
 | `token.hash_token` único (SHA-256 hex del token) | Un enlace de un solo uso no se confunde con otro; el token en claro no se guarda | HU-04 |
+| `mfa`: `ck_mfa_activado` (activo con `activado_en`, pendiente sin él) y `ck_mfa_ultimo_paso` (nulo o ≥ 0); `codigo_respaldo`: (usuario_id, hash_codigo) único (`uq_codigo_respaldo_usuario_hash`) y `ck_codigo_respaldo_hash` (64 hex); `desafio_mfa`: `hash_token` único, `CHECK` de formato, de paso, de `expira_en > creado_en` y de `intentos_fallidos` entre 0 y 5. Índice `ix_desafio_mfa_usuario` | Un MFA activo dice desde cuándo; un código de respaldo no se repite en la cuenta; un desafío tiene vida corta y como mucho 5 fallos (STRIDE S, D) | HU-17 |
 | Llaves foráneas en todas las relaciones | No hay reservas, pagos ni reseñas huérfanas | Todas |
 
 ## Diagrama entidad-relación (núcleo)
@@ -94,6 +97,9 @@ erDiagram
   RESERVA ||--o| RECLAMO : "puede tener"
   RECLAMO ||--o{ MENSAJE_RECLAMO : contiene
   USUARIO ||--o{ AUDITORIA : genera
+  USUARIO ||--o| MFA : "configura"
+  MFA ||--o{ CODIGO_RESPALDO : "tiene (5)"
+  USUARIO ||--o{ DESAFIO_MFA : "recibe al iniciar sesión"
 ```
 
 ## Evolución entre releases

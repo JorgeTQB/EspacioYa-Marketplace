@@ -35,6 +35,12 @@ public class ManejadorGlobalErrores {
                 .body(ErrorDTO.de(ErrorDTO.MENSAJE_CREDENCIALES_INVALIDAS));
     }
 
+    @ExceptionHandler(VerificacionExpiradaException.class)
+    public ResponseEntity<ErrorDTO> verificacionExpirada(VerificacionExpiradaException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_VERIFICACION_EXPIRADA));
+    }
+
     @ExceptionHandler(DemasiadosIntentosException.class)
     public ResponseEntity<ErrorDTO> demasiadosIntentos(DemasiadosIntentosException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

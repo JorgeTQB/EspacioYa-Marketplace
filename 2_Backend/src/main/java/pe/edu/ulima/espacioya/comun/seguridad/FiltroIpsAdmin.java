@@ -18,7 +18,7 @@ import pe.edu.ulima.espacioya.comun.web.IpCliente;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Control compensatorio del panel admin hasta HU-17 (HU-06, D2): las rutas {@code /api/admin/} solo se atienden
+ * Control del panel admin que complementa a MFA (HU-06, D2; HU-17, P3): las rutas {@code /api/admin/} solo se atienden
  * desde una IP permitida. Va antes de la autenticación, así que desde fuera no se distingue si hay sesión ni si
  * la ruta existe, y responde el mismo 403 que la falta de rol. No es un {@code @Component} para que Spring Boot
  * no lo registre además como filtro de servlet (igual que {@link FiltroAutenticacionSesion}).
