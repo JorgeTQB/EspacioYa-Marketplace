@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Limit;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -77,12 +78,51 @@ class CuentaServiceImplTest {
     private NotificadorCorreo notificador;
     @Mock
     private SesionRepository sesiones;
+    @Mock
+    private PasswordEncoder encoder;
 
     private CuentaServiceImpl servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new CuentaServiceImpl(usuarios, perfiles, documentos, archivos, notificador, sesiones);
+        servicio = new CuentaServiceImpl(usuarios, perfiles, documentos, archivos, notificador, sesiones, encoder);
+    }
+
+    @Test
+    @DisplayName("HU-18 R7: confirmarContrasena es verdadero solo si la contraseña coincide con el hash de la cuenta")
+    void confirmarContrasenaCompara() {
+        var cuenta = Usuario.registrar(CORREO, "hash-guardado", "2026-10", AHORA);
+        when(usuarios.findById(ID)).thenReturn(Optional.of(cuenta));
+        when(encoder.matches("correcta", "hash-guardado")).thenReturn(true);
+        when(encoder.matches("otra", "hash-guardado")).thenReturn(false);
+
+        assertThat(servicio.confirmarContrasena(ARRENDADOR, "correcta")).isTrue();
+        assertThat(servicio.confirmarContrasena(ARRENDADOR, "otra")).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-18 R7: confirmarContrasena de una cuenta inexistente es falso")
+    void confirmarContrasenaSinCuenta() {
+        when(usuarios.findById(ID)).thenReturn(Optional.empty());
+
+        assertThat(servicio.confirmarContrasena(ARRENDADOR, "x")).isFalse();
+        verifyNoInteractions(encoder);
+    }
+
+    @Test
+    @DisplayName("HU-18 R11: razonSocialDe devuelve solo la razón social del perfil")
+    void razonSocialDelPerfil() {
+        when(perfiles.findById(ID)).thenReturn(Optional.of(perfil(ID, EstadoIdentidad.VERIFICADA)));
+
+        assertThat(servicio.razonSocialDe(ID)).isEqualTo("Canchas 7");
+    }
+
+    @Test
+    @DisplayName("HU-18 R11: razonSocialDe sin perfil lanza 404")
+    void razonSocialSinPerfil() {
+        when(perfiles.findById(ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.razonSocialDe(ID)).isInstanceOf(RecursoNoEncontradoException.class);
     }
 
     @AfterEach

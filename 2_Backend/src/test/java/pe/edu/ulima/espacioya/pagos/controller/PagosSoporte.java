@@ -38,6 +38,7 @@ import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria;
 import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionArrendador;
 import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionUsuario;
 import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
@@ -103,6 +104,9 @@ abstract class PagosSoporte {
     record AvisoArrendador(String correo, AvisoReservaPagada datos) {
     }
 
+    record CambioCuenta(String correo, AvisoCambioCuentaBancaria datos) {
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class Dobles {
 
@@ -123,6 +127,7 @@ abstract class PagosSoporte {
 
         private final List<Comprobante> comprobantes = new CopyOnWriteArrayList<>();
         private final List<AvisoArrendador> avisos = new CopyOnWriteArrayList<>();
+        private final List<CambioCuenta> cambiosCuenta = new CopyOnWriteArrayList<>();
         private volatile boolean falla;
 
         @Override
@@ -179,6 +184,18 @@ abstract class PagosSoporte {
         public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso) {
+            if (falla) {
+                throw new IllegalStateException("el proveedor de correo falló");
+            }
+            cambiosCuenta.add(new CambioCuenta(correoArrendador, aviso));
+        }
+
+        List<CambioCuenta> cambiosCuenta() {
+            return cambiosCuenta;
+        }
+
         List<Comprobante> comprobantes() {
             return comprobantes;
         }
@@ -194,6 +211,7 @@ abstract class PagosSoporte {
         void reiniciar() {
             comprobantes.clear();
             avisos.clear();
+            cambiosCuenta.clear();
             falla = false;
         }
     }
@@ -221,6 +239,7 @@ abstract class PagosSoporte {
         jdbc.update("DELETE FROM espacio");
         jdbc.update("DELETE FROM sesion");
         jdbc.update("DELETE FROM auditoria");
+        jdbc.update("DELETE FROM cuenta_bancaria");
         jdbc.update("DELETE FROM perfil_arrendador");
         jdbc.update("DELETE FROM usuario");
     }

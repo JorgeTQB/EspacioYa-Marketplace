@@ -153,4 +153,21 @@ class NotificadorCorreoSimuladoTest {
                 .doesNotContain("Cancha Escondida");
         assertThat(salida.getErr()).doesNotContain("ana.secreta");
     }
+
+    @Test
+    @DisplayName("HU-18 R22: el aviso simulado de cambio de cuenta no escribe el correo, el banco ni la cuenta")
+    void cambioDeCuentaSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCambioCuentaBancaria("Banco Secreto", "****9876",
+                java.time.Instant.parse("2026-11-06T15:00:00Z"));
+
+        new NotificadorCorreoSimulado(true).notificarCambioCuentaBancaria("ana.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cambio de cuenta bancaria simulado: no se envió ningún correo (HU-18).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("Banco Secreto")
+                .doesNotContain("9876");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("9876");
+    }
 }

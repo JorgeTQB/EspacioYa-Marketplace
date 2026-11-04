@@ -161,6 +161,11 @@ class ArrendadorControllerIT {
         public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador,
+                pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
+        }
+
         void reiniciar() {
             correos.clear();
             fallar.set(false);

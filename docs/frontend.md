@@ -147,7 +147,7 @@ siempre muestra el **texto** del estado, no solo el color.
 | Liquidación | `PAGADA` | `PENDIENTE_CUENTA`, `GENERADA` | — | — |
 | Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
 | Reclamo | — | abierto | — | — |
-| Cuenta bancaria | — | retenida 72 h | — | — |
+| Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
 
 Cancelada y expirada van en neutro, no en error: no son fallos, son finales
 normales de una reserva. Los estados que aún no tienen enum (reclamo, cuenta
@@ -183,7 +183,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`) | `estado` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
@@ -242,6 +242,14 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   sola vez; `entrar` recién tras "Ya los guardé, continuar"). El desafío vive **solo en el estado de React**, nunca en
   `sessionStorage`; las dos llamadas van con `autenticada: false`, así que su 401 (verificación expirada) vuelve al paso
   de la contraseña con el mensaje y no cuenta como sesión perdida. Un código incorrecto es 400 bajo el `Campo`.
+- **`/panel/cuenta-bancaria` (HU-18, `pages/pagos/CuentaBancaria.jsx`, con `RutaProtegida`):** "Cuenta bancaria" (enlace
+  desde `Panel` solo para `ARRENDADOR`; otro rol vuelve a `/panel`). Lee `obtenerCuentaBancaria()`: con cuenta, `Tarjeta` con
+  banco, número enmascarado, titular, `EtiquetaEstado` (`DISPONIBLE`/`RETENIDA`) y la fecha de retención; sin cuenta, "Aún
+  no tienes una cuenta bancaria registrada." El formulario (`Campo` de banco, número, casilla de titularidad y contraseña;
+  `Boton` "Guardar cuenta") llama a `guardarCuentaBancaria`; con cuenta ya registrada muestra `Alerta atencion` sobre el
+  correo y la retención de 72 h; con la identidad sin verificar, `Alerta atencion` con enlace a `/panel/identidad` y el botón
+  deshabilitado. Errores por campo bajo su `Campo`; 400 sin campo, 429 y 5xx en `Alerta error`. La contraseña se vacía tras
+  cada respuesta y el número solo vive en el estado del formulario (se limpia al guardar).
 - **`/panel/seguridad` (HU-17, `pages/cuentas/SeguridadCuenta.jsx`, con `RutaProtegida`):** "Seguridad de la cuenta"
   (enlace desde `Panel` para los tres roles). Lee `obtenerMfa()`: inactivo → "Activar verificación en dos pasos"
   (`iniciarConfiguracionMfa`, `ConfiguracionMfa.jsx`, `activarMfa`, `CodigosRespaldo.jsx`); activo → `Alerta exito` y

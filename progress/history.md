@@ -1167,3 +1167,24 @@
 - **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (1189 unitarias y 736
   IT, 0 fallos, errores ni omitidas; ESLint limpio y build OK; único WARN, llaves de cifrado locales, ajeno). Status →
   `done`. Todo sin commitear.
+
+## 2026-11-03 — HU-18 Registro de cuenta bancaria del arrendador (done)
+
+- **Agentes:** spec-author, implementer, reviewer · **Dueño:** Ariel Enriquez
+- **Spec aprobado por:** Ariel Enriquez el 2026-11-03, con los valores por defecto de P1-P9.
+- **Cambios:**
+  - Migración `V5_2__cuenta_bancaria.sql` (FK a `perfil_arrendador`, una cuenta por arrendador, 3 CHECK).
+  - Dominio `pagos`: `CuentaBancaria` (número cifrado con `ConvertidorCifrado`, retención de 72 h al cambiar),
+    `EstadoCuentaBancaria`; `CuentaBancariaRepository`; DTO `GuardarCuentaBancariaDTO`, `CuentaBancariaDTO`,
+    `MiCuentaBancariaDTO` (número siempre enmascarado); `CuentaBancariaService` (rol, identidad verificada, límite de
+    5 fallos de contraseña, auditoría, aviso por correo tras el commit); `CuentaBancariaController` (`no-store`).
+  - Puertos en `cuentas`: `CuentaService.confirmarContrasena` y `razonSocialDe`; `NotificadorCorreo.notificarCambioCuentaBancaria`
+    con `AvisoCambioCuentaBancaria` (el simulado no registra datos sensibles).
+  - Frontend: `api/pagos.js`, `EtiquetaEstado` (DISPONIBLE, RETENIDA), `pages/pagos/CuentaBancaria.jsx` en
+    `/panel/cuenta-bancaria` y enlace en `Panel`.
+  - Docs: `docs/modelo-datos.md`, `docs/architecture.md`, `docs/frontend.md`.
+- **Tests:** `CuentaBancariaTest`, `GuardarCuentaBancariaDTOTest`, `CuentaBancariaServiceTest`, `CuentaBancariaRepositoryIT`,
+  `CuentaBancariaControllerIT`; ampliados `CuentaServiceImplTest`, `NotificadorCorreoSimuladoTest` y los dobles de
+  `NotificadorCorreo` en las IT existentes. R1-R25 con test (mapa en `progress/impl_HU-18.md`).
+- **Resultado:** `./init.sh` completo en verde (1243 unitarias y 755 IT, 0 fallos; ESLint y build OK; JDK 25). Status →
+  `done`. Todo sin commitear.

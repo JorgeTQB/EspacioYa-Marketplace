@@ -25,6 +25,9 @@ const ESTADOS = {
   // Reembolso (HU-16): solo los por atender; un REEMBOLSADO no se muestra en el panel.
   FALLIDO: { texto: 'Reembolso fallido', tipo: 'error' },
   PENDIENTE: { texto: 'Sin respuesta de la pasarela', tipo: 'atencion' },
+  // Cuenta bancaria (HU-18): la calcula el servidor; RETENIDA son las 72 h tras cambiar la cuenta.
+  DISPONIBLE: { texto: 'Disponible para liquidaciones', tipo: 'exito' },
+  RETENIDA: { texto: 'Retenida 72 h', tipo: 'atencion' },
 }
 
 function EtiquetaEstado({ estado }) {

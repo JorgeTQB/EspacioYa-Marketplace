@@ -161,7 +161,23 @@ HU-12 le agregó `bloquearCuenta(usuarioId)` (D4, `@Transactional(propagation = 
 cliente. HU-14 le agregó `nombres(usuarioIds) → Map<Long, String>`: solo el nombre de las cuentas cuyo `nombre` no es nulo
 ni está en blanco (las demás no aparecen), sin sesión ni rol y nunca correo ni teléfono (RNF-SEG-16). Una colección vacía
 devuelve `Map.of()` sin consultar. `reservas` lo usa para mostrarle al arrendador quién reservó; **no** se usa `correoDe`
-para eso.
+para eso. HU-18 le agregó, para `pagos` (la dirección `pagos → cuentas` ya estaba permitida; no es un puerto nuevo):
+`confirmarContrasena(usuario, contrasena) → boolean` (bcrypt contra el hash de la cuenta de la **sesión**; no cuenta
+intentos, lo hace el llamador con `LimitadorIntentos`; HU-20 y HU-22 pueden reutilizarlo) y `razonSocialDe(arrendadorId) →
+String` (solo la razón social del perfil, 404 sin perfil; nunca el documento, RNF-SEG-16). `NotificadorCorreo` ganó
+`notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)`.
+
+### Cuenta bancaria: qué deja HU-18 (HU-19, HU-22)
+
+Tabla `cuenta_bancaria` (`V5_2`): **una sola fila por arrendador** (`uq_cuenta_bancaria_arrendador`), con el número cifrado
+(`v1:…`). `pagos.service.CuentaBancariaService` es una clase concreta (sin interfaz): HU-19 es del mismo módulo y la llama
+directo. **HU-19** lee la cuenta con `CuentaBancariaRepository.findByArrendadorId` y decide con
+`CuentaBancaria.estaRetenida(ahora)` (`retener_hasta` > ahora, RN-11: tras un **cambio**, no tras el primer registro); sin fila,
+la liquidación queda `PENDIENTE_CUENTA`. HU-18 **no** expone el número completo en ninguna ruta; cómo lo ve el admin para
+transferir a mano lo decide HU-19. **HU-22** anonimiza la fila (no hay cascada desde `usuario`). Rutas: `GET` y `PUT
+/api/arrendadores/actual/cuenta-bancaria` (siempre `no-store`). El `PUT` exige rol `ARRENDADOR`, identidad verificada y la
+contraseña (5 fallos en 15 min por cuenta → 429); contraseña incorrecta es 400 y no 401 porque `api/cliente.js` borra el
+token ante un 401 con token.
 
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La

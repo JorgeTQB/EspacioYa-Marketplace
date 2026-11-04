@@ -124,4 +124,17 @@ public interface CuentaService {
      * {@code Map.of()} sin consultar.
      */
     Map<Long, String> nombres(Collection<Long> usuarioIds);
+
+    /**
+     * {@code true} si la contraseña coincide con la de la cuenta de la sesión (bcrypt). No cuenta intentos: lo hace el
+     * llamador (HU-18 DT-5). Sin rol: {@code pagos} ya validó la sesión.
+     */
+    boolean confirmarContrasena(UsuarioAutenticado usuario, String contrasena);
+
+    /**
+     * Razón social (el nombre si el documento es DNI) del perfil del arrendador. Nunca el documento (RNF-SEG-16).
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si el arrendador no tiene perfil.
+     */
+    String razonSocialDe(Long arrendadorId);
 }

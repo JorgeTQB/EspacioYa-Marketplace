@@ -24,6 +24,7 @@ import VerificarIdentidad from './pages/cuentas/VerificarIdentidad.jsx'
 import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
+import CuentaBancaria from './pages/pagos/CuentaBancaria.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
@@ -180,6 +181,15 @@ function App() {
             element={
               <RutaProtegida>
                 <VerificarIdentidad />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-18: cuenta bancaria del arrendador; la API valida rol, identidad verificada y contraseña. */}
+          <Route
+            path="/panel/cuenta-bancaria"
+            element={
+              <RutaProtegida>
+                <CuentaBancaria />
               </RutaProtegida>
             }
           />

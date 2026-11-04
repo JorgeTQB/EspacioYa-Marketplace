@@ -1,0 +1,38 @@
+.pantalla {
+  max-width: calc(var(--ancho-contenido) / 2);
+  margin: var(--espacio-8) auto;
+}
+
+.pantalla h2 {
+  margin: 0 0 var(--espacio-2);
+}
+
+.secundario,
+.dato {
+  color: var(--color-texto-secundario);
+}
+
+.dato {
+  margin: 0;
+}
+
+.valor {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.bloque {
+  margin: var(--espacio-4) 0;
+}
+
+.subtitulo {
+  margin: 0 0 var(--espacio-4);
+  font-size: var(--texto-lg);
+}
+
+.formulario {
+  padding: var(--espacio-6);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-superficie);
+}

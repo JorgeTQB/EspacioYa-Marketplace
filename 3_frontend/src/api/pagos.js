@@ -30,3 +30,16 @@ export function listarReembolsosPorAtender() {
 export function reintentarReembolso(id) {
   return peticion(`/api/admin/reembolsos/${encodeURIComponent(id)}/reintento`, { metodo: 'POST' })
 }
+
+// HU-18. El arrendador sale de la sesión: ninguna ruta lleva su id. El número viaja solo en el PUT y la respuesta
+// siempre lo devuelve enmascarado.
+export function obtenerCuentaBancaria() {
+  return peticion('/api/arrendadores/actual/cuenta-bancaria')
+}
+
+export function guardarCuentaBancaria({ banco, numero, declaraTitularidad, contrasena }) {
+  return peticion('/api/arrendadores/actual/cuenta-bancaria', {
+    metodo: 'PUT',
+    cuerpo: { banco, numero, declaraTitularidad, contrasena },
+  })
+}
