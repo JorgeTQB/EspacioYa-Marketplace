@@ -92,6 +92,28 @@ public class PerfilArrendador implements Persistable<Long> {
         motivoRechazo = null;
     }
 
+    // RN-01: solo el admin decide, y solo sobre una identidad en revisión (HU-06).
+    public void aprobarIdentidad() {
+        exigirEnRevision();
+        estadoIdentidad = EstadoIdentidad.VERIFICADA;
+        motivoRechazo = null;
+    }
+
+    public void rechazarIdentidad(String motivo) {
+        exigirEnRevision();
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalStateException("El rechazo de la identidad exige un motivo");
+        }
+        estadoIdentidad = EstadoIdentidad.RECHAZADA;
+        motivoRechazo = motivo.strip();
+    }
+
+    private void exigirEnRevision() {
+        if (estadoIdentidad != EstadoIdentidad.EN_REVISION) {
+            throw new IllegalStateException("La identidad no está en revisión: " + estadoIdentidad);
+        }
+    }
+
     public String avisoIdentidad() {
         return switch (estadoIdentidad) {
             case NO_INICIADA -> AVISO_IDENTIDAD;

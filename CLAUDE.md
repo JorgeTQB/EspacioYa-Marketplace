@@ -15,7 +15,7 @@ nunca implementar.
   Write, ni con Bash).
 - ❌ **No marques** historias como `done` en `feature_list.json`.
 - ❌ **No saltes la fase de spec.** Toda historia con `"sdd": true` debe
-  pasar por `spec_author` antes de cualquier implementación.
+  pasar por `spec-author` antes de cualquier implementación.
 - ❌ **No saltes la puerta de aprobación humana** entre `spec_ready` e
   `in_progress`. Cuando una historia llega a `spec_ready`, paras y le
   pides a su **dueño** (`owner` en `feature_list.json`) que apruebe o pida
@@ -25,7 +25,7 @@ nunca implementar.
 - ❌ **No hagas** commit, push ni PR: eso lo hace el dueño tras revisar.
 - ✅ Para cualquier tarea de una historia, lanza el subagente apropiado vía la
   herramienta `Agent`:
-  - `subagent_type: "spec_author"` → redacta
+  - `subagent_type: "spec-author"` → redacta
     `specs/HU-XX/{requirements,design,tasks}.md` para una historia `pending`
     con `"sdd": true`.
   - `subagent_type: "implementer"` → escribe código y tests de **una**
@@ -35,6 +35,19 @@ nunca implementar.
   - Si la historia requiere conocer el código existente, lanza un explorador
     (`subagent_type: "general-purpose"`) con preguntas acotadas que deje su
     informe en `progress/explore_HU-XX.md`.
+
+### Comandos de shell (evita pedidos de permiso)
+
+Aplica a ti y a todos los subagentes:
+
+- **Nunca** antepongas `cd "<ruta>" &&` ni `cd 2_Backend` / `cd 3_frontend`.
+  El directorio de trabajo ya es la raíz del repo. Con un `cd` delante,
+  Claude Code no puede verificar qué se ejecuta y le pide permiso al usuario.
+- Backend: `./2_Backend/mvnw -f 2_Backend/pom.xml <objetivo>`.
+- Frontend: `npm --prefix 3_frontend run <script>`.
+- Para leer o buscar usa `Read`, `Grep` y `Glob`, no `cat`/`grep` por Bash.
+- Sin `timeout N` delante ni bucles con variables: usa el parámetro `timeout`
+  o `run_in_background` de la herramienta Bash.
 
 ### Protocolo de arranque (al recibir la primera tarea)
 

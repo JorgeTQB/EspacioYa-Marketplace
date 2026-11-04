@@ -63,6 +63,16 @@ class ManejadorGlobalErroresTest {
     }
 
     @Test
+    @DisplayName("HU-17 R18, R21: una verificación MFA expirada responde 401 con su mensaje y sin errores de campo")
+    void verificacionExpiradaResponde401() throws Exception {
+        mvc.perform(get("/prueba/verificacion"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("Tu verificación expiró o no es válida. Inicia sesión de nuevo."))
+                .andExpect(jsonPath("$.errores").isEmpty());
+    }
+
+    @Test
     @DisplayName("HU-03 R16: demasiados intentos responde 429 con el mensaje de bloqueo")
     void demasiadosIntentosResponde429() throws Exception {
         mvc.perform(get("/prueba/intentos"))
@@ -122,8 +132,25 @@ class ManejadorGlobalErroresTest {
                 .andExpect(jsonPath("$.errores").isEmpty());
     }
 
+    @Test
+    @DisplayName("HU-13 R17, R27: un servicio externo caído responde 503 con el mensaje genérico, sin detalle")
+    void servicioExternoResponde503() throws Exception {
+        mvc.perform(get("/prueba/servicio-externo"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No pudimos conectar con el servicio de pagos. Intenta de nuevo en unos minutos."))
+                .andExpect(jsonPath("$.errores").isEmpty())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(content().string(not(containsString("ServicioExternoException"))));
+    }
+
     @RestController
     static class ControladorDePrueba {
+
+        @GetMapping("/prueba/servicio-externo")
+        String servicioExterno() {
+            throw new ServicioExternoException();
+        }
 
         @GetMapping("/prueba/multipart-grande")
         String multipartGrande() {
@@ -155,6 +182,11 @@ class ManejadorGlobalErroresTest {
         @GetMapping("/prueba/credenciales")
         String credenciales() {
             throw new CredencialesInvalidasException();
+        }
+
+        @GetMapping("/prueba/verificacion")
+        String verificacion() {
+            throw new VerificacionExpiradaException();
         }
 
         @GetMapping("/prueba/intentos")

@@ -1,0 +1,31 @@
+.pantalla {
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.pantalla h2 {
+  margin: 0 0 var(--espacio-4);
+}
+
+.secundario,
+.dato {
+  color: var(--color-texto-secundario);
+}
+
+.dato {
+  margin: 0;
+}
+
+.monto {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ancho-contenido) / 4), 1fr));
+  gap: var(--espacio-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

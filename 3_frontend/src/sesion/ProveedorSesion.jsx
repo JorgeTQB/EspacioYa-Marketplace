@@ -4,6 +4,9 @@ import { alPerderSesion } from '../api/cliente.js'
 import { obtenerSesionActual } from '../api/cuentas.js'
 import { leerToken } from '../api/tokenSesion.js'
 import ContextoSesion from './ContextoSesion.js'
+import { retornoValido } from './retorno.js'
+
+const RUTA_INICIAR_SESION = '/iniciar-sesion'
 
 // El rol solo elige qué mostrar; el backend valida la sesión y el rol en cada solicitud.
 function ProveedorSesion({ children }) {
@@ -33,7 +36,10 @@ function ProveedorSesion({ children }) {
     () =>
       alPerderSesion((mensaje) => {
         setSesion(null)
-        navegar('/iniciar-sesion', { state: { mensaje, tipo: 'info' } })
+        // window.location y no useLocation: este efecto no debe volver a suscribirse en cada navegación.
+        const { pathname, search } = window.location
+        const retorno = pathname === RUTA_INICIAR_SESION ? null : retornoValido(`${pathname}${search}`)
+        navegar(RUTA_INICIAR_SESION, { state: { mensaje, tipo: 'info', retorno } })
       }),
     [navegar],
   )

@@ -45,6 +45,10 @@ import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.dto.RestablecimientoContrasenaDTO;
 import pe.edu.ulima.espacioya.cuentas.repository.TokenRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionArrendador;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoCancelacionUsuario;
+import pe.edu.ulima.espacioya.cuentas.service.AvisoReservaPagada;
+import pe.edu.ulima.espacioya.cuentas.service.ComprobantePago;
 import pe.edu.ulima.espacioya.cuentas.service.NotificadorCorreo;
 import pe.edu.ulima.espacioya.cuentas.service.RecuperacionContrasenaService;
 import tools.jackson.core.type.TypeReference;
@@ -127,6 +131,49 @@ class RecuperacionContrasenaControllerIT {
         @Override
         public void notificarRecuperacion(String correoNormalizado, String enlace) {
             envios.add(new Envio(correoNormalizado, enlace));
+        }
+
+        @Override
+        public void notificarIdentidadAprobada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-06 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarCuentaSuspendida(String correoNormalizado, String motivo) {
+            throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarCuentaReactivada(String correoNormalizado) {
+            throw new UnsupportedOperationException("HU-09 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+            throw new UnsupportedOperationException("HU-13 no se prueba en esta clase");
+        }
+
+        @Override
+        public void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso) {
+        }
+
+        @Override
+        public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
+        }
+
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador,
+                pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
         }
 
         List<Envio> envios() {
@@ -314,6 +361,21 @@ class RecuperacionContrasenaControllerIT {
 
         assertThat(filas("token")).isZero();
         assertThat(notificador.envios()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-06 R6: un admin desde una IP permitida tampoco recupera la contraseña (sin token ni correo)")
+    void adminDesdeIpPermitidaSinRecuperacion() throws Exception {
+        var admin = crearUsuario("admin@correo.pe");
+        jdbc.update("UPDATE usuario SET rol = 'ADMIN' WHERE id = ?", admin.getId());
+        ip = "127.0.0.1";
+
+        esperaSolicitudRecibida(solicitar("admin@correo.pe"));
+
+        assertThat(filas("token")).isZero();
+        assertThat(notificador.envios()).isEmpty();
+        assertThat(auditorias("RECUPERACION_NO_EMITIDA")).extracting(fila -> fila.get("detalle"))
+                .containsExactly("motivo=ROL_NO_PERMITIDO");
     }
 
     @Test

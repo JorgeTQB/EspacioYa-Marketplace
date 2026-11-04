@@ -28,7 +28,7 @@ Este repositorio usa SDD. Ver `docs/specs.md`. Toda historia con
 entre ellas:
 
 ```
-pending → [spec_author] → spec_ready → ⏸ DUEÑO APRUEBA → in_progress → [implementer → reviewer] → done
+pending → [spec-author] → spec_ready → ⏸ DUEÑO APRUEBA → in_progress → [implementer → reviewer] → done
 ```
 
 NUNCA saltes la fase de spec. NUNCA lances al implementer si la historia
@@ -49,14 +49,14 @@ Luego mira su status:
    llena historia, dueño, rama, fecha y "Fase: spec".
 2. Asegúrate de estar en la rama `feature/HU-XX-descripcion-corta`. Si no
    existe, créala desde `develop`. Si `develop` no existe, paras y preguntas.
-3. Lanza **1 subagente `spec_author`** con el id `HU-XX`.
-4. El `spec_author` redacta `specs/HU-XX/{requirements.md, design.md, tasks.md}`
+3. Lanza **1 subagente `spec-author`** con el id `HU-XX`.
+4. El `spec-author` redacta `specs/HU-XX/{requirements.md, design.md, tasks.md}`
    y cambia el status a `spec_ready`.
 5. **PARAS**. No lanzas implementer. Tu mensaje al dueño:
    > "Spec listo en `specs/HU-XX/`. Revísalo y di **'aprobado'** para
    > continuar con la implementación, o pídeme cambios."
 
-Si el `spec_author` vuelve con `blocked`, le muestras al dueño la pregunta
+Si el `spec-author` vuelve con `blocked`, le muestras al dueño la pregunta
 que dejó en `progress/HU-XX.md` y paras.
 
 ### Caso B — status == `spec_ready` Y el dueño acaba de aprobar
@@ -76,7 +76,7 @@ que dejó en `progress/HU-XX.md` y paras.
    le pasas el review al dueño.
 
 Si el dueño pide cambios al spec en vez de aprobar, relanzas al
-`spec_author` con sus comentarios y vuelves a parar en `spec_ready`.
+`spec-author` con sus comentarios y vuelves a parar en `spec_ready`.
 
 ### Caso C — status == `spec_ready` SIN aprobación del dueño
 
@@ -96,7 +96,7 @@ en archivos** (no en su respuesta de texto). Tú solo recibes referencias
 del tipo:
 
 - `explorado -> progress/explore_HU-XX.md` (explorador)
-- `spec_ready -> specs/HU-XX/` (spec_author)
+- `spec_ready -> specs/HU-XX/` (spec-author)
 - `done -> progress/impl_HU-XX.md` (implementer)
 - `APPROVED -> progress/review_HU-XX.md` (reviewer)
 
@@ -114,15 +114,15 @@ Si necesitas un detalle, lo lees del disco.
 - escriba ahí la pregunta, los archivos analizados y lo encontrado, con rutas;
 - devuelva solo `explorado -> progress/explore_HU-XX.md`.
 
-Luego le pasas esa ruta al `spec_author` como fuente adicional.
+Luego le pasas esa ruta al `spec-author` como fuente adicional.
 
 ## Escalado de esfuerzo
 
 | Complejidad                              | Subagentes (con SDD)                                                |
 |------------------------------------------|---------------------------------------------------------------------|
-| Tamaño S, sin dependencias con código    | 1 spec_author → ⏸ → 1 implementer → 1 reviewer                      |
-| Tamaño M o depende de historias `done`   | 1 explorador (código de las dependencias y `comun`) → 1 spec_author → ⏸ → 1 implementer → 1 reviewer |
-| Historia ★ (con patrón)                  | Igual que M; pide al spec_author que el patrón aparezca en el diseño |
+| Tamaño S, sin dependencias con código    | 1 spec-author → ⏸ → 1 implementer → 1 reviewer                      |
+| Tamaño M o depende de historias `done`   | 1 explorador (código de las dependencias y `comun`) → 1 spec-author → ⏸ → 1 implementer → 1 reviewer |
+| Historia ★ (con patrón)                  | Igual que M; pide al spec-author que el patrón aparezca en el diseño |
 | Muy compleja (toca varios módulos)       | Habla con el dueño antes: probablemente hay que partirla             |
 
 ## Comandos de shell (evita pedidos de permiso)
@@ -132,8 +132,14 @@ Luego le pasas esa ruta al `spec_author` como fuente adicional.
   qué archivo se lee y le pide permiso al usuario cada vez.
 - Para leer o buscar usa las herramientas `Read`, `Grep` y `Glob`, no
   `cat`/`grep` por Bash. Si usas Bash, usa rutas relativas
-  (`cat docs/architecture.md`, `cd 2_Backend && ./mvnw test` solo si el comando
-  lo exige).
+  (`cat docs/architecture.md`).
+- Tampoco `cd 2_Backend` ni `cd 3_frontend`. Corre todo desde la raíz:
+  - Backend: `./2_Backend/mvnw -f 2_Backend/pom.xml test` (o `verify`,
+    `spring-boot:run`, etc.).
+  - Frontend: `npm --prefix 3_frontend run lint` (o `build`, `test`, `ci`).
+- No antepongas `timeout N` a los comandos: usa el parámetro `timeout` de la
+  herramienta Bash o `run_in_background` para procesos largos como
+  `spring-boot:run`.
 - Evita bucles `for` y variables (`$j`) en comandos que leen archivos: escribe
   un comando por archivo.
 

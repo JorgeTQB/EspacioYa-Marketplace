@@ -22,6 +22,18 @@
   --color-borde-control: #64748B;
   --color-gris-suave: #F1F5F9;
 
+  /* Página de inicio y encabezado (paleta de la referencia visual) */
+  /* Blanco sobre azul marca: 5.1:1 */
+  --color-marca: #1565E0;
+  --color-marca-hover: #0F4FB8;
+  /* Fondo oscuro del hero y texto del logo */
+  --color-marino: #0B2A4A;
+  /* Acento sobre marino: 5.9:1 */
+  --color-marca-claro: #5AAEF7;
+  /* Fondo de la sección de tipos y de la banda de ventajas */
+  --color-celeste: #EEF5FD;
+  --color-celeste-banda: #E5F3FE;
+
   /* Estados: fondo y texto */
   --color-exito-fondo: #DCFCE7;
   --color-exito-texto: #15803D;
@@ -62,6 +74,8 @@
   --texto-lg: 20px;
   --texto-xl: 24px;
   --texto-2xl: 32px;
+  /* Solo el título del hero del inicio */
+  --texto-3xl: 52px;
   --peso-normal: 400;
   --peso-medio: 500;
   --peso-negrita: 600;
@@ -69,4 +83,6 @@
 
   /* Ancho máximo del contenido */
   --ancho-contenido: 1120px;
+  /* Encabezado global y página de inicio */
+  --ancho-amplio: 1380px;
 }

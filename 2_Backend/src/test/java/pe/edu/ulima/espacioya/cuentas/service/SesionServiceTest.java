@@ -25,10 +25,13 @@ import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.cuentas.domain.EstadoUsuario;
 import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
+import pe.edu.ulima.espacioya.cuentas.domain.Rol;
 import pe.edu.ulima.espacioya.cuentas.domain.Sesion;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
+import pe.edu.ulima.espacioya.cuentas.repository.MfaRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.SesionRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
@@ -49,13 +52,16 @@ class SesionServiceTest {
     @Mock
     private PerfilArrendadorRepository perfiles;
     @Mock
+    private MfaRepository mfas;
+    @Mock
     private AuditoriaService auditoria;
 
     private SesionService servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new SesionService(sesiones, usuarios, perfiles, auditoria, Clock.fixed(AHORA, ZoneOffset.UTC));
+        servicio = new SesionService(sesiones, usuarios, perfiles, mfas, auditoria,
+                Clock.fixed(AHORA, ZoneOffset.UTC));
     }
 
     private static Sesion sesionCreadaHace(Duration antiguedad) {
@@ -82,6 +88,64 @@ class SesionServiceTest {
 
         assertThat(resultado).contains(new UsuarioAutenticado(ID_USUARIO, ID_SESION, "ARRENDADOR"));
         assertThat(sesion.getExpiraEn()).isEqualTo(AHORA.plus(Duration.ofMinutes(30)));
+    }
+
+    @Test
+    @DisplayName("HU-09 R21: una sesión vigente de una cuenta SUSPENDIDA o ELIMINADA no se acepta ni se renueva")
+    void cuentaNoActivaVacioSinRenovar() {
+        for (var estado : new EstadoUsuario[] {EstadoUsuario.SUSPENDIDA, EstadoUsuario.ELIMINADA}) {
+            var sesion = sesionCreadaHace(Duration.ofMinutes(20));
+            var expiracion = sesion.getExpiraEn();
+            var usuario = arrendador();
+            ReflectionTestUtils.setField(usuario, "estado", estado);
+            when(sesiones.findByHashToken(TokenAleatorio.hash(TOKEN))).thenReturn(Optional.of(sesion));
+            when(usuarios.findById(ID_USUARIO)).thenReturn(Optional.of(usuario));
+
+            assertThat(servicio.validar(TOKEN)).isEmpty();
+            assertThat(sesion.getExpiraEn()).isEqualTo(expiracion).isEqualTo(AHORA.plus(Duration.ofMinutes(10)));
+        }
+    }
+
+    private static Usuario admin() {
+        var usuario = Usuario.registrarAdmin("admin@espacioya.pe", "$2a$12$hash", "2026-10", AHORA.minusSeconds(7200));
+        ReflectionTestUtils.setField(usuario, "id", ID_USUARIO);
+        return usuario;
+    }
+
+    @Test
+    @DisplayName("HU-17 R28: la sesión vigente de un admin sin MFA activo no se acepta ni se renueva")
+    void adminSinMfaVacioSinRenovar() {
+        var sesion = sesionCreadaHace(Duration.ofMinutes(20));
+        var expiracion = sesion.getExpiraEn();
+        when(sesiones.findByHashToken(TokenAleatorio.hash(TOKEN))).thenReturn(Optional.of(sesion));
+        when(usuarios.findById(ID_USUARIO)).thenReturn(Optional.of(admin()));
+        when(mfas.existsByUsuarioIdAndActivoTrue(ID_USUARIO)).thenReturn(false);
+
+        assertThat(servicio.validar(TOKEN)).isEmpty();
+        assertThat(sesion.getExpiraEn()).isEqualTo(expiracion);
+    }
+
+    @Test
+    @DisplayName("HU-17 R28: la sesión vigente de un admin con MFA activo se acepta y se renueva")
+    void adminConMfaPresente() {
+        var sesion = sesionCreadaHace(Duration.ofMinutes(20));
+        when(sesiones.findByHashToken(TokenAleatorio.hash(TOKEN))).thenReturn(Optional.of(sesion));
+        when(usuarios.findById(ID_USUARIO)).thenReturn(Optional.of(admin()));
+        when(mfas.existsByUsuarioIdAndActivoTrue(ID_USUARIO)).thenReturn(true);
+
+        assertThat(servicio.validar(TOKEN)).contains(new UsuarioAutenticado(ID_USUARIO, ID_SESION, Rol.ADMIN.name()));
+        assertThat(sesion.getExpiraEn()).isEqualTo(AHORA.plus(Duration.ofMinutes(30)));
+    }
+
+    @Test
+    @DisplayName("HU-17 R28: la sesión de un usuario final sin MFA se acepta sin consultar el MFA")
+    void usuarioFinalSinMfaPresente() {
+        var sesion = sesionCreadaHace(Duration.ofMinutes(20));
+        when(sesiones.findByHashToken(TokenAleatorio.hash(TOKEN))).thenReturn(Optional.of(sesion));
+        when(usuarios.findById(ID_USUARIO)).thenReturn(Optional.of(arrendador()));
+
+        assertThat(servicio.validar(TOKEN)).isPresent();
+        verify(mfas, never()).existsByUsuarioIdAndActivoTrue(any());
     }
 
     @Test

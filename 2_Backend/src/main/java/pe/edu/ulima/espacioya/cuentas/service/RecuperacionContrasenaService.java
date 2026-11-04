@@ -93,7 +93,7 @@ public class RecuperacionContrasenaService {
             return;
         }
         var cuenta = usuario.get();
-        var motivo = cuenta.motivoRechazoInicioSesion();
+        var motivo = cuenta.motivoRechazoRecuperacion();
         if (motivo.isPresent()) {
             auditarNoEmitida(cuenta.getId(), ip, motivo.get().name());
             return;
@@ -167,7 +167,7 @@ public class RecuperacionContrasenaService {
         if (recuperacion.expiro(Instant.now(reloj))) {
             return Comprobacion.rechazo(MotivoRechazoRecuperacion.TOKEN_EXPIRADO, usuarioId, recuperacion.getId());
         }
-        var cuenta = usuarios.findById(usuarioId).filter(u -> u.motivoRechazoInicioSesion().isEmpty());
+        var cuenta = usuarios.findById(usuarioId).filter(u -> u.motivoRechazoRecuperacion().isEmpty());
         if (cuenta.isEmpty()) {
             return Comprobacion.rechazo(MotivoRechazoRecuperacion.CUENTA_NO_HABILITADA, usuarioId,
                     recuperacion.getId());

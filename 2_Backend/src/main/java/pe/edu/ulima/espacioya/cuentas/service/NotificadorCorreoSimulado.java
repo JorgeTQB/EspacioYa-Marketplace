@@ -33,4 +33,54 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
         }
         log.info("Envío de correo de recuperación simulado: no se envió ningún correo (HU-04).");
     }
+
+    // Ni el correo ni el motivo van al log: son datos personales del arrendador (Ley 29733).
+    @Override
+    public void notificarIdentidadAprobada(String correoNormalizado) {
+        log.info("Envío de correo de identidad aprobada simulado: no se envió ningún correo (HU-06).");
+    }
+
+    @Override
+    public void notificarIdentidadRechazada(String correoNormalizado, String motivo) {
+        log.info("Envío de correo de identidad rechazada simulado: no se envió ningún correo (HU-06).");
+    }
+
+    // Igual que los avisos de identidad: ni el correo ni el motivo de la suspensión van al log (HU-09, R47).
+    @Override
+    public void notificarCuentaSuspendida(String correoNormalizado, String motivo) {
+        log.info("Envío de correo de cuenta suspendida simulado: no se envió ningún correo (HU-09).");
+    }
+
+    @Override
+    public void notificarCuentaReactivada(String correoNormalizado) {
+        log.info("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).");
+    }
+
+    // Ni el correo ni los datos del comprobante van al log (HU-13, RNF-CUM-01).
+    @Override
+    public void notificarPagoConfirmado(String correoNormalizado, ComprobantePago comprobante) {
+        log.info("Envío de comprobante de pago simulado: no se envió ningún correo (HU-13).");
+    }
+
+    @Override
+    public void notificarReservaPagada(String correoArrendador, AvisoReservaPagada aviso) {
+        log.info("Envío de aviso de reserva pagada simulado: no se envió ningún correo (HU-13).");
+    }
+
+    // Ni el correo ni los datos de la reserva o del reembolso van al log (HU-15, Ley 29733).
+    @Override
+    public void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso) {
+        log.info("Envío de aviso de cancelación al usuario simulado: no se envió ningún correo (HU-15).");
+    }
+
+    @Override
+    public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
+        log.info("Envío de aviso de cancelación al arrendador simulado: no se envió ningún correo (HU-15).");
+    }
+
+    // Ni el correo, ni el banco, ni la cuenta van al log: son datos financieros y personales (HU-18 R22).
+    @Override
+    public void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso) {
+        log.info("Envío de aviso de cambio de cuenta bancaria simulado: no se envió ningún correo (HU-18).");
+    }
 }

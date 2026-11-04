@@ -2,6 +2,9 @@ package pe.edu.ulima.espacioya.cuentas.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,5 +64,110 @@ class NotificadorCorreoSimuladoTest {
                 .contains("[Solo desarrollo] Enlace de recuperación simulado: " + ENLACE)
                 .doesNotContain("ana.secreta");
         assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-06 R45: el aviso simulado de identidad aprobada no escribe el correo del arrendador")
+    void identidadAprobadaSinCorreo(CapturedOutput salida) {
+        new NotificadorCorreoSimulado(true).notificarIdentidadAprobada("ana.secreta@correo.pe");
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de identidad aprobada simulado: no se envió ningún correo (HU-06).")
+                .doesNotContain("ana.secreta");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-06 R45: el aviso simulado de identidad rechazada no escribe el correo ni el motivo")
+    void identidadRechazadaSinCorreoNiMotivo(CapturedOutput salida) {
+        var motivo = "El DNI 44556677 no coincide con la foto";
+
+        new NotificadorCorreoSimulado(true).notificarIdentidadRechazada("ana.secreta@correo.pe", motivo);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de identidad rechazada simulado: no se envió ningún correo (HU-06).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("44556677")
+                .doesNotContain(motivo);
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("44556677");
+    }
+
+    @Test
+    @DisplayName("HU-09 R47: el aviso simulado de cuenta suspendida no escribe el correo ni el motivo")
+    void cuentaSuspendidaSinCorreoNiMotivo(CapturedOutput salida) {
+        var motivo = "Publicó un espacio con el teléfono 912345678 de otra persona";
+
+        new NotificadorCorreoSimulado(true).notificarCuentaSuspendida("ana.secreta@correo.pe", motivo);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de cuenta suspendida simulado: no se envió ningún correo (HU-09).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("912345678")
+                .doesNotContain(motivo);
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("912345678");
+    }
+
+    @Test
+    @DisplayName("HU-09 R47: el aviso simulado de cuenta reactivada no escribe el correo")
+    void cuentaReactivadaSinCorreo(CapturedOutput salida) {
+        new NotificadorCorreoSimulado(true).notificarCuentaReactivada("ana.secreta@correo.pe");
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de correo de cuenta reactivada simulado: no se envió ningún correo (HU-09).")
+                .doesNotContain("ana.secreta");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-15 R26: el aviso simulado de cancelación al usuario no escribe el correo ni los datos")
+    void cancelacionAlUsuarioSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCancelacionUsuario("Cancha Escondida", LocalDate.of(2026, 11, 2), 18, 20, "ARRENDADOR",
+                100, new BigDecimal("161.37"));
+
+        new NotificadorCorreoSimulado(true).notificarCancelacionAlUsuario("carla.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cancelación al usuario simulado: no se envió ningún correo (HU-15).")
+                .doesNotContain("carla.secreta")
+                .doesNotContain("Cancha Escondida")
+                .doesNotContain("161.37");
+        assertThat(salida.getErr()).doesNotContain("carla.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-15 R27: el aviso simulado de cancelación al arrendador no escribe el correo ni los datos")
+    void cancelacionAlArrendadorSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCancelacionArrendador("Cancha Escondida", LocalDate.of(2026, 11, 2), 18, 20, "USUARIO");
+
+        new NotificadorCorreoSimulado(true).notificarCancelacionAlArrendador("ana.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cancelación al arrendador simulado: no se envió ningún correo (HU-15).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("Cancha Escondida");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
+
+    @Test
+    @DisplayName("HU-18 R22: el aviso simulado de cambio de cuenta no escribe el correo, el banco ni la cuenta")
+    void cambioDeCuentaSinCorreoNiDatos(CapturedOutput salida) {
+        var aviso = new AvisoCambioCuentaBancaria("Banco Secreto", "****9876",
+                java.time.Instant.parse("2026-11-06T15:00:00Z"));
+
+        new NotificadorCorreoSimulado(true).notificarCambioCuentaBancaria("ana.secreta@correo.pe", aviso);
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cambio de cuenta bancaria simulado: no se envió ningún correo (HU-18).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("Banco Secreto")
+                .doesNotContain("9876");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("9876");
     }
 }

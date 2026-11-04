@@ -35,6 +35,12 @@ public class ManejadorGlobalErrores {
                 .body(ErrorDTO.de(ErrorDTO.MENSAJE_CREDENCIALES_INVALIDAS));
     }
 
+    @ExceptionHandler(VerificacionExpiradaException.class)
+    public ResponseEntity<ErrorDTO> verificacionExpirada(VerificacionExpiradaException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_VERIFICACION_EXPIRADA));
+    }
+
     @ExceptionHandler(DemasiadosIntentosException.class)
     public ResponseEntity<ErrorDTO> demasiadosIntentos(DemasiadosIntentosException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -69,6 +75,12 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<ErrorDTO> recursoNoEncontrado(RecursoNoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorDTO.de(ErrorDTO.MENSAJE_RECURSO_NO_ENCONTRADO));
+    }
+
+    @ExceptionHandler(ServicioExternoException.class)
+    public ResponseEntity<ErrorDTO> servicioExterno(ServicioExternoException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorDTO.de(ErrorDTO.MENSAJE_SERVICIO_EXTERNO));
     }
 
     // El archivo superó el límite de multipart antes de llegar al controlador: no hay campo que señalar.

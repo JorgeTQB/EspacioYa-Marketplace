@@ -1,7 +1,20 @@
 import { useId } from 'react'
 import estilos from './Campo.module.css'
 
-function Campo({ etiqueta, nombre, tipo = 'text', valor, onChange, error, ayuda, opciones = [], accept }) {
+function Campo({
+  etiqueta,
+  nombre,
+  tipo = 'text',
+  valor,
+  onChange,
+  error,
+  ayuda,
+  opciones = [],
+  accept,
+  filas = 4,
+  min,
+  max,
+}) {
   const id = useId()
   const idAyuda = `${id}-ayuda`
   const idError = `${id}-error`
@@ -62,6 +75,22 @@ function Campo({ etiqueta, nombre, tipo = 'text', valor, onChange, error, ayuda,
     )
   }
 
+  if (tipo === 'textarea') {
+    return (
+      <div className={estilos.campo}>
+        <label htmlFor={id} className={estilos.etiqueta}>{etiqueta}</label>
+        <textarea
+          {...comunes}
+          rows={filas}
+          className={`${claseControl} ${estilos.texto}`}
+          value={valor}
+          onChange={(evento) => onChange(evento.target.value)}
+        />
+        {mensajes}
+      </div>
+    )
+  }
+
   // Un input de archivo no puede ser controlado: entrega el archivo elegido (o null), no un texto.
   if (tipo === 'archivo') {
     return (
@@ -85,6 +114,8 @@ function Campo({ etiqueta, nombre, tipo = 'text', valor, onChange, error, ayuda,
       <input
         {...comunes}
         type={tipo}
+        min={min}
+        max={max}
         className={claseControl}
         value={valor}
         onChange={(evento) => onChange(evento.target.value)}

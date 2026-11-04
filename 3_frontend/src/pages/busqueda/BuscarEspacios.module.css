@@ -1,0 +1,60 @@
+.pantalla {
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.formulario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--ancho-contenido) / 5), 1fr));
+  align-items: start;
+  gap: var(--espacio-4);
+  margin-bottom: var(--espacio-6);
+}
+
+.enviar {
+  display: flex;
+  align-items: flex-end;
+  align-self: end;
+}
+
+.secundario,
+.dato {
+  color: var(--color-texto-secundario);
+}
+
+.dato,
+.precio {
+  margin: 0;
+}
+
+.precio {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.vacio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+}
+
+.vacio p {
+  margin: 0;
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ancho-contenido) / 4), 1fr));
+  gap: var(--espacio-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espacio-4);
+  margin-top: var(--espacio-6);
+}

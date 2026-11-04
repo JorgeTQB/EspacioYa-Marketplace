@@ -130,7 +130,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-06.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-07",
@@ -150,7 +150,7 @@
       "historia": "docs/historias/HU-07.md",
       "notes": "Dependencia de visibilidad: visible tras HU-06",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-08",
@@ -169,7 +169,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-08.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-09",
@@ -188,7 +188,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-09.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-10",
@@ -208,7 +208,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-10.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-11",
@@ -228,7 +228,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-11.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-12",
@@ -249,7 +249,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-12.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-13",
@@ -267,12 +267,11 @@
       "tester": "Ariel Enriquez",
       "patterns": [
         "Adapter",
-        "Factory Method",
         "Facade"
       ],
       "historia": "docs/historias/HU-13.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-14",
@@ -295,7 +294,7 @@
       ],
       "historia": "docs/historias/HU-14.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-15",
@@ -317,7 +316,7 @@
       ],
       "historia": "docs/historias/HU-15.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-16",
@@ -340,7 +339,7 @@
       ],
       "historia": "docs/historias/HU-16.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-17",
@@ -359,7 +358,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-17.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-18",
@@ -378,7 +377,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-18.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-19",
@@ -398,7 +397,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-19.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-20",

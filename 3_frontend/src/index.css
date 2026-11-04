@@ -18,11 +18,9 @@ body {
   margin: 0;
 }
 
+/* El ancho máximo lo pone App.module.css (.contenido): el encabezado y el inicio ocupan todo el ancho. */
 #root {
   min-height: 100svh;
-  max-width: var(--ancho-contenido);
-  margin: 0 auto;
-  padding: var(--espacio-4);
 }
 
 h1,

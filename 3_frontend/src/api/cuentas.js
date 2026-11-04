@@ -92,3 +92,38 @@ export function restablecerContrasena({ token, contrasena }) {
     autenticada: false,
   })
 }
+
+// Segundo paso del inicio de sesión (HU-17). Sin token: el desafío va en el cuerpo y no es una sesión, así que un
+// 401 aquí es una verificación expirada y no debe tomarse como sesión perdida.
+export function verificarMfa({ desafio, codigo }) {
+  return peticion('/api/sesiones/mfa', {
+    metodo: 'POST',
+    cuerpo: { desafio, codigo },
+    autenticada: false,
+  })
+}
+
+export function configurarMfaEnInicio({ desafio }) {
+  return peticion('/api/sesiones/mfa/configuracion', {
+    metodo: 'POST',
+    cuerpo: { desafio },
+    autenticada: false,
+  })
+}
+
+// Verificación en dos pasos desde la cuenta (HU-17, /panel/seguridad).
+export function obtenerMfa() {
+  return peticion('/api/mfa')
+}
+
+export function iniciarConfiguracionMfa() {
+  return peticion('/api/mfa/configuracion', { metodo: 'POST' })
+}
+
+export function activarMfa({ codigo }) {
+  return peticion('/api/mfa/activacion', { metodo: 'POST', cuerpo: { codigo } })
+}
+
+export function desactivarMfa({ contrasena, codigo }) {
+  return peticion('/api/mfa/desactivacion', { metodo: 'POST', cuerpo: { contrasena, codigo } })
+}

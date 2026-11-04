@@ -1,0 +1,40 @@
+.pantalla {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.secundario {
+  color: var(--color-texto-secundario);
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--espacio-2) var(--espacio-4);
+  margin: var(--espacio-4) 0;
+}
+
+.datos dt {
+  color: var(--color-texto-secundario);
+}
+
+.datos dd {
+  margin: 0;
+  color: var(--color-texto);
+}
+
+.datos .monto {
+  font-weight: var(--peso-negrita);
+}
+
+.retencion {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.pagar {
+  margin-top: var(--espacio-4);
+}

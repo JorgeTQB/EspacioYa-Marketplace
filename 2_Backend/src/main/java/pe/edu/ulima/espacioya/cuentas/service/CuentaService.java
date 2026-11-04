@@ -1,0 +1,147 @@
+package pe.edu.ulima.espacioya.cuentas.service;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
+import pe.edu.ulima.espacioya.cuentas.dto.ArrendadorEnRevisionDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.BusquedaCuentasDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.CambioEstadoCuentaDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.DetalleCuentaDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.ExpedienteIdentidadDTO;
+import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
+
+/**
+ * Interfaz pública de {@code cuentas} para otros módulos (docs/architecture.md, principio 5): ellos nunca
+ * usan los repositorios de {@code cuentas}.
+ */
+public interface CuentaService {
+
+    /**
+     * @throws pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException si el rol de la sesión no es
+     *         {@code ARRENDADOR}.
+     */
+    HabilitacionArrendadorDTO habilitacionArrendador(UsuarioAutenticado usuario);
+
+    // Revisión de identidad (HU-06). Cada método lanza AccesoDenegadoException si el rol de la sesión no es ADMIN.
+
+    /** Arrendadores {@code ACTIVA} con la identidad {@code EN_REVISION}, del envío más antiguo al más reciente. */
+    List<ArrendadorEnRevisionDTO> arrendadoresEnRevision(UsuarioAutenticado admin);
+
+    /**
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si el arrendador no está en la cola.
+     */
+    ExpedienteIdentidadDTO expedienteIdentidad(UsuarioAutenticado admin, Long arrendadorId);
+
+    /**
+     * Deja la identidad {@code VERIFICADA} y avisa al arrendador por correo después del commit.
+     *
+     * @return el estado de identidad resultante.
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si no es un arrendador activo.
+     * @throws pe.edu.ulima.espacioya.comun.error.ReglaNegocioException si la identidad ya no está en revisión.
+     */
+    String aprobarIdentidad(UsuarioAutenticado admin, Long arrendadorId);
+
+    /**
+     * Deja la identidad {@code RECHAZADA} con el motivo y avisa al arrendador por correo después del commit.
+     *
+     * @return el estado de identidad resultante.
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si no es un arrendador activo.
+     * @throws pe.edu.ulima.espacioya.comun.error.ReglaNegocioException si la identidad ya no está en revisión.
+     */
+    String rechazarIdentidad(UsuarioAutenticado admin, Long arrendadorId, String motivo);
+
+    // Suspensión y reactivación de cuentas (HU-09). Los cuatro primeros lanzan AccesoDenegadoException si el rol de
+    // la sesión no es ADMIN, sin consultar los repositorios (R40).
+
+    /**
+     * Cuentas cuyo correo o nombre contiene el texto, sin distinguir mayúsculas y tratando {@code %}, {@code _} y
+     * {@code \} como literales; como mucho 20, por correo ascendente, y {@code hayMas} si hay más.
+     *
+     * @param textoRecortado texto ya recortado y validado (de 3 a 100 caracteres) por el llamador.
+     */
+    BusquedaCuentasDTO buscarCuentas(UsuarioAutenticado admin, String textoRecortado);
+
+    /**
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     */
+    DetalleCuentaDTO detalleCuenta(UsuarioAutenticado admin, Long cuentaId);
+
+    /**
+     * Bloquea la cuenta, la deja {@code SUSPENDIDA}, revoca todas sus sesiones y avisa por correo con el motivo
+     * después del commit. Se une a la transacción del llamador.
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     * @throws pe.edu.ulima.espacioya.comun.error.ReglaNegocioException si no es gestionable o ya está suspendida.
+     */
+    CambioEstadoCuentaDTO suspenderCuenta(UsuarioAutenticado admin, Long cuentaId, String motivo);
+
+    /**
+     * Bloquea la cuenta, la deja {@code ACTIVA} y avisa por correo después del commit. Se une a la transacción del
+     * llamador.
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     * @throws pe.edu.ulima.espacioya.comun.error.ReglaNegocioException si no es gestionable o ya está activa.
+     */
+    CambioEstadoCuentaDTO reactivarCuenta(UsuarioAutenticado admin, Long cuentaId);
+
+    /**
+     * {@code true} solo si la cuenta existe y está {@code ACTIVA}. No exige sesión ni rol: lo usan rutas públicas
+     * para ocultar lo de una cuenta suspendida (HU-09 D1; p. ej. las fotos y las horas libres de sus espacios).
+     */
+    boolean cuentaActiva(Long usuarioId);
+
+    /**
+     * Ids de los arrendadores con estado distinto de {@code ACTIVA}, o un conjunto vacío. No exige sesión ni rol
+     * (HU-09 D1): {@code busqueda} lo usa para excluir sus espacios ({@code e.arrendadorId not in :ids}). Si el
+     * conjunto está vacío, el llamador omite esa condición: una colección vacía en {@code not in} no es portable.
+     */
+    Set<Long> arrendadoresNoActivos();
+
+    /**
+     * Bloquea la fila de la cuenta hasta el fin de la transacción del llamador (HU-12 D4). {@code reservas} lo usa
+     * para serializar el cupo de un usuario que reserva dos espacios a la vez; el orden fijo de bloqueos es
+     * {@code usuario → espacio → reserva}. No exige sesión ni rol.
+     *
+     * @throws org.springframework.transaction.IllegalTransactionStateException si no hay una transacción activa.
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     */
+    void bloquearCuenta(Long usuarioId);
+
+    /**
+     * Correo de la cuenta, para que {@code pagos} envíe el comprobante y el aviso al arrendador (HU-13). No exige sesión
+     * ni rol: lo llama el webhook. Nunca se devuelve a un cliente.
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
+     */
+    String correoDe(Long usuarioId);
+
+    /**
+     * Id → nombre de las cuentas con nombre no nulo ni en blanco; las demás no aparecen. Nunca correo ni teléfono
+     * (RNF-SEG-16): {@code reservas} lo muestra al arrendador (HU-14 D1). Sin sesión ni rol. Colección vacía →
+     * {@code Map.of()} sin consultar.
+     */
+    Map<Long, String> nombres(Collection<Long> usuarioIds);
+
+    /**
+     * {@code true} si la contraseña coincide con la de la cuenta de la sesión (bcrypt). No cuenta intentos: lo hace el
+     * llamador (HU-18 DT-5). Sin rol: {@code pagos} ya validó la sesión.
+     */
+    boolean confirmarContrasena(UsuarioAutenticado usuario, String contrasena);
+
+    /**
+     * Razón social (el nombre si el documento es DNI) del perfil del arrendador. Nunca el documento (RNF-SEG-16).
+     *
+     * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si el arrendador no tiene perfil.
+     */
+    String razonSocialDe(Long arrendadorId);
+
+    /**
+     * De esos arrendadores, los ids cuyo perfil no tiene la identidad {@code VERIFICADA} o que no tienen perfil. Solo
+     * ids, nunca datos del perfil: {@code pagos} lo usa para avisar al admin en las liquidaciones (HU-19 D6). Una
+     * consulta por lote; colección vacía → {@code Set.of()} sin consultar. Sin sesión ni rol.
+     */
+    Set<Long> arrendadoresSinIdentidadVerificada(Collection<Long> arrendadorIds);
+}

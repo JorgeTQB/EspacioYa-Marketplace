@@ -60,9 +60,19 @@ pe/edu/ulima/espacioya/<modulo>/
 ├── controller/   <Recurso>Controller.java
 ├── dto/          <Recurso>DTO.java, Crear<Recurso>DTO.java
 ├── service/      <Recurso>Service.java
+│   └── impl/     <Recurso>ServiceImpl.java
 ├── domain/       <Entidad>.java, Estado<Entidad>.java
 └── repository/   <Entidad>Repository.java
 ```
+
+Cuando un servicio o un puerto tiene interfaz, su implementación se llama
+`<Nombre>Impl` y vive en `service/impl/`. Los servicios sin interfaz siguen
+como clase concreta en `service/`: no se crea una interfaz solo para llenar
+`impl/`. Lo que una clase de `impl/` use de `service/` tiene que ser `public`.
+La capa `repository` cumple el papel de DAO: Spring Data JPA genera la
+implementación, así que no hay carpeta `dao/impl`. Un DAO escrito a mano
+(como `reservas.repository.ReservaDAO`) se justifica solo si combina varios
+repositorios o impone una regla.
 
 Las clases concretas de cada historia las fija su `design.md`. Los puertos
 entre módulos van en `service/puertos/` (ver `docs/architecture.md`), y las
@@ -72,6 +82,27 @@ Migraciones Flyway en `src/main/resources/db/migration/`, numeradas por sprint
 para no chocar entre personas: `V<sprint>_<n>__<descripcion>.sql`
 (p. ej. `V1_1__usuarios_y_tokens.sql`). Una migración ya subida a `develop`
 no se edita: se crea otra.
+
+### Migraciones que llegan tarde (`out-of-order`)
+
+Las historias no terminan en orden de sprint, así que una `V1_n` puede llegar a
+`develop` después de una `V2_n` ya aplicada (pasó con `V1_5__token.sql` de HU-04
+tras `V2_1` de HU-05). Por eso `application.properties` tiene
+`spring.flyway.out-of-order=true`: Flyway aplica la migración atrasada en vez de
+negarse a arrancar. Reglas:
+
+- **El número sale del sprint de tu historia** (`sprint` en `feature_list.json`)
+  y es el siguiente `n` libre de ese sprint **en `develop`**. Antes de crearla,
+  actualiza `develop` y mira la carpeta de migraciones.
+- **Si al unir tu rama `develop` ya tiene tu número** (otra persona del mismo
+  sprint llegó antes), renombra la tuya al siguiente `n` libre antes del merge.
+  Todavía no está en `develop`, así que renombrarla está permitido.
+- **Una migración no depende de otra de número mayor.** En una base vacía
+  (Testcontainers, una base local nueva) Flyway aplica por número, así que una
+  `V1_6` que altera una tabla creada en `V2_1` falla. Si la necesitas, numérala
+  en el sprint de esa migración y justifícalo en el `design.md`.
+- **Si tu base local se queja de Flyway** tras traer `develop`, bórrala y deja
+  que las migraciones la recreen: `docker compose -f 1_Database/compose.yaml down -v`.
 
 ## Tests
 

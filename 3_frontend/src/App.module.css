@@ -1,26 +1,155 @@
+/* Encabezado global: blanco, a todo el ancho, con el contenido centrado en --ancho-amplio. */
 .encabezado {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--espacio-4) 0;
+  background: var(--color-superficie);
   border-bottom: 1px solid var(--color-borde);
 }
 
-.navegacion {
+.barra {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--espacio-4);
+  gap: var(--espacio-3) var(--espacio-8);
+  max-width: var(--ancho-amplio);
+  margin: 0 auto;
+  padding: var(--espacio-3) var(--espacio-6);
 }
 
 .marca {
   margin: 0;
+  font-size: var(--texto-xl);
+  line-height: 1;
 }
 
 .marca a {
-  color: var(--color-primario);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-1);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.pin {
+  width: 30px;
+  height: 30px;
+  fill: var(--color-marca);
+}
+
+.pinCentro {
+  fill: var(--color-superficie);
+}
+
+.marcaEspacio {
+  color: var(--color-marino);
+}
+
+.marcaYa {
+  margin-left: calc(-1 * var(--espacio-1));
+  color: var(--color-marca);
+}
+
+.secciones {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-6);
+}
+
+.secciones a,
+.enlace {
+  color: var(--color-texto);
+  font-size: var(--texto-sm);
   text-decoration: none;
 }
 
-.inicio {
-  margin-top: var(--espacio-6);
+.secciones a:hover,
+.enlace:hover {
+  color: var(--color-marca);
+}
+
+.cuenta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espacio-4);
+  margin-left: auto;
+}
+
+.lupa {
+  display: inline-flex;
+  padding: var(--espacio-2);
+  border-radius: 50%;
+  color: var(--color-texto);
+}
+
+.lupa:hover {
+  background: var(--color-gris-suave);
+}
+
+.lupa svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.registrate {
+  padding: var(--espacio-2) var(--espacio-6);
+  border-radius: 999px;
+  background: var(--color-marca);
+  color: var(--color-sobre-primario);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-negrita);
+  text-decoration: none;
+}
+
+.registrate:hover {
+  background: var(--color-marca-hover);
+}
+
+/* Ancho de lectura del resto de pantallas (antes lo ponía #root). */
+.contenido {
+  max-width: var(--ancho-contenido);
+  margin: 0 auto;
+  padding: var(--espacio-4);
+}
+
+@media (max-width: 768px) {
+  .barra {
+    gap: var(--espacio-2) var(--espacio-4);
+    padding: var(--espacio-3) var(--espacio-4);
+  }
+
+  /* "Explorar espacios" queda en la lupa; "Cómo funciona" sigue en el propio inicio. */
+  .secciones {
+    display: none;
+  }
+
+  .cuenta {
+    gap: var(--espacio-2);
+  }
+
+  .registrate {
+    padding: var(--espacio-2) var(--espacio-4);
+  }
+}
+
+/* Teléfonos: logo y acciones en una sola línea (con sesión puede bajar a una segunda, sin desbordar). */
+@media (max-width: 480px) {
+  .marca {
+    font-size: var(--texto-lg);
+  }
+
+  .pin {
+    width: 24px;
+    height: 24px;
+  }
+
+  .cuenta {
+    gap: var(--espacio-1);
+  }
+
+  .registrate {
+    padding: var(--espacio-2) var(--espacio-3);
+  }
 }

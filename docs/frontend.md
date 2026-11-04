@@ -31,7 +31,7 @@
 ├── styles/
 │   └── tokens.css        # ÚNICO archivo con colores literales
 ├── components/
-│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques
+│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen, Galeria, CuentaRegresiva
 ├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
 ├── sesion/               # ProveedorSesion, useSesion, RutaProtegida (HU-03)
 └── api/                  # cliente.js, tokenSesion.js + un archivo por módulo: api/cuentas.js
@@ -73,6 +73,15 @@
 | `--color-borde` | `#E2E8F0` | Bordes decorativos: tarjetas, tablas, separadores y modales |
 | `--color-borde-control` | `#64748B` | Borde de controles: campos de texto, select, textarea, casillas, radios y botón secundario |
 | `--color-gris-suave` | `#F1F5F9` | Fondo de bloques ocupados y filas alternas de tablas |
+
+**Colores del encabezado y la página de inicio** (paleta de la referencia visual; no se usan en otras pantallas)
+
+| Token | Hex | Dónde se usa |
+|-------|-----|--------------|
+| `--color-marca` / `--color-marca-hover` | `#1565E0` / `#0F4FB8` | Logo, botón "Regístrate", botón "Buscar" del hero, iconos y enlaces del inicio (blanco encima: 5.3:1) |
+| `--color-marino` | `#0B2A4A` | Fondo del hero, "Espacio" del logo, títulos de sección del inicio |
+| `--color-marca-claro` | `#5AAEF7` | Acento del título del hero sobre marino (6.1:1) |
+| `--color-celeste` / `--color-celeste-banda` | `#EEF5FD` / `#E5F3FE` | Fondo de las secciones del inicio y de la banda de ventajas |
 
 **Colores de estado.** Cada uno es un fondo claro y un texto oscuro de la misma
 familia; los usan `EtiquetaEstado` y `Alerta`.
@@ -130,14 +139,15 @@ siempre muestra el **texto** del estado, no solo el color.
 | Entidad | Éxito | Atención | Error | Neutro |
 |---------|-------|----------|-------|--------|
 | Reserva | `CONFIRMADA` | `PENDIENTE_PAGO` (con el contador de 15 min) | — | `CANCELADA`, `EXPIRADA` |
-| Pago | `PAGADO` | — | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
+| Pago | `PAGADO` | `PAGADO_TARDIO`, `MONTO_DISTINTO` | `RECHAZADO`, `REEMBOLSO_FALLIDO` | `REEMBOLSADO` |
+| Reembolso (HU-16) | — (`REEMBOLSADO` no se muestra en el panel) | `PENDIENTE` ("Sin respuesta de la pasarela") | `FALLIDO` ("Reembolso fallido") | — |
 | Espacio | `PUBLICADO` | `PAUSADO` | `OCULTO` (moderación) | `BORRADOR`, `BAJA` |
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
-| Liquidación | `PAGADA` | `PENDIENTE_CUENTA`, `GENERADA` | — | — |
+| Liquidación (HU-19) | `PAGADA` ("Pagada") | `GENERADA` ("Por pagar"), `PENDIENTE_CUENTA` ("Pendiente de cuenta") | — | — |
 | Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
 | Reclamo | — | abierto | — | — |
-| Cuenta bancaria | — | retenida 72 h | — | — |
+| Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
 
 Cancelada y expirada van en neutro, no en error: no son fallos, son finales
 normales de una reserva. Los estados que aún no tienen enum (reclamo, cuenta
@@ -153,6 +163,15 @@ Son la pantalla central de HU-11 y HU-12 (`SelectorBloques`). Tres estilos fijos
 | Seleccionado | Fondo `--color-primario`, texto blanco (`--bloque-seleccionado-*`) |
 | Ocupado | Fondo `--color-gris-suave`, texto `--color-texto-secundario` tachado, sin clic (`--bloque-ocupado-*`) |
 
+**Cómo alimentar `SelectorBloques` (HU-08 lo construyó).** El prop `bloques` es
+`[{ horaInicio, horaFin, libre, detalle }]`; el componente no llama a la API.
+
+- Desde una lista de horas libres (lo que devuelve `horasLibres`): `horas.map(h => ({ horaInicio: h, horaFin: h + 1, libre: true }))`. Solo se ven los libres.
+- Desde bloques con estado (como `GET …/disponibilidad` del dueño, que usa `DisponibilidadEspacio.jsx`): `libre = estado === 'LIBRE'` y `detalle` con un texto de `textosEspacios.js`. En la ficha pública el `detalle` es genérico ("No disponible"), sin decir si está reservado o bloqueado.
+- HU-11 y HU-12 (`pages/busqueda/FichaEspacio.jsx`) lo alimentan solo con los libres de `GET /api/espacios/{id}/disponibilidad?fecha=` (`bloquesLibres.map(b => ({ ...b, libre: true }))`); con la lista vacía la pantalla muestra "No hay bloques libres este día. Prueba con otra fecha.". Para quien puede reservar (visitante o rol `USUARIO`) va **con** `onCambiar` y `seleccionados`; para `ARRENDADOR` y `ADMIN`, **sin** `onCambiar` (solo lectura) y sin botón. Que los bloques elegidos sean consecutivos lo valida la pantalla como ayuda y el servidor de verdad, no el componente.
+- **Ficha y reserva (HU-12):** la ficha es `/espacios/:id?fecha=AAAA-MM-DD`. Debajo de "Bloques libres" va el único botón primario "Reservar"; "Reservar" crea la reserva sin modal, porque nada se cobra aún. La selección y el error de la reserva se guardan junto a la consulta (`id|fecha`), de modo que cambiar de fecha los descarta sin un efecto. El monto solo se ve en `/reservas/:id`, tras la respuesta del servidor. Si la API responde 400 o 404, `Alerta error` con el mensaje tal cual, selección vacía y bloques recargados.
+- Fecha elegible: de hoy a hoy + 55 días en hora de Lima. El servidor responde 400 fuera de esa ventana; el `Campo tipo="date"` acepta `min`/`max` (HU-08) para limitarla en el cliente.
+
 ## Kit de componentes (`src/components/ui/`)
 
 Las pantallas solo usan estos componentes para estos elementos. **Si falta uno,
@@ -162,12 +181,15 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`) |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad | `estado` |
-| `Tarjeta` | Agrupar contenido: espacio en resultados, reserva en "Mis reservas" | `titulo`, `children`, `acciones` |
-| `Modal` | Confirmar acciones irreversibles (cancelar, suspender, dar de baja) | `abierto`, `titulo`, `onConfirmar`, `onCerrar` |
-| `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) | `bloques`, `seleccionados`, `onCambiar` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`; HU-19: los de `Liquidación`, `GENERADA`, `PENDIENTE_CUENTA` y `PAGADA`) | `estado` |
+| `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
+| `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
+| `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
+| `Modal` | Confirmar acciones irreversibles o importantes (cancelar, suspender, dar de baja, aprobar o rechazar una identidad). Construido por HU-06: `<dialog>` con `showModal()` (foco atrapado; `Esc` llama a `onCerrar`, salvo mientras `cargando`), pie con `Boton secundario` (texto `textoCerrar`, por defecto "Cancelar"; HU-15 usa "Volver" en "¿Cancelar esta reserva?") y el botón de confirmación; fondo oscurecido con `color-mix` sobre `--color-texto` | `abierto`, `titulo`, `onConfirmar`, `onCerrar`, `children`, `textoConfirmar` (por defecto "Confirmar"), `textoCerrar` (por defecto "Cancelar", HU-15), `variante` (`primario` o `peligro-confirmar`), `cargando` |
+| `SelectorBloques` | Elegir bloques horarios (HU-11, HU-12) o mostrarlos. Construido por HU-08: cada bloque muestra `HH:00–HH:00`; el ocupado va tachado, sin clic y con su `detalle` como texto. Sin `onCambiar` es **solo lectura** (los bloques no son botones); con `onCambiar`, cada bloque libre es un `<button aria-pressed>` y al pulsarlo llama `onCambiar` con el arreglo nuevo de horas. Lista vacía: no renderiza nada | `bloques` (`[{ horaInicio, horaFin, libre, detalle }]`), `seleccionados` (horas de inicio, por defecto `[]`), `onCambiar` (opcional) |
+| `CuentaRegresiva` | Tiempo restante en `mm:ss`, con `role="timer"`. Construido por HU-12 ("Tus bloques están retenidos por:"). Calcula el fin al montarse y compara contra `Date.now()`, para no atrasarse con la pestaña en segundo plano; llama a `alTerminar` una sola vez. Solo avisa: el estado lo decide el servidor al releer. Para reiniciarlo con otros segundos, se le cambia la `key` | `segundos`, `alTerminar` |
 
 **Quién los construye.** Igual que los componentes transversales de `comun`:
 los construye la primera historia que los necesita (la de menor sprint y, a
@@ -200,7 +222,10 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   minúsculas y con guiones: `/registro`, `/espacios/:id`, `/mis-reservas`.
 - **Cliente HTTP:** un solo `src/api/cliente.js` (sobre `fetch`) que pone la
   URL base (`import.meta.env.VITE_API_URL`), el JSON y convierte las
-  respuestas de error en el `ErrorDTO`. Cada módulo tiene su archivo
+  respuestas de error en el `ErrorDTO`. Para descargar un archivo con el token
+  (p. ej. la foto de un borrador, que un `<img src>` no puede pedir con el
+  encabezado `Authorization`) está `peticionArchivo(ruta)`, que devuelve un
+  `Blob` con el mismo manejo de errores (HU-07). Cada módulo tiene su archivo
   (`api/reservas.js`) con una función por endpoint. Los componentes nunca
   llaman a `fetch` directamente.
 - **Cómo viaja la sesión (HU-03):** token opaco en el encabezado
@@ -210,8 +235,103 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   con token recibe 401, `cliente.js` borra el token y avisa a
   `alPerderSesion`; `ProveedorSesion` lleva entonces a `/iniciar-sesion` con el
   mensaje. El frontend no tiene temporizador de inactividad: decide el backend.
+- **Inicio de sesión en dos pasos (HU-17, `pages/cuentas/IniciarSesion.jsx`):** si `POST /api/sesiones` responde
+  `{ desafio, paso }` (202) en vez de `token`, la pantalla pasa al paso `codigo` (`PasoCodigoMfa.jsx`:
+  `verificarMfa`) o, para el admin sin MFA, a `configuracion` (`ConfiguracionMfa.jsx`: `configurarMfaEnInicio`,
+  clave en grupos de 4 y enlace `otpauth://`, sin QR) y luego a `codigos` (`CodigosRespaldo.jsx`: los 5 códigos una
+  sola vez; `entrar` recién tras "Ya los guardé, continuar"). El desafío vive **solo en el estado de React**, nunca en
+  `sessionStorage`; las dos llamadas van con `autenticada: false`, así que su 401 (verificación expirada) vuelve al paso
+  de la contraseña con el mensaje y no cuenta como sesión perdida. Un código incorrecto es 400 bajo el `Campo`.
+- **`/panel/cuenta-bancaria` (HU-18, `pages/pagos/CuentaBancaria.jsx`, con `RutaProtegida`):** "Cuenta bancaria" (enlace
+  desde `Panel` solo para `ARRENDADOR`; otro rol vuelve a `/panel`). Lee `obtenerCuentaBancaria()`: con cuenta, `Tarjeta` con
+  banco, número enmascarado, titular, `EtiquetaEstado` (`DISPONIBLE`/`RETENIDA`) y la fecha de retención; sin cuenta, "Aún
+  no tienes una cuenta bancaria registrada." El formulario (`Campo` de banco, número, casilla de titularidad y contraseña;
+  `Boton` "Guardar cuenta") llama a `guardarCuentaBancaria`; con cuenta ya registrada muestra `Alerta atencion` sobre el
+  correo y la retención de 72 h; con la identidad sin verificar, `Alerta atencion` con enlace a `/panel/identidad` y el botón
+  deshabilitado. Errores por campo bajo su `Campo`; 400 sin campo, 429 y 5xx en `Alerta error`. La contraseña se vacía tras
+  cada respuesta y el número solo vive en el estado del formulario (se limpia al guardar).
+- **`/panel/seguridad` (HU-17, `pages/cuentas/SeguridadCuenta.jsx`, con `RutaProtegida`):** "Seguridad de la cuenta"
+  (enlace desde `Panel` para los tres roles). Lee `obtenerMfa()`: inactivo → "Activar verificación en dos pasos"
+  (`iniciarConfiguracionMfa`, `ConfiguracionMfa.jsx`, `activarMfa`, `CodigosRespaldo.jsx`); activo → `Alerta exito` y
+  "Te quedan N códigos de respaldo."; si la API dice `desactivable`, `Boton peligro` "Desactivar" con `Modal`
+  `peligro-confirmar` (contraseña y código); si no (admin), "es obligatoria". No agrega componentes al kit, estados ni
+  colores.
 - **Rutas con sesión:** se envuelven en `<RutaProtegida>`; el estado
   `{ rol, aviso }` se lee con `useSesion()`. El rol solo elige qué mostrar.
+- **Volver tras el login (HU-12):** se navega a `/iniciar-sesion` con
+  `state: { retorno, mensaje, tipo }`, y `IniciarSesion.jsx` va a `state.retorno` o, si
+  no hay o no es válido, a `/panel`, en sus **dos** salidas (`<Navigate>` y `navegar`).
+  `sesion/retorno.js` (`retornoValido`) solo acepta rutas con una sola barra inicial; lo
+  usan `IniciarSesion` y `ProveedorSesion`. Va en el `state` de React
+  Router y no en la URL, para que un enlace no pueda forjar el destino. La ficha arma
+  `retorno` con la fecha en uso (`/espacios/${id}?fecha=${fecha}`), no copiando
+  `location`. `ProveedorSesion` agrega `retorno` (`pathname + search` de
+  `window.location`) cuando la sesión caduca (401 con token), en cualquier ruta salvo
+  el propio login. `RutaProtegida` aún no guarda el retorno. Los bloques elegidos no
+  se conservan al volver.
+- **`/reservas/:id` (HU-12, `pages/reservas/ResumenReserva.jsx`, con `RutaProtegida`):**
+  resumen con `EtiquetaEstado`, fecha, horario, precio, monto y `CuentaRegresiva`. Al
+  llegar a cero relee con `obtenerReserva(id)` y el servidor decide.
+- **Pagar (HU-13, en la misma pantalla):** el único primario es "Pagar", solo si la API dice `pagoDisponible`. Va a `urlPago`
+  con `window.location.assign`, en la misma pestaña, porque el token vive en `sessionStorage`. La pasarela vuelve a
+  `/reservas/:id?pago=exito|fallo`: ese parámetro **solo elige el mensaje** y nunca confirma nada. Con `?pago=exito` y la
+  reserva sin confirmar, relee cada 3 s, hasta 10 veces, sin "Se acabó el tiempo" ni "Pagar": quien pagó no debe pagar otra
+  vez.
+  HU-13 no muestra el estado del pago con `EtiquetaEstado`: HU-28 agregará al mapa los valores de la fila Pago.
+- **`/reservas/:id/pago-simulado` (HU-13 D9, `pages/pagos/PagoSimulado.jsx`, con `RutaProtegida`):** con la pasarela simulada,
+  "Pagar" lleva aquí en lugar de a un checkout. Hace de página de la pasarela: no tiene ningún campo, y sobre todo lo demás va
+  siempre la `Alerta atencion` que dice que es una simulación, que no se cobra nada ni se usa ninguna tarjeta. Tiene
+  **"Aprobar pago simulado"** como único primario y **"Rechazar pago simulado"** como secundario, y vuelve con `replace` a
+  `/reservas/:id?pago=exito|fallo`. Sin pago disponible no ofrece botones. **Solo el backend la habilita:** la pantalla se
+  decide con `GET …/pago/simulacion`, sin ninguna variable `VITE_`; con `mercadopago` la ruta existe en el build, pero la API
+  responde 404 y no muestra título, datos ni botones. No agrega componentes, estados ni colores.
+
+- **`/mis-reservas` y `/panel/reservas` (HU-14, `pages/reservas/MisReservas.jsx` y `ReservasDeMisEspacios.jsx`, con
+  `RutaProtegida`):** "Mis reservas" (enlace desde `Panel` para `USUARIO`) y "Reservas de mis espacios" (enlace junto a
+  "Mis espacios" para `ARRENDADOR`). Cada una tiene dos secciones, "Próximas" y "Pasadas", con
+  `pages/reservas/SeccionReservas.jsx` (no es del kit): pide la página 1 al montarse y, mientras la API diga `hayMas`,
+  muestra un `Boton secundario` "Ver más" que agrega la página siguiente sin repetir ids. El corte, el orden y el estado
+  los decide el servidor. Cada reserva es una `Tarjeta` con `EtiquetaEstado`, fecha, horario y monto (y "Reservado por"
+  para el arrendador). "Ver reserva" → `/reservas/:id` va en **todas** las del usuario, en cualquier estado (ahí están
+  "Pagar" y el aviso de pago no aplicado de HU-13); "Ver espacio" va a `/espacios/:id` (usuario) o `/panel/espacios/:id`
+  (arrendador). Lista vacía: texto secundario; error (p. ej. 403 por otro rol): `Alerta error` con el mensaje tal cual.
+- **Cancelar una reserva (HU-15, en las mismas dos pantallas):** solo en las `CONFIRMADA` de "Próximas", el `Boton peligro`
+  "Cancelar reserva" de `pages/reservas/CancelarReserva.jsx` (no es del kit) pide la vista previa (`obtenerCancelacion` u
+  `obtenerCancelacionDeMiEspacio`) y abre el `Modal` `peligro-confirmar` "¿Cancelar esta reserva?" con espacio, fecha,
+  horario, monto pagado y la línea del reembolso elegida por la `politica` de la API (el monto, en negrita, es el de la API).
+  "Sí, cancelar reserva" envía `montoReembolsoVisto` = el `montoReembolso` de la vista previa, sin tocarlo. Si la API dice
+  que el monto cambió, `Alerta atencion` dentro del modal y nueva vista previa; otro error, `Alerta error` bajo la tarjeta.
+  Tras cancelar, `Alerta exito` y un contador `recarga` como `key` de las dos secciones: la reserva pasa a Pasadas como
+  "Cancelada" (usuario) o desaparece (arrendador). No agrega componentes al kit, estados ni colores.
+- **`/admin/reembolsos` (HU-16, `pages/pagos/ReembolsosPorAtender.jsx`, con `RutaProtegida`):** "Reembolsos por atender"
+  (enlace desde `Panel` para `ADMIN`); otro rol vuelve a `/panel` con `Navigate` (la API igual responde 403). Lista lo que
+  devuelve `GET /api/admin/reembolsos` (`listarReembolsosPorAtender`): una `Tarjeta` por reembolso con "Reserva #N",
+  `EtiquetaEstado`, monto en negrita (`formatoPrecio`), origen, intentos y fechas (`fechaHora`). Cada tarjeta tiene un
+  `Boton secundario` "Reintentar" (hay varios: ninguno es primario) que abre el `Modal` `primario` "¿Reintentar el
+  reembolso?"; al confirmar, `reintentarReembolso(id)` con `cargando`. 200 `REEMBOLSADO` → `Alerta exito` "Reembolso de
+  S/ X realizado."; 200 `FALLIDO` → `Alerta error` "La pasarela volvió a fallar…"; 400/404 u otro error → `Alerta error`
+  con el mensaje tal cual. En los tres casos se cierra el modal y se recarga la lista. No agrega componentes al kit ni
+  colores; agrega los estados de la fila Reembolso.
+- **`/admin/liquidaciones` y `/admin/liquidaciones/:id` (HU-19, `pages/pagos/Liquidaciones.jsx` y
+  `DetalleLiquidacion.jsx`, con `RutaProtegida`):** "Liquidaciones" (enlace desde `Panel` para `ADMIN`); otro rol vuelve a
+  `/panel` (la API igual responde 403). La lista tiene el único `Boton primario` "Generar liquidación" con `Modal` `primario`
+  (`generarLiquidaciones`): con resultado `Alerta exito` "Se generaron N liquidaciones." ("Se generó 1 liquidación."), vacía
+  `Alerta info` "No hay reservas por liquidar.", error `Alerta error` tal cual; luego recarga las dos secciones "Por pagar" y
+  "Pagadas" (`pages/pagos/SeccionLiquidaciones.jsx`, no es del kit, como `SeccionReservas`; "Ver más" mientras `hayMas`). Cada
+  liquidación es una `Tarjeta` con el nombre del arrendador, `EtiquetaEstado`, periodo, bruto, "Comisión (10 %)", neto, número
+  de reservas, el aviso de simulada y los avisos del arrendador en texto, y "Ver detalle". El detalle muestra los avisos y la
+  simulada en `Alerta atencion`, la "Cuenta de destino" (completa solo si la API la trae, con "Cópialo para transferir. Esta
+  consulta queda registrada."; si no, enmascarada con su `EtiquetaEstado` y, si está retenida, la fecha; sin cuenta, `Alerta
+  atencion`), las reservas con `pages/pagos/LineasLiquidacion.jsx` (no es del kit) y, solo si `pagable`, el `Boton primario`
+  "Marcar como pagada" con `Modal` y un `Campo` "Número de operación" (`marcarLiquidacionPagada`, sin espacios extremos; el
+  error de campo va bajo el `Campo`, otro error cierra el modal con `Alerta error` y recarga). No agrega componentes al kit
+  ni colores.
+- **`/panel/liquidaciones` (HU-19, `pages/pagos/MisLiquidaciones.jsx`, con `RutaProtegida`):** "Mis liquidaciones" (enlace
+  desde `Panel` para `ARRENDADOR`, junto a "Cuenta bancaria"); otro rol vuelve a `/panel`. `listarMisLiquidaciones` de 20 en
+  20 con "Ver más". Cada liquidación es una `Tarjeta` "Liquidación del <periodo>" con `EtiquetaEstado`, bruto, comisión,
+  neto, sus reservas y: `PAGADA` → "Pagada el … · Operación N.º … · <banco> <cuenta enmascarada>"; `PENDIENTE_CUENTA` →
+  `Alerta atencion` con enlace a `/panel/cuenta-bancaria`; `GENERADA` → "En proceso de pago.". Sin totales acumulados (el
+  panel de ingresos está fuera del alcance).
 
 ## Accesibilidad mínima
 

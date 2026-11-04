@@ -70,3 +70,8 @@
 .archivo {
   cursor: pointer;
 }
+
+.texto {
+  resize: vertical;
+  line-height: var(--interlineado);
+}
