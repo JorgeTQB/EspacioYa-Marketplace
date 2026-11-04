@@ -52,6 +52,8 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/validaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/confirmaciones").permitAll()
+                        // Confirmación del correo nuevo (HU-20 D21): la autorización es el token del cuerpo. Solo POST.
+                        .requestMatchers(HttpMethod.POST, "/api/cambios-correo/confirmaciones").permitAll()
                         // La URL firmada es la autorización (HU-05, DT-3): el navegador la abre sin token.
                         .requestMatchers(HttpMethod.GET, "/api/archivos").permitAll()
                         // Fotos de espacios (HU-07, DT-4): públicas si el espacio está publicado; si no, el servicio

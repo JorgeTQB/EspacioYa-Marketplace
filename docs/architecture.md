@@ -165,7 +165,8 @@ para eso. HU-18 le agregó, para `pagos` (la dirección `pagos → cuentas` ya e
 `confirmarContrasena(usuario, contrasena) → boolean` (bcrypt contra el hash de la cuenta de la **sesión**; no cuenta
 intentos, lo hace el llamador con `LimitadorIntentos`; HU-20 y HU-22 pueden reutilizarlo) y `razonSocialDe(arrendadorId) →
 String` (solo la razón social del perfil, 404 sin perfil; nunca el documento, RNF-SEG-16). `NotificadorCorreo` ganó
-`notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)`. HU-19 le agregó, para `pagos`, `arrendadoresSinIdentidadVerificada(Collection<Long>) → Set<Long>`: de esos ids, los que no tienen perfil o cuyo `estado_identidad` no es `VERIFICADA`; una consulta por lote (`PerfilArrendadorRepository.idsConIdentidadVerificada`), colección vacía → `Set.of()` sin consultar, sin sesión ni rol y nunca datos del perfil.
+`notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)` (HU-20 le agregó dos métodos más, ver
+[Perfil](#perfil-qué-deja-hu-20-hu-22-hu-25-hu-06-hu-18)). HU-19 le agregó, para `pagos`, `arrendadoresSinIdentidadVerificada(Collection<Long>) → Set<Long>`: de esos ids, los que no tienen perfil o cuyo `estado_identidad` no es `VERIFICADA`; una consulta por lote (`PerfilArrendadorRepository.idsConIdentidadVerificada`), colección vacía → `Set.of()` sin consultar, sin sesión ni rol y nunca datos del perfil.
 
 ### Cuenta bancaria: qué deja HU-18 (HU-19, HU-22)
 
@@ -178,6 +179,38 @@ transferir a mano lo decide HU-19. **HU-22** anonimiza la fila (no hay cascada d
 /api/arrendadores/actual/cuenta-bancaria` (siempre `no-store`). El `PUT` exige rol `ARRENDADOR`, identidad verificada y la
 contraseña (5 fallos en 15 min por cuenta → 429); contraseña incorrecta es 400 y no 401 porque `api/cliente.js` borra el
 token ante un 401 con token.
+
+### Perfil: qué deja HU-20 (HU-22, HU-25, HU-06, HU-18)
+
+Todo vive en `cuentas`, con servicios concretos y **sin puertos nuevos** ni cambios en `CuentaService` (D20):
+`PerfilService` (consulta, nombre y teléfono, foto), `CambioCorreoService` (solicitud y confirmación del correo nuevo),
+`FacturacionService` (facturación del arrendador) y `ReautenticacionPerfil` (contraseña con `CuentaService.confirmarContrasena`
+y `LimitadorIntentos`: **5 fallos en 15 min por cuenta** con la clave `perfil|<id>`, compartida por el correo y la
+facturación; el fallo se audita `PERFIL_CONTRASENA_FALLIDA` fuera de transacción). Rutas (todas `no-store`, la cuenta sale
+de la sesión): `GET`/`PUT /api/usuarios/actual/perfil` (nombre y teléfono, sin contraseña), `GET`/`PUT`/`DELETE
+/api/usuarios/actual/foto` (JPG/PNG hasta 5 MiB, re-codificada y **cifrada** en `ArchivosPrivados`, carpeta `perfiles`; solo
+la ve su dueño, `nosniff`), `POST /api/usuarios/actual/cambios-correo` (contraseña; 202 genérico; **3 por cuenta por hora**),
+`POST /api/cambios-correo/confirmaciones` (**pública**, el token de 256 bits va en el cuerpo) y `PUT
+/api/arrendadores/actual/facturacion` (solo `ARRENDADOR`, contraseña). `ADMIN` recibe 403 en todo el perfil (D7).
+`NotificadorCorreo` ganó `notificarCambioCorreo(correoNuevo, enlace)` y `notificarAvisoCambioCorreo(correoActual,
+correoNuevoEnmascarado)`; el aviso al correo actual sale al **solicitar** (D2). El correo de la cuenta no cambia hasta
+confirmar (`usuario.correo_pendiente`, token `CAMBIO_CORREO` de 30 min); confirmar no revoca sesiones (D4). Un correo
+nuevo que ya tiene cuenta recibe la misma respuesta sin token ni enlace (RNF-SEG-13).
+
+**Volver a revisión (RN-02, D9–D12).** Una identidad `VERIFICADA` que cambia el documento (tipo o número) **o la razón
+social** pasa a `EN_REVISION` en la misma transacción; la dirección sola no. `EN_REVISION` rechaza cambiar documento o
+razón social; `NO_INICIADA`/`RECHAZADA` cambian sin cambiar de estado. Toda escritura bloquea `usuario → perfil_arrendador`
+(la decisión del admin bloquea solo `perfil_arrendador`: sin ciclo). Efectos: **HU-06** ve al arrendador en la cola con sus
+documentos vigentes y la fecha del envío original (D11); los espacios ya publicados **siguen visibles** y sus reservas
+siguen (D12), pero `EspacioService` no publica espacios nuevos, HU-18 no registra ni cambia la cuenta bancaria y HU-19 avisa
+al admin en las liquidaciones hasta que vuelva a `VERIFICADA`. `cuenta_bancaria.titular` **no** se actualiza (D14): HU-20 no
+escribe en `pagos`; al volver a guardar la cuenta ya verificada se toma la razón social nueva. Un documento de otro
+arrendador da un 400 genérico y cuenta como fallo en `perfil|<id>` (D13).
+
+**Para las que siguen.** **HU-22** exporta `correo_pendiente` y si hay foto; al anonimizar borra `correo_pendiente`,
+`foto_ruta`/`foto_tipo_mime` **y el archivo** de `ArchivosPrivados`, anula los tokens `CAMBIO_CORREO` y puede reutilizar
+`ReautenticacionPerfil` (o su patrón) para su contraseña. **HU-25** implementa los dos métodos nuevos de
+`NotificadorCorreo` en el adaptador real; el tipo de token `VERIFICACION` sigue libre para el correo de registro.
 
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
@@ -523,7 +556,8 @@ si es el correo o la identidad.
 En el modelo de datos se reparten en `usuario.correo_verificado`,
 `usuario.estado` (`ACTIVA`, `SUSPENDIDA`, `ELIMINADA`) y
 `perfil_arrendador.estado_identidad` (`NO_INICIADA`, `EN_REVISION`,
-`VERIFICADA`, `RECHAZADA`).
+`VERIFICADA`, `RECHAZADA`). Además de las decisiones del admin (HU-06), `VERIFICADA` → `EN_REVISION` cuando el
+arrendador cambia su documento o su razón social en el perfil (HU-20, RN-02); en revisión no puede cambiarlos.
 
 - **Espacio:** `BORRADOR` → `PUBLICADO` (requiere identidad verificada) ⇄
   `PAUSADO`; `PUBLICADO` → `BAJA`; `OCULTO` por moderación (HU-27). Si el

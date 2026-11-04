@@ -48,4 +48,20 @@ class TokenTest {
 
         assertThat(token.fueUsado()).isTrue();
     }
+
+    @Test
+    @DisplayName("HU-20 R25, R32: token CAMBIO_CORREO con el hash, creado ahora, vence en 30 min y sin usar")
+    void cambioCorreoFijaTipoYVigencia() {
+        var token = Token.cambioCorreo(9L, HASH, AHORA);
+
+        assertThat(token.getUsuarioId()).isEqualTo(9L);
+        assertThat(token.getTipo()).isEqualTo(TipoToken.CAMBIO_CORREO);
+        assertThat(token.getHashToken()).isEqualTo(HASH);
+        assertThat(token.getCreadoEn()).isEqualTo(AHORA);
+        assertThat(Token.VIGENCIA_CAMBIO_CORREO).isEqualTo(Duration.ofMinutes(30));
+        assertThat(token.getExpiraEn()).isEqualTo(AHORA.plus(Duration.ofMinutes(30)));
+        assertThat(token.fueUsado()).isFalse();
+        assertThat(token.expiro(AHORA.plus(Duration.ofMinutes(30)))).isTrue();
+        assertThat(token.expiro(AHORA.plus(Duration.ofMinutes(29)))).isFalse();
+    }
 }

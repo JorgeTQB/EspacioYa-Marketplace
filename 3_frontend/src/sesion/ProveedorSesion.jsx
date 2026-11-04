@@ -46,7 +46,19 @@ function ProveedorSesion({ children }) {
 
   const entrar = useCallback(({ rol, aviso }) => setSesion({ rol, aviso }), [])
   const salir = useCallback(() => setSesion(null), [])
-  const valor = useMemo(() => ({ sesion, cargando, entrar, salir }), [sesion, cargando, entrar, salir])
+  // HU-20: tras un cambio que mueve el aviso (p. ej. la identidad vuelve a revisión). Si falla, la sesión queda igual.
+  const refrescar = useCallback(async () => {
+    try {
+      const datos = await obtenerSesionActual()
+      setSesion({ rol: datos.rol, aviso: datos.aviso })
+    } catch {
+      // Un 401 ya lo maneja alPerderSesion; ante otro error se conserva lo que había.
+    }
+  }, [])
+  const valor = useMemo(
+    () => ({ sesion, cargando, entrar, salir, refrescar }),
+    [sesion, cargando, entrar, salir, refrescar],
+  )
 
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>
 }

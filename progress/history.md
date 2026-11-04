@@ -1306,3 +1306,49 @@
 - **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (1358 unitarias y 794
   IT, 0 fallos, errores ni omitidas; ESLint limpio y build OK; único WARN, llaves de cifrado locales, ajeno). Status →
   `done`. Todo sin commitear.
+
+## 2026-11-04 — HU-20 Edición de perfil (done)
+
+- **Dueña:** Adriana Callupe · **Tester:** Sebastian Garate · **Rama:** `feature/HU-20-edicion-perfil` · **Agentes:**
+  orquestador → explorador → spec-author → implementer → reviewer (2 vueltas).
+- **Spec:** `specs/HU-20/` (R1–R52, T1–T24, D1–D22), aprobado por Adriana Callupe el 2026-11-04 sin cambios. Exploración en
+  `progress/explore_HU-20.md`.
+- **Cambios:** migración `V6_1__perfil_usuario.sql` (`usuario.correo_pendiente`, `foto_ruta`, `foto_tipo_mime`,
+  `ck_usuario_correo_pendiente`, `ck_usuario_foto`, token `CAMBIO_CORREO`). En `cuentas`: `PerfilService`,
+  `CambioCorreoService`, `FacturacionService`, `ReautenticacionPerfil` (5 fallos / 15 min por cuenta, `perfil|<id>`),
+  `PerfilController`, `ConfirmacionCorreoController` (pública), `FacturacionController`, 6 DTO, `CampoFacturacion`,
+  `CambioFacturacion`, `MotivoRechazoCambioCorreo`; `Usuario`, `PerfilArrendador`, `Token`, `TipoToken` y
+  `NotificadorCorreo` (+ simulado y 7 dobles de prueba) ampliados; `permitAll` de `POST /api/cambios-correo/confirmaciones`.
+  Sin puertos nuevos ni dependencias nuevas. Frontend: `pages/cuentas/Perfil.jsx` (`/panel/perfil`) y
+  `ConfirmarCorreo.jsx` (`/confirmar-correo`), 8 funciones en `api/cuentas.js`, `ProveedorSesion.refrescar()`, enlace
+  "Mi perfil" en `Panel`. Docs: `modelo-datos`, `requerimientos` (RNF-SEG-17 con los dos límites nuevos y nota D9 en
+  RN-02), `architecture` (sección "Perfil: qué deja HU-20") y `frontend`.
+- **Tests:** 136 con `@DisplayName("HU-20 …")` entre unitarias (`ReautenticacionPerfilTest`, `PerfilServiceTest`,
+  `CambioCorreoServiceTest`, `FacturacionServiceTest`, `PerfilDTOValidacionTest` y ampliaciones de dominio) e IT
+  (`PerfilUsuarioMigracionIT`, `PerfilControllerIT`, `CambioCorreoControllerIT`, `FacturacionControllerIT`, base
+  `PerfilSoporte`). R1–R52 trazados en `progress/impl_HU-20.md`.
+- **Desvíos aceptados por el reviewer:** `IS NOT NULL` explícito en `ck_usuario_foto` (hueco de NULL del design);
+  `ValidacionException` para R10; re-chequeo de "mismo correo" dentro de la transacción; en `EN_REVISION` la pantalla muestra
+  documento y razón social como texto; `MockMvcPrint.NONE` en las IT para verificar R46; correo con espacios → 400 por
+  `@Email`; `confirmar` bloquea `usuario` antes de marcar el token (O1, design § 6).
+- **Review:** vuelta 1 `CHANGES_REQUESTED`: `./init.sh` dio exit 1 por una carrera intermitente en
+  `CambioCorreoService.confirmar` (se auditaba `CUENTA_NO_HABILITADA` en vez de `TOKEN_USADO`). Se corrigió revisando el
+  correo pendiente solo dentro de la transacción tras `marcarUsado`, y `confirmacionesSimultaneas` pasó a
+  `@RepeatedTest(10)` (30/30 en verde). Vuelta 2 `APPROVED`.
+- **Pendientes para la dueña (observaciones no bloqueantes del review):**
+  - **O2 (R35):** un `numeroDocumento` inválido junto con otro campo inválido de Bean Validation solo devuelve los errores
+    de Bean Validation, porque `ValidadorDocumento` corre después en el servicio (orden que fija el design § 4). "Un error
+    por cada campo inválido" se cumple por etapas.
+  - **O3:** en `FacturacionService.actualizar`, cualquier `DataIntegrityViolationException` de la transacción, y no solo
+    la de `uq_perfil_arrendador_hash_documento`, se trata como "documento en uso" y cuenta un fallo. Convendría filtrar
+    por el nombre de la restricción.
+  - No consta la prueba en el navegador de `/panel/perfil` y `/confirmar-correo`. Sin correo real (HU-25), el enlace se
+    ve en el log con `CORREO_SIMULADO_REGISTRAR_ENLACE=true`.
+  - Si HU-21 o HU-22 llegan antes a `develop` con una `V6_1`, renombrar `V6_1__perfil_usuario.sql` al siguiente número libre.
+- **Lo que HU-20 deja para otras historias:** HU-22 (Kevin Chan) debe exportar y anonimizar `correo_pendiente`, la foto
+  (también el archivo en `ArchivosPrivados`) y los tokens `CAMBIO_CORREO`, y puede reutilizar `ReautenticacionPerfil`.
+  HU-25 implementa `notificarCambioCorreo` y `notificarAvisoCambioCorreo` en el adaptador real. HU-06 recibe en la cola a
+  los arrendadores devueltos a revisión, con sus documentos vigentes (D11). `cuenta_bancaria.titular` no se actualiza al
+  cambiar la razón social (D14).
+- **Resultado:** `./init.sh` completo en verde tras la vuelta 1, en la máquina del implementer y en la del revisor
+  (1438 unitarias y 859 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
