@@ -731,4 +731,23 @@ class CuentaServiceImplTest {
         assertThat(servicio.nombres(List.of())).isEmpty();
         verifyNoInteractions(usuarios);
     }
+
+    @Test
+    @DisplayName("HU-19 R37: arrendadoresSinIdentidadVerificada devuelve los no VERIFICADA y los sin perfil, en una "
+            + "consulta")
+    void sinIdentidadVerificada() {
+        when(perfiles.idsConIdentidadVerificada(Set.of(1L, 2L, 3L))).thenReturn(List.of(1L));
+
+        assertThat(servicio.arrendadoresSinIdentidadVerificada(List.of(1L, 2L, 3L, 2L)))
+                .containsExactlyInAnyOrder(2L, 3L);
+        verify(perfiles).idsConIdentidadVerificada(Set.of(1L, 2L, 3L));
+        verifyNoInteractions(usuarios, documentos, archivos, notificador, sesiones);
+    }
+
+    @Test
+    @DisplayName("HU-19 R37: arrendadoresSinIdentidadVerificada con una colección vacía devuelve vacío sin consultar")
+    void sinIdentidadVerificadaVacio() {
+        assertThat(servicio.arrendadoresSinIdentidadVerificada(List.of())).isEmpty();
+        verifyNoInteractions(perfiles);
+    }
 }

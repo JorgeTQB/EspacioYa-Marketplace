@@ -97,6 +97,14 @@ public class CuentaBancaria {
         return enmascarar(numero);
     }
 
+    /**
+     * Número completo descifrado. Es el único acceso a él: solo para el detalle admin de una liquidación pagable
+     * (HU-19 D4), que lo audita. Nunca a un log, a la auditoría ni a otra respuesta.
+     */
+    public String numeroParaTransferir() {
+        return numero;
+    }
+
     public static String enmascarar(String numero) {
         var visibles = numero.substring(Math.max(0, numero.length() - DIGITOS_VISIBLES));
         return "****" + visibles;

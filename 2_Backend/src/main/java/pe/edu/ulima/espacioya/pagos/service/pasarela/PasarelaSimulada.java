@@ -41,7 +41,6 @@ public class PasarelaSimulada implements PasarelaPago {
     private static final String ULTIMOS4_SIMULADOS = "4242";
     private static final String PANTALLA_SIMULADA = "/pago-simulado";
     private static final int BYTES_TOKEN = 32;
-    private static final String PREFIJO_SIMULADO = "sim-";
     private static final String PREFIJO_REEMBOLSO = "sim-reembolso-";
 
     private final Map<String, BigDecimal> montos = new ConcurrentHashMap<>();
@@ -64,7 +63,7 @@ public class PasarelaSimulada implements PasarelaPago {
     public NotificacionRecibida notificacionDe(Long reservaId, BigDecimal monto, ResultadoPasarela resultado,
                                                long intento) {
         montos.put(reservaId.toString(), monto);
-        var id = "sim-" + reservaId + "-" + resultado.name() + "-" + intento;
+        var id = ReglasPago.PREFIJO_SIMULADO + reservaId + "-" + resultado.name() + "-" + intento;
         return new NotificacionRecibida(Map.of("type", "payment", "data.id", id), Map.of("x-signature", tokenInterno));
     }
 
@@ -115,7 +114,7 @@ public class PasarelaSimulada implements PasarelaPago {
 
     @Override
     public ReembolsoRealizado reembolsar(SolicitudReembolsoPasarela solicitud) {
-        if (!solicitud.idTransaccion().startsWith(PREFIJO_SIMULADO)) {
+        if (!solicitud.idTransaccion().startsWith(ReglasPago.PREFIJO_SIMULADO)) {
             throw new ServicioExternoException();
         }
         var clave = solicitud.claveIdempotencia();

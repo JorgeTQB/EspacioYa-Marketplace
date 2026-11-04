@@ -1188,3 +1188,121 @@
   `NotificadorCorreo` en las IT existentes. R1-R25 con test (mapa en `progress/impl_HU-18.md`).
 - **Resultado:** `./init.sh` completo en verde (1243 unitarias y 755 IT, 0 fallos; ESLint y build OK; JDK 25). Status →
   `done`. Todo sin commitear.
+
+## 2026-11-04 — HU-19 Liquidación semanal al arrendador (done)
+
+- **Dueño:** Eduardo Saldaña · **Tester:** Ariel Enriquez · **Rama:** `feature/HU-19-liquidacion-semanal` (desde
+  `develop` en `670aacf`, tras avanzar `develop` local por fast-forward con HU-16, HU-17 y HU-18) · **Fecha:**
+  2026-11-04. Sin commit ni push: el dueño revisa y abre el PR hacia `develop`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-19.md`, 18 decisiones abiertas P1–P18) → spec-author
+  (`specs/HU-19/`, R1–R48 en EARS, T1–T29) → aprobación del dueño → implementer (`progress/impl_HU-19.md`) → reviewer
+  (`APPROVED` con observaciones no bloqueantes, `progress/review_HU-19.md`) → implementer, cierre.
+- **Spec aprobado por:** Eduardo Saldaña el 2026-11-04, con las decisiones de producto D1–D8 y los supuestos técnicos
+  S1–S15.
+- **Decisiones del dueño (D1–D8):**
+  - D1 (P1): cada generación liquida todo lo pendiente (reservas usadas hace más de 48 h y no liquidadas); la
+    semana/fecha de generación es solo informativa (`periodo`).
+  - D2 (P3): las filas `sim-` se incluyen solo con `espacioya.pagos.pasarela=simulada` y se marcan como simuladas en la
+    UI y la auditoría.
+  - D3 (P5): la reserva cancelada sin reembolso (< 48 h) se liquida al arrendador cuando pasan 48 h desde su fin.
+    **Sin confirmar por el PO** (CA1 literal la excluye); riesgo RK-1 de `design.md` § 17.
+  - D4 (P10): el admin ve el número de cuenta completo solo en el detalle de una liquidación por pagar (`no-store`, cada
+    consulta auditada); en listas, enmascarado.
+  - D5 (P11): la retención de 72 h (RN-11) bloquea "marcar como pagada" con mensaje y la fecha `retenerHasta`.
+  - D6 (P12): al arrendador suspendido o con identidad no verificada se le liquida igual; el admin ve un aviso.
+  - D7 (P13): una `PENDIENTE_CUENTA` puede marcarse pagada directamente si ahora hay cuenta (se revalida); las reservas
+    nuevas van a una liquidación nueva.
+  - D8 (P16): sin correos; HU-19 deja la consulta "¿tiene liquidaciones pendientes?" para HU-22.
+- **Supuestos técnicos aceptados (S1–S15, `specs/HU-19/requirements.md`):**
+  - S1 (P2): fin de la reserva = último bloque + 1 h en `America/Lima` sobre todas sus filas de `reserva_bloque`;
+    liquidable si `corte ≥ fin + 48 h` (borde inclusivo al segundo). HU-26 abre reclamos solo si `ahora < fin + 48 h`.
+  - S2 (P4): bruto = `pago.monto` del pago `PAGADO` (igual a `reserva.monto_total`), leído dentro de `pagos`.
+  - S3 (P6): solo cuenta un pago `PAGADO` sin ninguna fila de `reembolso`; `PAGADO_TARDIO`, `MONTO_DISTINTO`,
+    `RECHAZADO`, `REEMBOLSADO` y `REEMBOLSO_FALLIDO` no cuentan; un reembolso parcial por reclamo (HU-26) deja la reserva
+    fuera entera.
+  - S4 (P7): comisión 10 % fija sobre el bruto total, escala 2, `HALF_UP`; `neto = bruto − comisión`; un `CHECK` la fija.
+  - S5 (P8): un segundo clic solo crea si hay reservas nuevas (si no, 200 con lista vacía); sin límite por periodo;
+    generaciones simultáneas serializadas con `pg_advisory_xact_lock` y `uq_liquidacion_detalle_reserva` como última
+    defensa.
+  - S6 (P9): puerto `pagos.ReservasLiquidables.describir(reservaIds)`; la regla de las 48 h vive en `pagos`; se agrega
+    `CatalogoEspaciosService.arrendadoresDe(espacioIds)`.
+  - S7 (P10): al pagar se guardan banco y número enmascarado; con la cuenta retenida el detalle no entrega el número
+    completo.
+  - S8 (P14): número de operación obligatorio, 4–30 letras, dígitos y guiones, no único, inmutable; fecha y admin los
+    pone el servidor.
+  - S9 (P15): admin con grupos `por-pagar` (más antigua primero) y `pagadas` (más reciente primero), 20 por página con
+    `hayMas`; arrendador, más reciente primero, 20 por página; sin totales de ingresos.
+  - S10 (P17): HU-19 no define `pagos.ReclamosAbiertos`; lo agrega HU-26 como filtro en `GeneradorLiquidaciones`.
+  - S11 (P18): `liquidacion_detalle` guarda `reserva_id` (único), `pago_id` (único), `monto` y `simulado`.
+  - S12 (D6): avisos calculados al leer (`arrendadoresNoActivos` y nuevo `arrendadoresSinIdentidadVerificada`); la
+    auditoría de la generación guarda los del momento.
+  - S13 (D8): "pendiente" para HU-22 = liquidación `GENERADA` o `PENDIENTE_CUENTA`; las reservas pagadas aún no
+    liquidadas no cuentan.
+  - S14: el `POST` de generación responde 200 (no 201), también sin nada creado.
+  - S15: nombre del arrendador con `CuentaService.nombres(ids)`, o "Arrendador #<id>"; nunca correo, teléfono ni
+    documento.
+- **Cambios:**
+  - Migración `V5_3__liquidacion.sql` (tablas `liquidacion` y `liquidacion_detalle`, CHECK de montos y estados,
+    `uq_liquidacion_detalle_reserva` y `uq_liquidacion_detalle_pago`).
+  - Dominio `pagos`: `Liquidacion`, `LiquidacionDetalle`, `EstadoLiquidacion`, `MotivoNoPagable`, `AvisoArrendador`,
+    `ReglasLiquidacion`; `ReglasPago.PREFIJO_SIMULADO` pública (la usa `PasarelaSimulada`, sin cambio de conducta);
+    `CuentaBancaria.numeroParaTransferir()` (único acceso al número completo).
+  - Repositorios: `LiquidacionRepository`, `LiquidacionDetalleRepository`, `PagoRepository.pagadosSinLiquidar`.
+  - Puerto `pagos.service.puertos.ReservasLiquidables` (+ `ReservaLiquidable`), implementado en
+    `reservas/service/impl/ReservasLiquidablesImpl`.
+  - Servicios: `GeneradorLiquidaciones`, `VistaLiquidaciones`, `LiquidacionAdminService`, `MisLiquidacionesService`
+    (con `tieneLiquidacionesPendientes` para HU-22). DTO `MarcarLiquidacionPagadaDTO`, `GeneracionLiquidacionesDTO`,
+    `LiquidacionAdminDTO`, `LiquidacionAdminDetalleDTO`, `CuentaDestinoDTO`, `PagoLiquidacionDTO`,
+    `LineaLiquidacionDTO`, `MiLiquidacionDTO`, `PaginaLiquidacionesDTO`.
+  - API: `LiquidacionAdminController` (`/api/admin/liquidaciones`: generar, listar, detalle, marcar pagada) y
+    `MisLiquidacionesController`, todas `no-store`.
+  - Módulos de otros dueños (solo métodos nuevos, `design.md` § 14): `espacios`
+    (`CatalogoEspaciosService.arrendadoresDe`), `cuentas` (`CuentaService.arrendadoresSinIdentidadVerificada`,
+    `PerfilArrendadorRepository.idsConIdentidadVerificada`), `reservas` (`Reserva.admiteLiquidacion`,
+    `ReservaConHorario.instanteDeFin`) y `pagos.CuentaBancaria` de HU-18.
+  - Frontend: `api/pagos.js`, `EtiquetaEstado` (`GENERADA`, `PENDIENTE_CUENTA`, `PAGADA`), `textosPagos.js`,
+    `pages/pagos/Liquidaciones`, `DetalleLiquidacion`, `MisLiquidaciones`, `SeccionLiquidaciones`, `LineasLiquidacion`
+    (+ `.module.css`); rutas `/admin/liquidaciones`, `/admin/liquidaciones/:id` y `/panel/liquidaciones` en `App.jsx`;
+    enlaces en `Panel.jsx`.
+  - Docs: `docs/architecture.md` (fila del puerto, métodos nuevos, sección "Liquidación: qué deja HU-19"),
+    `docs/modelo-datos.md` (columnas, restricciones y ER), `docs/frontend.md` (estados y rutas).
+- **Tests:** nuevos `ReglasLiquidacionTest`, `LiquidacionTest`, `MarcarLiquidacionPagadaDTOTest`,
+  `GeneradorLiquidacionesTest`, `LiquidacionAdminServiceTest`, `MisLiquidacionesServiceTest`,
+  `ReservasLiquidablesImplTest`, `LiquidacionRepositoryIT`, `LiquidacionAdminControllerIT`,
+  `MisLiquidacionesControllerIT`, `LiquidacionCancelacionIT`, `LiquidacionConcurrenciaIT` (dos hilos, 3 rondas) y el
+  soporte `LiquidacionesSoporte`; ampliados `CuentaBancariaTest`, `ReservaTest`, `ReservaConHorarioTest`,
+  `CatalogoEspaciosServiceImplTest`, `CuentaServiceImplTest` y `PagosSoporte.limpiar` (borra `liquidacion_detalle` y
+  `liquidacion` primero). R1–R48 con test (mapa en `progress/impl_HU-19.md`).
+- **Incidencias de la sesión:** el primer `./init.sh --rapido` falló por clases viejas en `2_Backend/target`
+  (`VerificadorMfaTest`, `NoClassDefFoundError: RelojControlable`); se resolvió con `mvnw clean`. Docker Desktop estaba
+  apagado al empezar la implementación y se encendió (~30 s) para las `*IT`. Las IT de HU-19 necesitaron dos ajustes de
+  prueba: la sesión del admin ya audita (se compara contra el conteo previo) y Jackson serializa los nulos.
+- **Review:** `APPROVED` con observaciones no bloqueantes, sin defectos ni cambios requeridos; C1–C4 y C6 en verde.
+- **Pendientes para el dueño:**
+  - **Confirmar D3 con Ariel Enriquez (PO)**, porque CA1 literal excluye las reservas canceladas. Si la rechaza: quitar
+    el caso `CANCELADA` de `Reserva.admiteLiquidacion`, retirar R11 y sus pruebas y ajustar R10.
+  - **Observaciones no bloqueantes del review:** `progress/review_HU-19.md` cita O2, O3, O7 y O9 pero no trae una
+    sección con su texto; se anotan según dónde se citan. O2 (R40): "ni en los logs" se verificó por inspección, no
+    con una prueba. O3 (R47): la consulta para HU-22 (`tieneLiquidacionesPendientes`) se cubre con
+    `MisLiquidacionesServiceTest.pendientesParaHu22` y `LiquidacionRepositoryIT.delArrendador`; nadie la usa hasta
+    HU-22. O7: D3 pendiente del PO. O9 (R48): "sin correos" se comprueba por la ausencia de `NotificadorCorreo` en los
+    cuatro servicios. El
+    único `[WARN]` de `./init.sh` (faltan `CIFRADO_LLAVE`, `CIFRADO_LLAVE_HUELLA` y `ALMACENAMIENTO_LLAVE_FIRMA` para
+    `spring-boot:run` local) es del entorno y ajeno a HU-19.
+  - **No consta la prueba del dueño en el navegador:** recorrer `/admin/liquidaciones`, `/admin/liquidaciones/:id` y
+    `/panel/liquidaciones` (generar con y sin reservas maduras, detalle con la cuenta completa, marcar pagada con número
+    inválido y con cuenta retenida y su fecha, "Mis liquidaciones" con `PAGADA`, `PENDIENTE_CUENTA` y `GENERADA`).
+  - En UAT todas las liquidaciones salen `simulada` (RK-2), y para demostrar CA1 hay que esperar 48 h tras el fin de
+    una reserva (no se puede mover el reloj).
+- **Lo que HU-19 deja para HU-22 (Kevin Chan):** `MisLiquidacionesService.tieneLiquidacionesPendientes(arrendadorId)`
+  (`GENERADA` o `PENDIENTE_CUENTA`, S13); `liquidacion` no tiene cascada, así que HU-22 debe decidir qué pasa con las
+  liquidaciones al borrar una cuenta. `Reserva.admiteLiquidacion()` depende de `estado`, `canceladaPor` y
+  `montoReembolso`: si RN-06 o la forma de guardar `monto_reembolso` cambian, hay que revisarlo.
+- **Avisos a otros dueños:** Sebastian Garate (`arrendadoresDe`), Jorge Quispe (`arrendadoresSinIdentidadVerificada`),
+  Adriana Callupe (`ReservaConHorario.instanteDeFin`), Ariel Enriquez (`numeroParaTransferir`; para HU-26, reclamo solo
+  si `ahora < fin + 48 h` con `ReglasLiquidacion.ESPERA`, y el filtro `pagos.ReclamosAbiertos` va en
+  `GeneradorLiquidaciones`). Las IT que borren `pago`, `reserva`, `perfil_arrendador` o `usuario` y lleguen a crear
+  liquidaciones deben borrar antes `liquidacion_detalle` y `liquidacion`.
+- **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (1358 unitarias y 794
+  IT, 0 fallos, errores ni omitidas; ESLint limpio y build OK; único WARN, llaves de cifrado locales, ajeno). Status →
+  `done`. Todo sin commitear.

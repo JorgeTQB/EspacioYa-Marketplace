@@ -263,6 +263,17 @@ public class CuentaServiceImpl implements CuentaService {
                 .orElseThrow(RecursoNoEncontradoException::new);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Long> arrendadoresSinIdentidadVerificada(Collection<Long> arrendadorIds) {
+        if (arrendadorIds.isEmpty()) {
+            return Set.of();
+        }
+        var pedidos = Set.copyOf(arrendadorIds);
+        var verificados = Set.copyOf(perfiles.idsConIdentidadVerificada(pedidos));
+        return pedidos.stream().filter(id -> !verificados.contains(id)).collect(Collectors.toUnmodifiableSet());
+    }
+
     // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).
     // Orden fijo: existe (404) → gestionable (400) → estado (400, lo comprueba cada llamador).
     private Usuario paraCambiarEstado(Long cuentaId) {

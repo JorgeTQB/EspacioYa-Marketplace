@@ -49,8 +49,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Base de las IT de pagos: PostgreSQL real, reloj controlable que empieza el miércoles 2026-10-28 a las 10:00 de Lima y
- * un doble de {@link NotificadorCorreo} que guarda los correos. Limpia {@code pago} antes que {@code reserva}: no tiene
- * cascada. Cada test usa su propia IP (10.15.x.x).
+ * un doble de {@link NotificadorCorreo} que guarda los correos. Limpia {@code liquidacion_detalle},
+ * {@code liquidacion} y {@code pago} antes que {@code reserva}: no tienen cascada. Cada test usa su propia IP (10.15.x.x).
  */
 abstract class PagosSoporte {
 
@@ -232,6 +232,9 @@ abstract class PagosSoporte {
 
     @AfterEach
     void limpiar() {
+        // HU-19: las liquidaciones apuntan a reserva, pago, perfil y usuario, sin cascada.
+        jdbc.update("DELETE FROM liquidacion_detalle");
+        jdbc.update("DELETE FROM liquidacion");
         jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM pago");
         jdbc.update("DELETE FROM reserva");

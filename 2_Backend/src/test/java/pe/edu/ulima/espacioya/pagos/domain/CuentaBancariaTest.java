@@ -90,6 +90,16 @@ class CuentaBancariaTest {
     }
 
     @Test
+    @DisplayName("HU-19 R38: numeroParaTransferir devuelve el número completo vigente, también tras un cambio")
+    void numeroParaTransferir() {
+        var cuenta = cuenta();
+
+        assertThat(cuenta.numeroParaTransferir()).isEqualTo("00112233445566778899");
+        cuenta.cambiar("Otro Banco", "99887766554433221100", "Canchas SAC", AHORA);
+        assertThat(cuenta.numeroParaTransferir()).isEqualTo("99887766554433221100");
+    }
+
+    @Test
     @DisplayName("HU-18 R20: el número cifrado se declara con el convertidor de cifrado de campos")
     void numeroConConvertidorCifrado() throws Exception {
         var campo = CuentaBancaria.class.getDeclaredField("numero");

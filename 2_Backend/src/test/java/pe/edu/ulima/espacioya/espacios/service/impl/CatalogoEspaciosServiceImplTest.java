@@ -291,4 +291,25 @@ class CatalogoEspaciosServiceImplTest {
         assertThat(servicio.nombresDelArrendador(null)).isEmpty();
         verifyNoInteractions(espacios);
     }
+
+    @Test
+    @DisplayName("HU-19 R7: arrendadoresDe da el arrendador de cada espacio en cualquier estado, en una consulta")
+    void arrendadoresDeSinFiltro() {
+        var deOtro = enEstado(3L, EstadoEspacio.OCULTO);
+        ReflectionTestUtils.setField(deOtro, "arrendadorId", 8L);
+        when(espacios.findAllById(Set.of(1L, 2L, 3L, 99L))).thenReturn(List.of(enEstado(1L, EstadoEspacio.BAJA),
+                enEstado(2L, EstadoEspacio.PAUSADO), deOtro));
+
+        assertThat(servicio.arrendadoresDe(List.of(1L, 2L, 3L, 99L, 1L)))
+                .containsOnly(Map.entry(1L, 7L), Map.entry(2L, 7L), Map.entry(3L, 8L));
+        verify(espacios).findAllById(Set.of(1L, 2L, 3L, 99L));
+        verifyNoInteractions(cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-19 R7: arrendadoresDe con una colección vacía devuelve vacío sin consultar")
+    void arrendadoresDeVacio() {
+        assertThat(servicio.arrendadoresDe(List.of())).isEmpty();
+        verifyNoInteractions(espacios);
+    }
 }

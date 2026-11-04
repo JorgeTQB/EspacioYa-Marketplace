@@ -29,4 +29,20 @@ class ReservaConHorarioTest {
 
         assertThat(horario.instanteDeInicio()).isEqualTo(Instant.parse("2026-11-02T05:00:00Z"));
     }
+
+    @Test
+    @DisplayName("HU-19 R8: el fin se toma en America/Lima (UTC−5): último bloque + 1 h")
+    void instanteDeFinEnLima() {
+        var horario = new ReservaConHorario(RESERVA, LocalDate.of(2026, 10, 30), 14, 17);
+
+        assertThat(horario.instanteDeFin()).isEqualTo(Instant.parse("2026-10-30T22:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("HU-19 R8: con horaFin = 24 el fin es la medianoche de Lima del día siguiente")
+    void instanteDeFinConHoraFin24() {
+        var horario = new ReservaConHorario(RESERVA, LocalDate.of(2026, 10, 31), 22, 24);
+
+        assertThat(horario.instanteDeFin()).isEqualTo(Instant.parse("2026-11-01T05:00:00Z"));
+    }
 }

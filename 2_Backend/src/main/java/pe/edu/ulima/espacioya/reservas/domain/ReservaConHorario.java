@@ -32,6 +32,11 @@ public record ReservaConHorario(Reserva reserva, LocalDate fecha, int horaInicio
         return fecha.atStartOfDay().plusHours(horaFin);
     }
 
+    /** {@link #fin()} en America/Lima como instante (HU-19 S1); con {@code horaFin = 24}, 00:00 del día siguiente. */
+    public Instant instanteDeFin() {
+        return fin().atZone(ZonaHoraria.LIMA).toInstant();
+    }
+
     /**
      * Estado leído {@code PENDIENTE_PAGO} (vigente) o {@code CONFIRMADA} y fin posterior a {@code ahoraLocal} (D2, R22,
      * R23). Una vencida se lee {@code EXPIRADA} con {@code estadoEn}, así que va a pasadas aunque su fila siga pendiente.

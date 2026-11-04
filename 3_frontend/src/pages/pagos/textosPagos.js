@@ -60,3 +60,82 @@ export const ENLACE_CUENTA_BANCARIA = 'Cuenta bancaria'
 export function retenidaHasta(fecha) {
   return `Retenida hasta el ${fecha}.`
 }
+
+// HU-19. Solo textos: montos, estados y avisos los decide el servidor.
+export const CARGANDO_LIQUIDACIONES = 'Cargando…'
+export const BOTON_VER_MAS_LIQUIDACIONES = 'Ver más'
+export const ENLACE_LIQUIDACIONES = 'Liquidaciones'
+export const ENLACE_MIS_LIQUIDACIONES = 'Mis liquidaciones'
+export const TITULO_LIQUIDACIONES = 'Liquidaciones'
+export const DESCRIPCION_LIQUIDACIONES =
+  'Cada generación liquida las reservas usadas hace más de 48 horas que aún no se liquidaron. Los montos los calcula el sistema.'
+export const BOTON_GENERAR_LIQUIDACION = 'Generar liquidación'
+export const TITULO_MODAL_GENERAR = '¿Generar la liquidación?'
+export const BOTON_CONFIRMAR_GENERAR = 'Generar'
+export const SIN_RESERVAS_POR_LIQUIDAR = 'No hay reservas por liquidar.'
+export const SECCION_POR_PAGAR = 'Por pagar'
+export const SECCION_PAGADAS = 'Pagadas'
+export const SIN_POR_PAGAR = 'No hay liquidaciones por pagar.'
+export const SIN_PAGADAS = 'Aún no hay liquidaciones pagadas.'
+export const ETIQUETA_BRUTO = 'Bruto'
+export const ETIQUETA_COMISION = 'Comisión (10 %)'
+export const ETIQUETA_NETO = 'Neto'
+export const ENLACE_VER_DETALLE = 'Ver detalle'
+export const ENLACE_VOLVER_LIQUIDACIONES = 'Volver a liquidaciones'
+export const AVISOS_ARRENDADOR = {
+  CUENTA_NO_ACTIVA: 'La cuenta del arrendador no está activa (suspendida o eliminada).',
+  IDENTIDAD_NO_VERIFICADA: 'La identidad del arrendador no está verificada.',
+}
+export const AVISO_LIQUIDACION_SIMULADA = 'Incluye pagos simulados: no se cobró dinero real por estas reservas.'
+export const LINEA_CANCELADA = 'Cancelada sin reembolso'
+export const LINEA_SIMULADA = 'Simulado'
+export const TITULO_CUENTA_DESTINO = 'Cuenta de destino'
+export const NOTA_NUMERO_COMPLETO = 'Cópialo para transferir. Esta consulta queda registrada.'
+export const SIN_CUENTA_DESTINO = 'El arrendador aún no registra una cuenta bancaria.'
+export const BOTON_MARCAR_PAGADA = 'Marcar como pagada'
+export const TITULO_MODAL_MARCAR = 'Marcar como pagada'
+export const ETIQUETA_NUMERO_OPERACION = 'Número de operación'
+export const AYUDA_NUMERO_OPERACION = 'De 4 a 30 letras, dígitos o guiones.'
+export const LIQUIDACION_MARCADA = 'Liquidación marcada como pagada.'
+export const TITULO_MIS_LIQUIDACIONES = 'Mis liquidaciones'
+export const DESCRIPCION_MIS_LIQUIDACIONES =
+  'Lo cobrado por tus reservas menos la comisión de la plataforma (10 %). La plataforma te transfiere el neto a tu cuenta bancaria.'
+export const SIN_MIS_LIQUIDACIONES = 'Aún no tienes liquidaciones.'
+export const AVISO_REGISTRA_CUENTA = 'Registra tu cuenta bancaria para recibir este pago.'
+export const LIQUIDACION_EN_PROCESO = 'En proceso de pago.'
+
+export function liquidacionesGeneradas(cantidad) {
+  return cantidad === 1 ? 'Se generó 1 liquidación.' : `Se generaron ${cantidad} liquidaciones.`
+}
+
+export function liquidacionDel(fecha) {
+  return `Liquidación del ${fecha}`
+}
+
+export function cantidadReservas(cantidad) {
+  return cantidad === 1 ? '1 reserva' : `${cantidad} reservas`
+}
+
+export function generadaEl(fechaHora) {
+  return `Generada el ${fechaHora}`
+}
+
+export function pagadaConOperacion(fechaHora, operacion) {
+  return `Pagada el ${fechaHora} · Operación ${operacion}`
+}
+
+export function pagadaConDestino(fechaHora, operacion, banco, cuenta) {
+  return `Pagada el ${fechaHora} · Operación ${operacion} · ${banco} ${cuenta}`
+}
+
+export function pagadaAlArrendador(fechaHora, operacion, banco, cuenta) {
+  return `Pagada el ${fechaHora} · Operación N.º ${operacion} · ${banco} ${cuenta}`
+}
+
+export function cuentaRetenidaHasta(fechaHora) {
+  return `La cuenta cambió hace poco. Podrás marcar esta liquidación como pagada desde el ${fechaHora}.`
+}
+
+export function confirmacionMarcarPagada(neto, banco, cuenta) {
+  return `Registra el número de operación de la transferencia de ${neto} a ${banco} ${cuenta}.`
+}
