@@ -171,6 +171,11 @@ class RecuperacionContrasenaControllerIT {
         public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador,
+                pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
+        }
+
         List<Envio> envios() {
             return envios;
         }

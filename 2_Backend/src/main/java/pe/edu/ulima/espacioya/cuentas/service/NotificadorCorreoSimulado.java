@@ -77,4 +77,10 @@ public class NotificadorCorreoSimulado implements NotificadorCorreo {
     public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         log.info("Envío de aviso de cancelación al arrendador simulado: no se envió ningún correo (HU-15).");
     }
+
+    // Ni el correo, ni el banco, ni la cuenta van al log: son datos financieros y personales (HU-18 R22).
+    @Override
+    public void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso) {
+        log.info("Envío de aviso de cambio de cuenta bancaria simulado: no se envió ningún correo (HU-18).");
+    }
 }

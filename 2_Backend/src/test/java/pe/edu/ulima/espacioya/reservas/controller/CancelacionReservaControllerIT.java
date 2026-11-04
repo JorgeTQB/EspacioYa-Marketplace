@@ -144,6 +144,11 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
             alArrendador.add(new AvisoAlArrendador(correoArrendador, aviso));
         }
 
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador,
+                pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
+        }
+
         void fallarAlUsuario() {
             fallaAlUsuario = true;
         }

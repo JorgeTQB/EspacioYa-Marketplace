@@ -10,6 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Limit;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,10 +59,12 @@ public class CuentaServiceImpl implements CuentaService {
     private final ArchivosPrivados archivos;
     private final NotificadorCorreo notificador;
     private final SesionRepository sesiones;
+    private final PasswordEncoder encoder;
 
     public CuentaServiceImpl(UsuarioRepository usuarios, PerfilArrendadorRepository perfiles,
                              DocumentoIdentidadRepository documentos, ArchivosPrivados archivos,
-                             NotificadorCorreo notificador, SesionRepository sesiones) {
+                             NotificadorCorreo notificador, SesionRepository sesiones, PasswordEncoder encoder) {
+        this.encoder = encoder;
         this.usuarios = usuarios;
         this.perfiles = perfiles;
         this.documentos = documentos;
@@ -243,6 +246,21 @@ public class CuentaServiceImpl implements CuentaService {
         return usuarios.nombresDe(Set.copyOf(usuarioIds)).stream()
                 .filter(cuenta -> !cuenta.nombre().isBlank())
                 .collect(Collectors.toMap(NombreCuenta::id, NombreCuenta::nombre));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean confirmarContrasena(UsuarioAutenticado usuario, String contrasena) {
+        return usuarios.findById(usuario.usuarioId())
+                .map(cuenta -> encoder.matches(contrasena, cuenta.getHashContrasena()))
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String razonSocialDe(Long arrendadorId) {
+        return perfiles.findById(arrendadorId).map(PerfilArrendador::getRazonSocial)
+                .orElseThrow(RecursoNoEncontradoException::new);
     }
 
     // El bloqueo de la fila serializa dos admins sobre la misma cuenta: el segundo espera y ve el estado nuevo (R38).

@@ -36,3 +36,27 @@ export function reembolsoRealizado(monto) {
 }
 
 export const REEMBOLSO_VOLVIO_A_FALLAR = 'La pasarela volvió a fallar. Puedes reintentarlo más tarde.'
+
+// HU-18. Solo textos: si la identidad está verificada, la cuenta y su estado los decide el servidor.
+export const TITULO_CUENTA_BANCARIA = 'Cuenta bancaria'
+export const DESCRIPCION_CUENTA_BANCARIA = 'Aquí recibirás los pagos de tus reservas.'
+export const CARGANDO_CUENTA = 'Cargando…'
+export const SIN_CUENTA_BANCARIA = 'Aún no tienes una cuenta bancaria registrada.'
+export const TITULO_FORMULARIO_CUENTA = 'Datos de la cuenta'
+export const ETIQUETA_BANCO = 'Banco'
+export const ETIQUETA_NUMERO_CUENTA = 'Número de cuenta'
+export const AYUDA_NUMERO_CUENTA = 'Solo dígitos, de 10 a 20.'
+export const ETIQUETA_DECLARACION = 'La cuenta está a mi nombre o al de mi RUC'
+export const ETIQUETA_CONTRASENA_CUENTA = 'Tu contraseña'
+export const AYUDA_CONTRASENA_CUENTA = 'La pedimos para confirmar que eres tú.'
+export const BOTON_GUARDAR_CUENTA = 'Guardar cuenta'
+export const CUENTA_GUARDADA = 'Cuenta bancaria guardada.'
+export const AVISO_CAMBIO_CUENTA =
+  'Si cambias tu cuenta, te avisaremos por correo y tu próxima liquidación se retendrá 72 horas.'
+export const AVISO_IDENTIDAD_CUENTA = 'Para registrar una cuenta bancaria, primero debes verificar tu identidad.'
+export const ENLACE_VERIFICAR_IDENTIDAD = 'Verificar mi identidad'
+export const ENLACE_CUENTA_BANCARIA = 'Cuenta bancaria'
+
+export function retenidaHasta(fecha) {
+  return `Retenida hasta el ${fecha}.`
+}

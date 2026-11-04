@@ -26,4 +26,6 @@ public interface NotificadorCorreo {
     void notificarCancelacionAlUsuario(String correoUsuario, AvisoCancelacionUsuario aviso);
 
     void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso);
+
+    void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso);
 }

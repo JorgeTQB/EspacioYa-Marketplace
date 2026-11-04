@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { obtenerSesionActual } from '../../api/cuentas.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import useSesion from '../../sesion/useSesion.js'
+import { ENLACE_CUENTA_BANCARIA } from '../pagos/textosPagos.js'
 import { ENLACE_SEGURIDAD } from './textosCuentas.js'
 import estilos from './Panel.module.css'
 
@@ -53,6 +54,9 @@ function Panel() {
           </p>
           <p>
             <Link to="/panel/identidad">Verificar mi identidad</Link>
+          </p>
+          <p>
+            <Link to="/panel/cuenta-bancaria">{ENLACE_CUENTA_BANCARIA}</Link>
           </p>
         </>
       )}

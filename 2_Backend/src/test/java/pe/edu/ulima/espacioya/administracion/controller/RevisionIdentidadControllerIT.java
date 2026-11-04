@@ -187,6 +187,11 @@ class RevisionIdentidadControllerIT {
         public void notificarCancelacionAlArrendador(String correoArrendador, AvisoCancelacionArrendador aviso) {
         }
 
+        @Override
+        public void notificarCambioCuentaBancaria(String correoArrendador,
+                pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
+        }
+
         List<Aviso> avisos() {
             return avisos;
         }
