@@ -22,12 +22,15 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import pe.edu.ulima.espacioya.MfaDePrueba;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
+import pe.edu.ulima.espacioya.comun.cifrado.CifradorCampos;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
 
 /**
  * HU-06, D2: con {@code ADMIN_IPS_PERMITIDAS} vacía nadie entra al panel admin, ni siquiera desde la máquina local.
+ * Con MFA activo tampoco (HU-17 P3: el control de IPs complementa a MFA).
  * Clase aparte porque necesita otra configuración del contexto.
  */
 @SpringBootTest
@@ -47,6 +50,8 @@ class FiltroIpsAdminIT {
     private UsuarioRepository usuarios;
     @Autowired
     private PasswordEncoder encoder;
+    @Autowired
+    private CifradorCampos cifrador;
 
     @BeforeEach
     void preparar() {
@@ -54,8 +59,9 @@ class FiltroIpsAdminIT {
         jdbc.update("DELETE FROM auditoria");
         jdbc.update("DELETE FROM perfil_arrendador");
         jdbc.update("DELETE FROM usuario");
-        usuarios.save(Usuario.registrarAdmin(CORREO_ADMIN, encoder.encode(CONTRASENA), "2026-10",
-                Instant.parse("2026-10-28T15:00:00Z")));
+        var ahora = Instant.parse("2026-10-28T15:00:00Z");
+        var admin = usuarios.save(Usuario.registrarAdmin(CORREO_ADMIN, encoder.encode(CONTRASENA), "2026-10", ahora));
+        MfaDePrueba.activar(jdbc, cifrador, admin.getId(), ahora);
     }
 
     private static MockHttpServletRequestBuilder desdeLocal(MockHttpServletRequestBuilder solicitud) {
@@ -66,7 +72,8 @@ class FiltroIpsAdminIT {
     }
 
     @Test
-    @DisplayName("HU-06 R5: con la lista vacía ni 127.0.0.1 entra al panel (403) y el admin no inicia sesión")
+    @DisplayName("HU-06 R5, HU-17 R9: con la lista vacía ni 127.0.0.1 entra al panel (403) y el admin con MFA "
+            + "activo no inicia sesión ni recibe desafío")
     void listaVaciaNadieEntra() throws Exception {
         mvc.perform(desdeLocal(get("/api/admin/arrendadores/en-revision")))
                 .andExpect(status().isForbidden())
@@ -77,6 +84,7 @@ class FiltroIpsAdminIT {
                 .andExpect(jsonPath("$.mensaje").value("Correo o contraseña incorrectos."));
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM sesion", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM desafio_mfa", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT detalle FROM auditoria WHERE accion = 'LOGIN_FALLIDO'", String.class))
                 .isEqualTo("motivo=IP_NO_PERMITIDA");
     }

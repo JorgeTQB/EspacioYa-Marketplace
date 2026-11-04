@@ -117,10 +117,30 @@ cumple la política, el correo no tiene forma de correo o ya existe una cuenta
 con ese correo, el comando falla nombrando la variable (nunca su valor) y no
 crea ni modifica nada. En UAT se corre igual, como tarea única del contenedor.
 
-**Panel admin e IPs permitidas (HU-06).** Hasta que exista MFA (HU-17), las
-rutas `/api/admin/**` y el inicio de sesión del admin solo funcionan desde las
-IPs de `ADMIN_IPS_PERMITIDAS` (por defecto `127.0.0.1,::1`, es decir, tu
-máquina). En UAT:
+**Verificación en dos pasos del admin (HU-17).** En su primer inicio de sesión
+el admin creado con el comando anterior debe configurar MFA: tras la
+contraseña, la pantalla le muestra una clave (y un enlace `otpauth://` para
+abrirla en el celular) que agrega en su app de autenticación (Google o
+Microsoft Authenticator, etc.); con el primer código de 6 dígitos entra y
+recibe **5 códigos de respaldo**, que se muestran una sola vez. Desde entonces
+cada inicio de sesión pide un código de la app o uno de respaldo. El admin no
+puede desactivar MFA.
+
+*Si un admin pierde su app y sus 5 códigos de respaldo* (no tiene recuperación
+por correo), quien opera la base borra su configuración; sus códigos caen en
+cascada y sus sesiones dejan de valer mientras no tenga MFA activo:
+
+```sql
+DELETE FROM mfa WHERE usuario_id = (SELECT id FROM usuario WHERE correo = 'admin@ejemplo.pe' AND rol = 'ADMIN');
+```
+
+En su siguiente inicio de sesión vuelve a configurar MFA como la primera vez.
+
+**Panel admin e IPs permitidas (HU-06).** Las rutas `/api/admin/**` y el inicio
+de sesión del admin solo funcionan desde las IPs de `ADMIN_IPS_PERMITIDAS` (por
+defecto `127.0.0.1,::1`, es decir, tu máquina). Desde HU-17 este control
+**complementa** a MFA, no lo reemplaza; para aceptar cualquier IP (solo MFA),
+`ADMIN_IPS_PERMITIDAS=0.0.0.0/0,::/0`. En UAT:
 
 | Variable | Valor | Si se deja vacía |
 |---|---|---|

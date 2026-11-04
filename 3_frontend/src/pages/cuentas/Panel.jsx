@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { obtenerSesionActual } from '../../api/cuentas.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import useSesion from '../../sesion/useSesion.js'
+import { ENLACE_SEGURIDAD } from './textosCuentas.js'
 import estilos from './Panel.module.css'
 
 const TEXTOS_POR_ROL = {
@@ -68,6 +69,9 @@ function Panel() {
           </p>
         </>
       )}
+      <p>
+        <Link to="/panel/seguridad">{ENLACE_SEGURIDAD}</Link>
+      </p>
     </section>
   )
 }

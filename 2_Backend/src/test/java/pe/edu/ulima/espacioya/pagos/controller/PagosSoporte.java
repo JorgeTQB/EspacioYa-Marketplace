@@ -29,7 +29,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 
+import pe.edu.ulima.espacioya.MfaDePrueba;
 import pe.edu.ulima.espacioya.RelojControlable;
+import pe.edu.ulima.espacioya.comun.cifrado.CifradorCampos;
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
 import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
@@ -84,6 +86,8 @@ abstract class PagosSoporte {
     PasswordEncoder encoder;
     @Autowired
     JsonMapper json;
+    @Autowired
+    CifradorCampos cifrador;
     @Autowired
     NotificadorFalso notificador;
 
@@ -242,8 +246,11 @@ abstract class PagosSoporte {
         return usuarios.save(Usuario.registrar(correo, hashContrasena, "2026-10", reloj.instant())).getId();
     }
 
+    // Con MFA activo (HU-17): sin él, el admin no tiene sesión.
     long crearAdmin(String correo) {
-        return usuarios.save(Usuario.registrarAdmin(correo, hashContrasena, "2026-10", reloj.instant())).getId();
+        var id = usuarios.save(Usuario.registrarAdmin(correo, hashContrasena, "2026-10", reloj.instant())).getId();
+        MfaDePrueba.activar(jdbc, cifrador, id, reloj.instant());
+        return id;
     }
 
     long publicado() {
@@ -307,6 +314,9 @@ abstract class PagosSoporte {
     }
 
     String token(String correo, String origen) throws Exception {
+        if (usuarios.findByCorreo(correo).filter(Usuario::esAdmin).isPresent()) {
+            return MfaDePrueba.iniciarSesion(mvc, jdbc, correo, CONTRASENA, origen, reloj.instant());
+        }
         var cuerpo = mvc.perform(desde(post("/api/sesiones"), origen).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"correo\":\"" + correo + "\",\"contrasena\":\"" + CONTRASENA + "\"}"))
                 .andExpect(status().isCreated())

@@ -41,8 +41,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import pe.edu.ulima.espacioya.RelojControlable;
 import pe.edu.ulima.espacioya.TestcontainersConfiguration;
 import pe.edu.ulima.espacioya.comun.seguridad.TokenAleatorio;
+import pe.edu.ulima.espacioya.cuentas.domain.Base32;
 import pe.edu.ulima.espacioya.cuentas.domain.PerfilArrendador;
 import pe.edu.ulima.espacioya.cuentas.domain.TipoDocumento;
+import pe.edu.ulima.espacioya.cuentas.domain.Totp;
 import pe.edu.ulima.espacioya.cuentas.domain.Usuario;
 import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
@@ -334,19 +336,37 @@ class SesionControllerIT {
         return usuarios.save(Usuario.registrarAdmin(correo, hashContrasena, "2026-10", reloj.instant()));
     }
 
+    // HU-17 reemplaza HU-06 R1: el admin sin MFA recibe 202 con un desafío CONFIGURACION y la sesión llega recién al
+    // confirmar el primer código, con los 5 códigos de respaldo.
     @Test
-    @DisplayName("HU-06 R1: un admin desde 127.0.0.1 inicia sesión con rol ADMIN y aviso nulo")
+    @DisplayName("HU-06 R1, HU-17 R2, R26: un admin desde 127.0.0.1 configura MFA y recién entonces inicia sesión con "
+            + "rol ADMIN y aviso nulo")
     void adminDesdeIpPermitida() throws Exception {
         var admin = crearAdmin("admin@correo.pe");
         ip = "127.0.0.1";
 
-        var cuerpo = iniciar("admin@correo.pe", CONTRASENA)
+        var paso1 = iniciar("admin@correo.pe", CONTRASENA)
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.paso").value("CONFIGURACION"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(sesiones()).isZero();
+        var desafio = (String) mapa(paso1).get("desafio");
+        var configuracion = mvc.perform(desde(post("/api/sesiones/mfa/configuracion"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"desafio\":\"" + desafio + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var secreto = (String) mapa(configuracion).get("secreto");
+        var codigo = Totp.codigo(Base32.decodificar(secreto), Totp.pasoDe(reloj.instant()));
+
+        var cuerpo = mvc.perform(desde(post("/api/sesiones/mfa")).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"desafio\":\"" + desafio + "\",\"codigo\":\"" + codigo + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.rol").value("ADMIN"))
                 .andExpect(jsonPath("$.aviso").isEmpty())
+                .andExpect(jsonPath("$.codigosRespaldo.length()").value(5))
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(mapa(cuerpo).keySet()).containsExactlyInAnyOrder("token", "rol", "aviso");
+        assertThat(mapa(cuerpo).keySet()).containsExactlyInAnyOrder("token", "rol", "aviso", "codigosRespaldo");
         assertThat(sesiones()).isEqualTo(1);
         assertThat(auditorias("LOGIN_EXITOSO")).extracting(fila -> ((Number) fila.get("usuario_id")).longValue())
                 .containsExactly(admin.getId());

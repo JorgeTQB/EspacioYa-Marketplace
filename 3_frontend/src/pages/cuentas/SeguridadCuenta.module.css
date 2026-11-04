@@ -1,0 +1,17 @@
+.pantalla {
+  max-width: calc(var(--ancho-contenido) / 2);
+  margin: var(--espacio-8) auto;
+}
+
+.pantalla h2 {
+  margin: 0 0 var(--espacio-2);
+}
+
+.subtitulo {
+  margin: 0 0 var(--espacio-4);
+  font-size: var(--texto-lg);
+}
+
+.secundario {
+  color: var(--color-texto-secundario);
+}

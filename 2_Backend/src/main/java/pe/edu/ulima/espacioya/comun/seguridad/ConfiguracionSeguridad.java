@@ -45,6 +45,10 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/arrendadores").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sesiones").permitAll()
+                        // Segundo paso del inicio de sesión (HU-17 DT-1): la autorización es el desafío del cuerpo,
+                        // que no es una sesión. /api/mfa/** sigue exigiendo sesión.
+                        .requestMatchers(HttpMethod.POST, "/api/sesiones/mfa").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/sesiones/mfa/configuracion").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/validaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/confirmaciones").permitAll()

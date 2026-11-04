@@ -1119,3 +1119,51 @@
     hace fallar el primer intento (aparece en `/admin/reembolsos`) y el reintento lo aprueba.
 - **Resultado:** `./init.sh` completo en verde en la implementación y en el review (1027 unitarias y 690 IT, 0 fallos,
   errores ni omitidas; ESLint limpio y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-03 — HU-17 Autenticación multifactor (MFA) (done)
+
+- **Dueño:** Jorge Quispe · **Rama:** `feature/HU-17-autenticacion-multifactor` (desde `develop` en `5aa045f`) ·
+  **Fecha:** 2026-11-03. Sin commit ni push: el dueño revisa y abre el PR hacia `develop`.
+- **Agentes:** orquestador → spec-author (`specs/HU-17/`, R1–R66 en EARS, T1–T23) → aprobación del dueño → implementer
+  (`progress/impl_HU-17.md`) → reviewer (`CHANGES_REQUESTED`, H1 concurrencia y H2 mapa R57) → implementer (vuelta 1) →
+  reviewer (`APPROVED`, "Revisión 2" en `progress/review_HU-17.md`) → implementer, cierre.
+- **Spec aprobado por:** Jorge Quispe el 2026-11-03, con las decisiones por defecto P1–P12 y las respuestas por defecto
+  a las 3 preguntas abiertas (pérdida de app y códigos → borrar la fila de `mfa` por SQL, documentado en README;
+  regenerar códigos sin desactivar MFA fuera de alcance; sin correo al activar/desactivar).
+- **Decisiones clave:** desafío MFA en tabla `desafio_mfa` (202 + token de 5 min, un solo uso); admin sin MFA →
+  configuración obligatoria en el login; `SesionService.validar` rechaza sesiones de admin sin MFA activo; TOTP propio
+  (JDK, RFC 6238, SHA-1, 6 dígitos, 30 s, ±1 paso, sin replay); secreto cifrado con `ConvertidorCifrado`; 5 códigos de
+  respaldo con HMAC (`HuellaCampos`); límite §9.7 = 5 fallos por desafío + 10 por usuario en 15 min; el control de IPs
+  del admin se mantiene y complementa a MFA (P3); sin dependencias nuevas.
+- **Cambios:**
+  - Migración `V5_1__mfa.sql` (tablas `mfa`, `codigo_respaldo`, `desafio_mfa`).
+  - Dominio `cuentas`: `Base32`, `Totp`, `Mfa` (`Persistable`), `CodigoRespaldo`, `DesafioMfa`, enums `PasoMfa`,
+    `FactorMfa`, `ContextoMfa`; repositorios `MfaRepository`, `CodigoRespaldoRepository`, `DesafioMfaRepository`,
+    `SesionRepository.revocarOtras`.
+  - Servicios: `EmisorSesiones`, `GeneradorMfa`, `VerificadorMfa`, `VerificacionMfaService`, `MfaService`;
+    `InicioSesionService` (201 o 202 con desafío) y `SesionService.validar` (exige MFA al admin).
+  - API: `SesionController` (`POST /api/sesiones` → 201/202, `/api/sesiones/mfa`, `/api/sesiones/mfa/configuracion`,
+    `no-store`) y `MfaController` (activar/desactivar desde la cuenta). `VerificacionExpiradaException` → 401.
+  - Frontend: `api/cuentas.js` (6 funciones), `IniciarSesion` por pasos, `PasoCodigoMfa`, `ConfiguracionMfa`,
+    `CodigosRespaldo`, `SeguridadCuenta` en `/panel/seguridad` + enlace en `Panel`, helper `erroresCampo.js`.
+  - Docs: `docs/modelo-datos.md`, `docs/requerimientos.md` (§9 ítems 4 y 7), `docs/architecture.md`, `docs/frontend.md`,
+    `README.md` (primer login del admin, pérdida → `DELETE FROM mfa`), `.env.example`, `application.properties`.
+- **Tests:** nuevos `Base32Test`, `TotpTest` (vectores RFC), `MfaTest`, `CodigoRespaldoTest`, `DesafioMfaTest`,
+  `VerificacionMfaDTOTest`, `DtoMfaTest`, `EmisorSesionesTest`, `GeneradorMfaTest`, `VerificadorMfaTest`,
+  `VerificacionMfaServiceTest`, `MfaServiceTest`, `MfaInicioSesionIT` (con 4 IT de concurrencia: R13, R15, R16, R24) y
+  `MfaControllerIT`; soporte `MfaDePrueba`. Adaptados: `InicioSesionServiceTest`, `SesionServiceTest`,
+  `SesionControllerIT`, `CuentaAdminControllerIT`, `RevisionIdentidadControllerIT`, `FiltroIpsAdminIT`,
+  `ManejadorGlobalErroresTest`, `PagosSoporte`, `ReservasControllerSoporte`. R1–R66 con test (mapa en
+  `progress/impl_HU-17.md`). Desviaciones menores D-A a D-I declaradas y aceptadas.
+- **Notas para el dueño antes del merge:**
+  - **Migración `V5_1__mfa.sql`:** no hay otra `V5_*` en `develop` hoy; si HU-18 llega antes con `V5_1`, renombrar esta
+    a la siguiente libre (`docs/conventions.md`).
+  - **Pantallas sin revisión visual en navegador:** pasan lint y build; la revisión queda para la caja negra de UAT
+    (login con TOTP y con respaldo, primer login del admin con configuración y códigos, `/panel/seguridad`).
+  - **Hallazgo informativo H3:** en el paso de códigos de respaldo el token ya está guardado; si el admin recarga,
+    `ProveedorSesion` restaura la sesión y no vuelve a ver sus 5 códigos. Conforme al design § 12; anotado para UAT.
+  - Despliegue: una sola instancia (límite por cuenta en memoria), reloj del servidor con NTP; los admins existentes
+    pierden sus sesiones abiertas y configuran MFA en su siguiente login.
+- **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (1189 unitarias y 736
+  IT, 0 fallos, errores ni omitidas; ESLint limpio y build OK; único WARN, llaves de cifrado locales, ajeno). Status →
+  `done`. Todo sin commitear.

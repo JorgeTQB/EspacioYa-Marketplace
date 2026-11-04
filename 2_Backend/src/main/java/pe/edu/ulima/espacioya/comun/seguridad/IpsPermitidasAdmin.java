@@ -9,8 +9,9 @@ import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.stereotype.Component;
 
 /**
- * Lista de IPs desde las que se entra al panel admin hasta que exista MFA (HU-06, D2; RNF-SEG-04). Admite
- * direcciones IPv4 o IPv6 y rangos CIDR. Una lista vacía no permite ninguna IP.
+ * Lista de IPs desde las que se entra al panel admin (HU-06, D2; RNF-SEG-04). Complementa a MFA (HU-17, P3):
+ * {@code 0.0.0.0/0,::/0} la abre a cualquier IP. Admite direcciones IPv4 o IPv6 y rangos CIDR. Una lista vacía no
+ * permite ninguna IP.
  */
 @Component
 public class IpsPermitidasAdmin {
