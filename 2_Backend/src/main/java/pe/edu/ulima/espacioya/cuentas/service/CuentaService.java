@@ -137,4 +137,11 @@ public interface CuentaService {
      * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si el arrendador no tiene perfil.
      */
     String razonSocialDe(Long arrendadorId);
+
+    /**
+     * De esos arrendadores, los ids cuyo perfil no tiene la identidad {@code VERIFICADA} o que no tienen perfil. Solo
+     * ids, nunca datos del perfil: {@code pagos} lo usa para avisar al admin en las liquidaciones (HU-19 D6). Una
+     * consulta por lote; colección vacía → {@code Set.of()} sin consultar. Sin sesión ni rol.
+     */
+    Set<Long> arrendadoresSinIdentidadVerificada(Collection<Long> arrendadorIds);
 }

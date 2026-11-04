@@ -28,6 +28,10 @@ const ESTADOS = {
   // Cuenta bancaria (HU-18): la calcula el servidor; RETENIDA son las 72 h tras cambiar la cuenta.
   DISPONIBLE: { texto: 'Disponible para liquidaciones', tipo: 'exito' },
   RETENIDA: { texto: 'Retenida 72 h', tipo: 'atencion' },
+  // Liquidación (HU-19)
+  GENERADA: { texto: 'Por pagar', tipo: 'atencion' },
+  PENDIENTE_CUENTA: { texto: 'Pendiente de cuenta', tipo: 'atencion' },
+  PAGADA: { texto: 'Pagada', tipo: 'exito' },
 }
 
 function EtiquetaEstado({ estado }) {

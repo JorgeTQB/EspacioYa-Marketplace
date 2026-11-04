@@ -137,6 +137,19 @@ public class Reserva {
         this.montoReembolso = montoReembolso;
     }
 
+    /**
+     * Si su estado admite liquidación al arrendador (HU-19 D3): {@code CONFIRMADA}, o {@code CANCELADA} por el
+     * {@code USUARIO} con {@code monto_reembolso = 0} (RN-06, menos de 48 h). Lee la fila: una {@code CONFIRMADA} no
+     * cambia sola y una pendiente nunca se liquida. Las 48 h tras el fin las decide {@code pagos}.
+     */
+    public boolean admiteLiquidacion() {
+        if (estado == EstadoReserva.CONFIRMADA) {
+            return true;
+        }
+        return estado == EstadoReserva.CANCELADA && canceladaPor == QuienCancela.USUARIO
+                && montoReembolso != null && montoReembolso.signum() == 0;
+    }
+
     public Long getId() {
         return id;
     }

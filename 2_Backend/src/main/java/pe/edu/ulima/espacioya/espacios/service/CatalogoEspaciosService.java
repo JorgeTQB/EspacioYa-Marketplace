@@ -46,4 +46,11 @@ public interface CatalogoEspaciosService {
      * vacío si el id es {@code null} o no tiene espacios. Sin sesión ni rol: el llamador pasa el id de la sesión.
      */
     Map<Long, String> nombresDelArrendador(Long arrendadorId);
+
+    /**
+     * Id del espacio → id de su arrendador, sin filtro de estado ni de visibilidad (como {@link #nombres}): la
+     * liquidación de HU-19 paga reservas ya usadas aunque el espacio se haya pausado o dado de baja. Los ids que no
+     * existen no aparecen; colección vacía → {@code Map.of()} sin consultar. Sin sesión ni rol.
+     */
+    Map<Long, Long> arrendadoresDe(Collection<Long> espacioIds);
 }

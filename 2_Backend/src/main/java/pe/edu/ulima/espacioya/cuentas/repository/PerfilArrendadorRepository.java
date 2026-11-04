@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.cuentas.repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,4 +42,9 @@ public interface PerfilArrendadorRepository extends JpaRepository<PerfilArrendad
             order by min(d.subidoEn) asc, p.usuarioId asc
             """)
     List<EnRevision> findEnRevision();
+
+    /** De esos ids, los que tienen perfil con la identidad {@code VERIFICADA} (HU-19 D6). Solo ids, nunca datos. */
+    @Query("select p.usuarioId from PerfilArrendador p where p.usuarioId in :ids "
+            + "and p.estadoIdentidad = pe.edu.ulima.espacioya.cuentas.domain.EstadoIdentidad.VERIFICADA")
+    List<Long> idsConIdentidadVerificada(@Param("ids") Collection<Long> ids);
 }

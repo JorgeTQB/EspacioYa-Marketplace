@@ -12,6 +12,9 @@ public final class ReglasPago {
     public static final Duration VENTANA_RECHAZOS = Duration.ofMinutes(30);
     public static final String MONEDA = "PEN";
 
+    /** Inicio de {@code id_transaccion_pasarela} de la pasarela simulada: ningún dinero se movió (RS-5, HU-19 D2). */
+    public static final String PREFIJO_SIMULADO = "sim-";
+
     private static final Pattern ID_BIEN_ESCRITO = Pattern.compile("[0-9]{1,19}");
 
     private ReglasPago() {

@@ -25,6 +25,9 @@ import DisponibilidadEspacio from './pages/espacios/DisponibilidadEspacio.jsx'
 import EditarEspacio from './pages/espacios/EditarEspacio.jsx'
 import MisEspacios from './pages/espacios/MisEspacios.jsx'
 import CuentaBancaria from './pages/pagos/CuentaBancaria.jsx'
+import DetalleLiquidacion from './pages/pagos/DetalleLiquidacion.jsx'
+import Liquidaciones from './pages/pagos/Liquidaciones.jsx'
+import MisLiquidaciones from './pages/pagos/MisLiquidaciones.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
@@ -275,6 +278,32 @@ function App() {
             element={
               <RutaProtegida>
                 <ReembolsosPorAtender />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-19: la API valida IP y rol; montos, estados y si se puede pagar los decide el servidor. */}
+          <Route
+            path="/admin/liquidaciones"
+            element={
+              <RutaProtegida>
+                <Liquidaciones />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/liquidaciones/:id"
+            element={
+              <RutaProtegida>
+                <DetalleLiquidacion />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-19 CA2 y CA3: la API solo responde al rol ARRENDADOR y con sus propias liquidaciones. */}
+          <Route
+            path="/panel/liquidaciones"
+            element={
+              <RutaProtegida>
+                <MisLiquidaciones />
               </RutaProtegida>
             }
           />

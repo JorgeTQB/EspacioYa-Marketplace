@@ -397,7 +397,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-19.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-20",

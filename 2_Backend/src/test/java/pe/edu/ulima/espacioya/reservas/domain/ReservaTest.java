@@ -244,4 +244,39 @@ class ReservaTest {
         assertThat(empezada.getCanceladaEn()).isNull();
         assertThat(empezada.getMontoReembolso()).isNull();
     }
+
+    private Reserva cancelada(QuienCancela quien, String montoReembolso) {
+        var reserva = conEstado(EstadoReserva.CONFIRMADA);
+        reserva.cancelar(quien, EMPIEZA, montoReembolso == null ? null : new BigDecimal(montoReembolso), INICIO);
+        return reserva;
+    }
+
+    @Test
+    @DisplayName("HU-19 R10: una CONFIRMADA admite liquidación; PENDIENTE_PAGO (vigente o vencida) y EXPIRADA no")
+    void admiteLiquidacionSegunElEstado() {
+        var pendiente = nueva();
+
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).admiteLiquidacion()).isTrue();
+        assertThat(pendiente.admiteLiquidacion()).isFalse();
+        assertThat(pendiente.estaVencida(VENCE)).isTrue();
+        assertThat(pendiente.admiteLiquidacion()).isFalse();
+        assertThat(conEstado(EstadoReserva.EXPIRADA).admiteLiquidacion()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-19 R10: una CANCELADA por el arrendador, con reembolso mayor que 0 o nulo no admite liquidación")
+    void canceladaConReembolsoNoAdmiteLiquidacion() {
+        assertThat(cancelada(QuienCancela.ARRENDADOR, "241.50").admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.ARRENDADOR, "0").admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.USUARIO, "241.50").admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.USUARIO, "0.01").admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.USUARIO, null).admiteLiquidacion()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-19 R11: una CANCELADA por el usuario con monto_reembolso = 0 admite liquidación (D3)")
+    void canceladaSinReembolsoAdmiteLiquidacion() {
+        assertThat(cancelada(QuienCancela.USUARIO, "0").admiteLiquidacion()).isTrue();
+        assertThat(cancelada(QuienCancela.USUARIO, "0.00").admiteLiquidacion()).isTrue();
+    }
 }

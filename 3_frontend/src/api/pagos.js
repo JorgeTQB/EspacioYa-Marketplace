@@ -43,3 +43,32 @@ export function guardarCuentaBancaria({ banco, numero, declaraTitularidad, contr
     cuerpo: { banco, numero, declaraTitularidad, contrasena },
   })
 }
+
+// HU-19. Panel admin: la API exige IP permitida y rol ADMIN. Sin cuerpo: montos, arrendadores y reservas los decide el
+// servidor.
+export function generarLiquidaciones() {
+  return peticion('/api/admin/liquidaciones', { metodo: 'POST' })
+}
+
+export function listarLiquidaciones(grupo, pagina) {
+  const parametros = new URLSearchParams({ grupo, pagina: String(pagina) })
+  return peticion(`/api/admin/liquidaciones?${parametros}`)
+}
+
+export function obtenerLiquidacion(id) {
+  return peticion(`/api/admin/liquidaciones/${encodeURIComponent(id)}`)
+}
+
+// Solo el número de operación: la fecha, el destino y quién pagó los pone el servidor.
+export function marcarLiquidacionPagada(id, numeroOperacion) {
+  return peticion(`/api/admin/liquidaciones/${encodeURIComponent(id)}/pago`, {
+    metodo: 'POST',
+    cuerpo: { numeroOperacion },
+  })
+}
+
+// HU-19. El arrendador sale de la sesión: la ruta no lleva su id.
+export function listarMisLiquidaciones(pagina) {
+  const parametros = new URLSearchParams({ pagina: String(pagina) })
+  return peticion(`/api/arrendadores/actual/liquidaciones?${parametros}`)
+}

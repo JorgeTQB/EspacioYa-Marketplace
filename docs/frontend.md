@@ -144,7 +144,7 @@ siempre muestra el **texto** del estado, no solo el color.
 | Espacio | `PUBLICADO` | `PAUSADO` | `OCULTO` (moderación) | `BORRADOR`, `BAJA` |
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
-| Liquidación | `PAGADA` | `PENDIENTE_CUENTA`, `GENERADA` | — | — |
+| Liquidación (HU-19) | `PAGADA` ("Pagada") | `GENERADA` ("Por pagar"), `PENDIENTE_CUENTA` ("Pendiente de cuenta") | — | — |
 | Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
 | Reclamo | — | abierto | — | — |
 | Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
@@ -183,7 +183,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`) | `estado` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`; HU-19: los de `Liquidación`, `GENERADA`, `PENDIENTE_CUENTA` y `PAGADA`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
@@ -312,6 +312,26 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   S/ X realizado."; 200 `FALLIDO` → `Alerta error` "La pasarela volvió a fallar…"; 400/404 u otro error → `Alerta error`
   con el mensaje tal cual. En los tres casos se cierra el modal y se recarga la lista. No agrega componentes al kit ni
   colores; agrega los estados de la fila Reembolso.
+- **`/admin/liquidaciones` y `/admin/liquidaciones/:id` (HU-19, `pages/pagos/Liquidaciones.jsx` y
+  `DetalleLiquidacion.jsx`, con `RutaProtegida`):** "Liquidaciones" (enlace desde `Panel` para `ADMIN`); otro rol vuelve a
+  `/panel` (la API igual responde 403). La lista tiene el único `Boton primario` "Generar liquidación" con `Modal` `primario`
+  (`generarLiquidaciones`): con resultado `Alerta exito` "Se generaron N liquidaciones." ("Se generó 1 liquidación."), vacía
+  `Alerta info` "No hay reservas por liquidar.", error `Alerta error` tal cual; luego recarga las dos secciones "Por pagar" y
+  "Pagadas" (`pages/pagos/SeccionLiquidaciones.jsx`, no es del kit, como `SeccionReservas`; "Ver más" mientras `hayMas`). Cada
+  liquidación es una `Tarjeta` con el nombre del arrendador, `EtiquetaEstado`, periodo, bruto, "Comisión (10 %)", neto, número
+  de reservas, el aviso de simulada y los avisos del arrendador en texto, y "Ver detalle". El detalle muestra los avisos y la
+  simulada en `Alerta atencion`, la "Cuenta de destino" (completa solo si la API la trae, con "Cópialo para transferir. Esta
+  consulta queda registrada."; si no, enmascarada con su `EtiquetaEstado` y, si está retenida, la fecha; sin cuenta, `Alerta
+  atencion`), las reservas con `pages/pagos/LineasLiquidacion.jsx` (no es del kit) y, solo si `pagable`, el `Boton primario`
+  "Marcar como pagada" con `Modal` y un `Campo` "Número de operación" (`marcarLiquidacionPagada`, sin espacios extremos; el
+  error de campo va bajo el `Campo`, otro error cierra el modal con `Alerta error` y recarga). No agrega componentes al kit
+  ni colores.
+- **`/panel/liquidaciones` (HU-19, `pages/pagos/MisLiquidaciones.jsx`, con `RutaProtegida`):** "Mis liquidaciones" (enlace
+  desde `Panel` para `ARRENDADOR`, junto a "Cuenta bancaria"); otro rol vuelve a `/panel`. `listarMisLiquidaciones` de 20 en
+  20 con "Ver más". Cada liquidación es una `Tarjeta` "Liquidación del <periodo>" con `EtiquetaEstado`, bruto, comisión,
+  neto, sus reservas y: `PAGADA` → "Pagada el … · Operación N.º … · <banco> <cuenta enmascarada>"; `PENDIENTE_CUENTA` →
+  `Alerta atencion` con enlace a `/panel/cuenta-bancaria`; `GENERADA` → "En proceso de pago.". Sin totales acumulados (el
+  panel de ingresos está fuera del alcance).
 
 ## Accesibilidad mínima
 

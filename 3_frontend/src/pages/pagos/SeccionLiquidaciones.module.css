@@ -1,0 +1,23 @@
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+}
+
+.titulo {
+  margin: 0;
+}
+
+.secundario {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--ancho-contenido) / 3), 1fr));
+  gap: var(--espacio-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

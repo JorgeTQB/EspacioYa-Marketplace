@@ -134,7 +134,7 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
-| `pagos.ReservasLiquidables`           | reservas                   | HU-19 |
+| `pagos.ReservasLiquidables`           | reservas                   | HU-19: `describir(Collection<Long> reservaIds)` → `List<ReservaLiquidable>` (reserva, arrendador, espacio y su nombre, fecha, horas, `finEn` = fin del último bloque en Lima, `admitida` = `CONFIRMADA` o `CANCELADA` por el usuario con `monto_reembolso = 0`, `cancelada`). `readOnly`, una consulta por lote, sin sesión ni rol; colección vacía → `List.of()` sin consultar; una reserva sin bloques no aparece. Lo implementa `ReservasLiquidablesImpl` (no usa `ReservaDAO`: es una consulta del sistema con ids que salen de `pagos`). Se inyecta directo, como `ReservasPorCobrar` |
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
 
 Solo los servicios que usan otros módulos llevan interfaz pública
@@ -165,7 +165,7 @@ para eso. HU-18 le agregó, para `pagos` (la dirección `pagos → cuentas` ya e
 `confirmarContrasena(usuario, contrasena) → boolean` (bcrypt contra el hash de la cuenta de la **sesión**; no cuenta
 intentos, lo hace el llamador con `LimitadorIntentos`; HU-20 y HU-22 pueden reutilizarlo) y `razonSocialDe(arrendadorId) →
 String` (solo la razón social del perfil, 404 sin perfil; nunca el documento, RNF-SEG-16). `NotificadorCorreo` ganó
-`notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)`.
+`notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)`. HU-19 le agregó, para `pagos`, `arrendadoresSinIdentidadVerificada(Collection<Long>) → Set<Long>`: de esos ids, los que no tienen perfil o cuyo `estado_identidad` no es `VERIFICADA`; una consulta por lote (`PerfilArrendadorRepository.idsConIdentidadVerificada`), colección vacía → `Set.of()` sin consultar, sin sesión ni rol y nunca datos del perfil.
 
 ### Cuenta bancaria: qué deja HU-18 (HU-19, HU-22)
 
@@ -209,7 +209,7 @@ URL `/api/fotos/<UUID>` de la foto con orden 1. HU-11 le agregó `publicado(espa
 una reserva cuyo espacio ya no se ve. HU-14 le agregó `nombresDelArrendador(arrendadorId)` → `Map<Long, String>`: id y
 nombre de **todos** los espacios del arrendador, en cualquier estado (`BORRADOR`, `PUBLICADO`, `PAUSADO`, `BAJA`, `OCULTO`)
 y sin filtro de visibilidad; vacío para `null` o sin espacios. Sin sesión ni rol: el llamador pasa el id de la sesión. Así
-`reservas` sabe qué espacios son del arrendador sin leer `EspacioRepository`.
+`reservas` sabe qué espacios son del arrendador sin leer `EspacioRepository`. HU-19 le agregó `arrendadoresDe(espacioIds)` → `Map<Long, Long>` (id del espacio → id de su arrendador), sin filtro de estado ni de visibilidad, como `nombres`; colección vacía → `Map.of()` sin consultar. Lo usa `ReservasLiquidablesImpl`.
 
 **Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
 `PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
@@ -376,6 +376,31 @@ falla y el reintento del admin funciona. El contador vive en memoria y vuelve a 
 `Reembolso.porReclamo`) y lo ejecuta con `SolicitudesReembolso.crear(...)` + `EjecutorReembolsos`, sin tocar el comando;
 como el pago puede estar ya `REEMBOLSADO`, decide qué estado le deja. HU-28 cuenta `PAGADO` y `REEMBOLSADO`; el monto devuelto
 está en `reembolso.monto`. Las IT que borran `pago` borran antes `reembolso` (sin cascada).
+
+### Liquidación: qué deja HU-19 (HU-22, HU-26, HU-28)
+
+Tablas `liquidacion` y `liquidacion_detalle` (`V5_3`). El admin genera con un botón (`POST /api/admin/liquidaciones`, sin
+cuerpo) y transfiere a mano; no hay proceso programado ni llamada a ningún banco.
+
+| Pieza | Qué hace |
+|-------|----------|
+| `pagos.service.GeneradorLiquidaciones` | `MANDATORY`. Toma `LiquidacionRepository.bloquearGeneracion` (`pg_advisory_xact_lock(190019)`, se libera al terminar la transacción) y **después** el corte `Instant.now(reloj)`: dos generaciones a la vez se serializan y la segunda no ve lo que la primera liquidó. `uq_liquidacion_detalle_reserva` es la última defensa (`LiquidacionAdminService` la traduce a 400). Agrupa por arrendador y crea `GENERADA` (con cuenta, aunque esté retenida) o `PENDIENTE_CUENTA`; nunca modifica una liquidación existente |
+| `PagoRepository.pagadosSinLiquidar(incluirSimulados)` | **Qué pago cuenta:** `PAGADO`, sin **ninguna** fila en `reembolso` (cualquier origen y estado), cuya reserva no está en `liquidacion_detalle`; los `sim-` solo si `espacioya.pagos.pasarela=simulada` (y entonces la línea y la liquidación salen `simulada`) |
+| `pagos.domain.ReglasLiquidacion` | `esLiquidable(finEn, corte)`: `corte ≥ fin + 48 h` (borde inclusivo, `ESPERA = 48 h`); `comision(bruto)`: 10 % del bruto total, escala 2, `HALF_UP` (el `CHECK` de la base fija lo mismo); `esSimulado` con `ReglasPago.PREFIJO_SIMULADO` |
+| `Liquidacion.motivoNoPagable(cuenta, ahora)` | En orden `YA_PAGADA`, `SIN_CUENTA`, `CUENTA_RETENIDA` (RN-11). Una `PENDIENTE_CUENTA` se paga directo si ahora hay cuenta no retenida; `PAGADA` es final |
+| `LiquidacionAdminService` | Rutas `/api/admin/liquidaciones` (generar, `?grupo=por-pagar\|pagadas&pagina=n`, `/{id}`, `/{id}/pago`), rol `ADMIN` antes de leer, todas `no-store`. Marcar pagada bloquea `liquidacion → cuenta_bancaria` (HU-18 toma `usuario → cuenta_bancaria`: sin ciclo) y guarda banco y cuenta **enmascarada**. Audita `LIQUIDACION_GENERADA`, `LIQUIDACION_PAGADA` y `CUENTA_BANCARIA_CONSULTADA_ADMIN` |
+| `CuentaBancaria.numeroParaTransferir()` | Único acceso al número completo. Solo lo usa el detalle admin de una liquidación **pagable**, que lo audita; nunca las listas, la respuesta del pago, la auditoría, los logs ni una ruta del arrendador |
+| `MisLiquidacionesService` | `GET /api/arrendadores/actual/liquidaciones?pagina=n` (rol `ARRENDADOR`, sin datos del usuario, del pago ni del admin) y `tieneLiquidacionesPendientes(arrendadorId)`: `true` si tiene alguna `GENERADA` o `PENDIENTE_CUENTA` |
+
+**Lo que deben saber las historias que siguen.** **HU-22:** conecta `MisLiquidacionesService.tieneLiquidacionesPendientes` a
+`cuentas.ParticipanteDatosPersonales`; los pagos `PAGADO` aún no liquidados no cuentan (si deben bloquear, lo decide su
+spec); `liquidacion` no tiene cascada. **HU-26:** abre reclamos solo si `ahora < fin + 48 h`, con el mismo fin
+(`ReservaConHorario.instanteDeFin`) y la misma `ReglasLiquidacion.ESPERA`, para que no haya hueco ni solape; agrega el puerto
+`pagos.ReclamosAbiertos` como un filtro más en `GeneradorLiquidaciones` (paso de selección); como cada generación liquida todo
+lo pendiente, una reserva que vuelve a ser liquidable entra sola en la siguiente; un reembolso por reclamo deja la reserva
+fuera entera (si se quiere liquidar el remanente, cambia `pagadosSinLiquidar`). **HU-28:** puede reutilizar
+`ReglasPago.PREFIJO_SIMULADO`. Las IT que crean liquidaciones borran `liquidacion_detalle` y `liquidacion` antes que `pago`,
+`reserva`, `perfil_arrendador` y `usuario` (`PagosSoporte.limpiar` ya lo hace).
 
 ### Mis reservas: qué deja HU-14 (HU-15, HU-21, HU-22, HU-24, HU-26)
 
