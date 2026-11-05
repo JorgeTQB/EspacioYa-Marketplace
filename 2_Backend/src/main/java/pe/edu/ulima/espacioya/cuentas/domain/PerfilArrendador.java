@@ -178,6 +178,23 @@ public class PerfilArrendador implements Persistable<Long> {
         return cambio;
     }
 
+    // No es hex de 64 caracteres: nunca choca con la huella HMAC de un documento real (HU-22 DT-8).
+    public static String marcadorHuella(Long usuarioId) {
+        return "eliminada-" + usuarioId;
+    }
+
+    /**
+     * Supresión (HU-22 R25): texto fijo en los campos que identifican a la persona (se cifran como cualquier valor) y
+     * huella liberada para que el documento pueda registrarse de nuevo (R33). Tipo y estado de identidad se conservan.
+     */
+    public void anonimizar() {
+        numeroDocumento = Usuario.TEXTO_ANONIMIZADO;
+        razonSocial = Usuario.TEXTO_ANONIMIZADO;
+        direccionFiscal = Usuario.TEXTO_ANONIMIZADO;
+        hashDocumento = marcadorHuella(usuarioId);
+        motivoRechazo = null;
+    }
+
     public String numeroEnmascarado() {
         if (numeroDocumento == null || numeroDocumento.length() <= 4) {
             return "****";

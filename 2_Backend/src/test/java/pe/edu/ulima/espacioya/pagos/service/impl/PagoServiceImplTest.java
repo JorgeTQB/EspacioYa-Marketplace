@@ -11,11 +11,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +43,8 @@ import pe.edu.ulima.espacioya.pagos.domain.Pago;
 import pe.edu.ulima.espacioya.pagos.domain.Reembolso;
 import pe.edu.ulima.espacioya.pagos.repository.PagoRepository;
 import pe.edu.ulima.espacioya.pagos.repository.ReembolsoRepository;
+import pe.edu.ulima.espacioya.pagos.service.PagoDeReserva;
+import pe.edu.ulima.espacioya.pagos.service.ReembolsoDePago;
 import pe.edu.ulima.espacioya.pagos.service.ReembolsoPorCancelacion;
 import pe.edu.ulima.espacioya.pagos.service.pasarela.PasarelaPago;
 import pe.edu.ulima.espacioya.pagos.service.reembolso.Disparo;
@@ -237,5 +242,53 @@ class PagoServiceImplTest {
         verify(ejecutor, never()).ejecutarAhora(any());
         verifyNoInteractions(comando);
         assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+    }
+
+    private static Pago pagoConId(long id, long reservaId, EstadoPago estado, String monto, Instant creadoEn) {
+        var pago = Pago.de(reservaId, "mp-" + id, new BigDecimal(monto), estado, "4321", creadoEn);
+        ReflectionTestUtils.setField(pago, "id", id);
+        return pago;
+    }
+
+    @Test
+    @DisplayName("HU-22 R6: pagosDeReservas devuelve cada pago con monto, estado, fecha y sus reembolsos")
+    void pagosDeReservasConReembolsos() {
+        var reembolsado = pagoConId(31L, 7L, EstadoPago.REEMBOLSADO, "100.00", AHORA);
+        var rechazado = pagoConId(32L, 8L, EstadoPago.RECHAZADO, "50.00", AHORA.plusSeconds(60));
+        when(pagos.findByReservaIdInOrderByCreadoEnAscIdAsc(List.of(7L, 8L)))
+                .thenReturn(List.of(reembolsado, rechazado));
+        when(reembolsos.findByPagoIdInOrderByCreadoEnAscIdAsc(List.of(31L, 32L))).thenReturn(List.of(
+                Reembolso.porCancelacion(31L, new BigDecimal("100.00"), AHORA.plusSeconds(120))));
+
+        var resultado = servicio.pagosDeReservas(List.of(7L, 8L));
+
+        assertThat(resultado).containsExactly(
+                new PagoDeReserva(7L, new BigDecimal("100.00"), "REEMBOLSADO", AHORA, List.of(
+                        new ReembolsoDePago(new BigDecimal("100.00"), "PENDIENTE", AHORA.plusSeconds(120)))),
+                new PagoDeReserva(8L, new BigDecimal("50.00"), "RECHAZADO", AHORA.plusSeconds(60), List.of()));
+    }
+
+    @Test
+    @DisplayName("HU-22 R6: sin reservas, pagosDeReservas devuelve una lista vacía sin consultar")
+    void pagosDeReservasVacio() {
+        assertThat(servicio.pagosDeReservas(List.of())).isEmpty();
+        verifyNoInteractions(pagos, reembolsos);
+    }
+
+    @Test
+    @DisplayName("HU-22 R13: pagosDeReservas no expone ultimos4 ni el id de la pasarela")
+    void pagosDeReservasSinDatosDeTarjeta() {
+        assertThat(PagoDeReserva.class.getRecordComponents()).extracting(RecordComponent::getName)
+                .containsExactly("reservaId", "monto", "estado", "creadoEn", "reembolsos");
+        assertThat(ReembolsoDePago.class.getRecordComponents()).extracting(RecordComponent::getName)
+                .containsExactly("monto", "estado", "creadoEn");
+    }
+
+    @Test
+    @DisplayName("HU-22 R6: pagosDeReservas es de solo lectura")
+    void pagosDeReservasSoloLectura() throws Exception {
+        var anotacion = PagoServiceImpl.class.getMethod("pagosDeReservas", Collection.class)
+                .getAnnotation(Transactional.class);
+        assertThat(anotacion.readOnly()).isTrue();
     }
 }

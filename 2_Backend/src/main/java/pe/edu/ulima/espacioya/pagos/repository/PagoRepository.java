@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.pagos.repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +35,7 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
             + "and not exists (select d.id from LiquidacionDetalle d where d.reservaId = p.reservaId) "
             + "and (:incluirSimulados = true or p.idTransaccionPasarela not like 'sim-%') order by p.reservaId")
     List<Pago> pagadosSinLiquidar(@Param("incluirSimulados") boolean incluirSimulados);
+
+    // HU-22 R6: los pagos de las reservas del titular, para su exportación.
+    List<Pago> findByReservaIdInOrderByCreadoEnAscIdAsc(Collection<Long> reservaIds);
 }

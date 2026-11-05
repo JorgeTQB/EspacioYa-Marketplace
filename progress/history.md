@@ -1392,3 +1392,60 @@
     correo (decisión 5).
 - **Resultado:** `./init.sh` completo en verde tras el desbloqueo, en la máquina del implementer y en la del reviewer
   (1493 unitarias y 894 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-05 — HU-22 Derechos sobre datos personales (done)
+
+- **Dueño:** Kevin Chan · prueba y documenta: Jorge Quispe · rama `feature/HU-22-derechos-datos-personales` (desde
+  `develop`; por indicación del dueño `master` no se toca ni se considera).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-22.md`) → spec-author (`specs/HU-22/`, R1–R45, T1–T20, sin
+  migraciones) → aprobación de Kevin Chan el 2026-11-04 (D1–D9 y supuestos tal como están) → implementer (bloqueado por
+  Docker y retomado) → reviewer vuelta 1 `CHANGES_REQUESTED` → implementer → decisión del dueño → spec-author (§ 15.1) →
+  reviewer vuelta 2 `APPROVED` (`progress/review_HU-22.md`). Informe de implementación en `progress/impl_HU-22.md`.
+- **Decisiones aprobadas (`design.md` § 2):**
+  - D1: los registros contables se conservan sin fecha de fin y sin purga (§9 punto 6 sigue abierto).
+  - D2: los cobros por liquidar del arrendador bloquean la eliminación (R39).
+  - D3: reembolsos `PENDIENTE`/`FALLIDO` y pagos `PAGADO_TARDIO`/`MONTO_DISTINTO` no bloquean.
+  - D4: en la exportación, el documento y la cuenta bancaria van enmascarados.
+  - D5: el correo y el documento quedan libres para registrarse de nuevo (R33).
+  - D6: razón social y documento del arrendador se anonimizan aunque haya liquidaciones `PAGADA`.
+  - D7: la exportación del arrendador incluye solo las reservas `CONFIRMADA` de sus espacios, sin datos de quien reservó.
+  - D8: sin correo de aviso de la eliminación.
+  - D9: los espacios del arrendador eliminado conservan su estado, ocultos por HU-09 D1.
+- **Cambios (backend):** puerto `cuentas.service.puertos.ParticipanteDatosPersonales` (`TitularDatos`, `SeccionDatos`,
+  `Impedimento`), implementado por `DatosPersonalesReservasImpl` (`@Order(1)`) y `DatosPersonalesPagosImpl` (`@Order(2)`);
+  `DatosPersonalesService` y `DatosPersonalesController` (exportación y eliminación con reautenticación por contraseña);
+  `Usuario.anonimizar`/`puedeEliminarse`, `PerfilArrendador.anonimizar`; `Operacion.EXPORTACION/ELIMINACION` en
+  `ReautenticacionPerfil`; `DesafioMfaRepository.borrarDeUsuario`; `PagoService.pagosDeReservas` y consultas por lote en
+  `PagoRepository`, `ReembolsoRepository`, `LiquidacionRepository`; DTO de exportación en `cuentas`, `pagos` y `reservas`.
+  Sin migraciones.
+- **Cambios (frontend):** `exportarMisDatos`/`eliminarMiCuenta` en `api/cuentas.js`; `pages/cuentas/DatosPersonales.jsx`
+  (+ `.module.css`, textos) y quinta tarjeta en `Perfil.jsx`. Solo kit y tokens.
+- **Docs:** `docs/architecture.md` (fila del puerto, `PagoService.pagosDeReservas`, "Datos personales: qué deja HU-22"),
+  `docs/frontend.md` (tarjeta de `/panel/perfil`), `docs/modelo-datos.md` (marcadores de una cuenta `ELIMINADA`).
+- **Desviaciones menores (aceptadas por el reviewer):** (1) R29 anula los tokens de `TipoToken.values()` porque el enum no
+  tiene `VERIFICACION` (aviso para HU-25: comprobar que la eliminación lo anula cuando se agregue); (2) perfil leído con
+  `perfiles.findParaActualizar` en lugar de `findById`; (3) fecha del archivo desde `generadaEn` en Lima; (4) un solo
+  `ahora` y corte en el primer espacio con reservas por terminar; (5) `ConfirmacionContrasenaDTO` sin `@NotBlank` para
+  respetar el orden 403 → 429 → 400; (6) el arrendador usa `ReservaExportadaDTO` con `precioHora`, `creadaEn` y datos de
+  cancelación en `null`.
+- **Entorno:** Docker Desktop no respondía y la historia pasó a `blocked` (T15 y T20 sin verificar). El dueño encendió
+  Docker. El servicio de Windows `postgresql-x64-18` ocupaba el puerto 5432 y el backend se conectaba ahí (falla de login
+  de `espacioya`); **con autorización de Kevin Chan se detuvo ese servicio**, y el backend arrancó contra
+  `espacioya-postgres` (Flyway en v6.1). Si se vuelve a encender, chocará otra vez con el contenedor.
+- **Vueltas de revisión:** vuelta 1 `CHANGES_REQUESTED` por C4 (R42, R43 y R44 sin prueba concurrente real). Se agregó
+  `DatosPersonalesConcurrenciaIT` (6 IT, hilos reales con `CountDownLatch` contra PostgreSQL, 10 rondas con retraso
+  creciente y los dos órdenes en secuencia), sin cambios de producción. Vuelta 2 `APPROVED`.
+- **Riesgo aceptado por el dueño (`specs/HU-22/design.md` § 15.1, supuesto 10 de `requirements.md`):** una solicitud cuya
+  sesión se validó antes de que se confirme la eliminación y que bloquea la fila de `usuario` después sigue adelante con la
+  cuenta ya `ELIMINADA` (comprobado: `ReservaService.crear` deja una reserva `PENDIENTE_PAGO` en una cuenta eliminada). Mismo
+  patrón, sin comprobar, en `CuentaBancariaService` (HU-18), `PerfilService`, `FacturacionService`, `MfaService` y
+  `CambioCorreoService`; la suspensión de HU-09 tiene la misma ventana. Ventana de pocos ms. El 2026-11-05 Kevin Chan eligió
+  la opción 2 (aceptar y documentar, sin cambiar código). Corrección propuesta para más adelante: que
+  `CuentaServiceImpl.bloquearCuenta` y los servicios de `cuentas` comprueben `ACTIVA` bajo el bloqueo. R43 y R44 no se ven
+  afectadas.
+- **Pendientes (observaciones no bloqueantes del review):** `DatosPersonales.jsx` (`mostrarError`) supone que el error
+  trae `errores`; si `descargarJson` lanza un error del navegador, `falla.errores.filter` da `TypeError` (proteger con un
+  arreglo vacío por defecto). Al cerrar se actualizaron los comentarios viejos que apuntaban al hallazgo "pendiente de
+  decisión" (`DatosPersonalesConcurrenciaIT` y `impl_HU-22.md`) para que apunten a § 15.1.
+- **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1562 unitarias y 931 IT,
+  0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.

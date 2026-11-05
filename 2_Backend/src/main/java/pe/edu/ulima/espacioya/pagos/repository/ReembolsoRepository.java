@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.pagos.repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +35,7 @@ public interface ReembolsoRepository extends JpaRepository<Reembolso, Long> {
                    and coalesce(r.ultimoIntentoEn, r.creadoEn) <= :limite)
             order by r.creadoEn, r.id""")
     List<ReembolsoPorAtender> porAtender(@Param("limite") Instant limite);
+
+    // HU-22 R6: los reembolsos de los pagos exportados.
+    List<Reembolso> findByPagoIdInOrderByCreadoEnAscIdAsc(Collection<Long> pagoIds);
 }

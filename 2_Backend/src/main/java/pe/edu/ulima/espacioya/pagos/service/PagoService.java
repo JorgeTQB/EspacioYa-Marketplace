@@ -1,5 +1,8 @@
 package pe.edu.ulima.espacioya.pagos.service;
 
+import java.util.Collection;
+import java.util.List;
+
 /** Servicio público de pagos para otros módulos ({@code docs/architecture.md}: "reservas usa PagoService"). */
 public interface PagoService {
 
@@ -17,4 +20,11 @@ public interface PagoService {
      * @throws IllegalArgumentException si el monto no es mayor que 0 o supera el pago.
      */
     void reembolsarCancelacion(ReembolsoPorCancelacion solicitud);
+
+    /**
+     * Pagos de esas reservas con sus reembolsos, en orden de creación (HU-22 R6). {@code readOnly};
+     * colección vacía → {@code List.of()} sin consultar. Sin sesión ni rol: {@code reservas} pasa solo las reservas
+     * del titular.
+     */
+    List<PagoDeReserva> pagosDeReservas(Collection<Long> reservaIds);
 }
