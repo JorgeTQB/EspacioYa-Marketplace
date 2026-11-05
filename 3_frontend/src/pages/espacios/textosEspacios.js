@@ -33,3 +33,28 @@ export const TEXTO_ESTADO_BLOQUE = {
   BLOQUEADO: 'Bloqueado',
   PASADO: 'Ya pasó',
 }
+
+// HU-21. Pausar, reanudar y dar de baja. Los mensajes de error llegan de la API tal cual.
+export const AVISO_PAUSADO =
+  'Este espacio está pausado: no aparece en las búsquedas ni recibe reservas nuevas. Tus reservas confirmadas se ' +
+  'mantienen.'
+export const AVISO_BAJA = 'Este espacio está dado de baja: ya no aparece en el catálogo y no se puede editar.'
+export const TITULO_ESTADO_PUBLICACION = 'Estado de la publicación'
+export const BOTON_PAUSAR = 'Pausar'
+export const BOTON_REANUDAR = 'Reanudar'
+export const BOTON_DAR_DE_BAJA = 'Dar de baja'
+export const TITULO_PAUSAR = '¿Pausar este espacio?'
+export const TEXTO_PAUSAR =
+  'Dejará de aparecer en las búsquedas y no recibirá reservas nuevas. Las reservas que ya tienes se mantienen.'
+export const CONFIRMAR_PAUSAR = 'Sí, pausar'
+export const TITULO_DAR_DE_BAJA = '¿Dar de baja este espacio?'
+export const TEXTO_DAR_DE_BAJA =
+  'Es definitivo: dejará de aparecer en el catálogo y ya no podrás editarlo ni volver a publicarlo. Si tiene reservas ' +
+  'futuras, primero tendrás que cancelarlas con reembolso del 100 %.'
+export const CONFIRMAR_DAR_DE_BAJA = 'Sí, dar de baja'
+export const MENSAJE_PAUSADO = 'Tu espacio está pausado.'
+export const MENSAJE_REANUDADO = 'Tu espacio vuelve a estar publicado.'
+export const MENSAJE_DADO_DE_BAJA = 'Tu espacio está dado de baja.'
+export const TITULO_RESERVAS_AFECTADAS = 'Reservas afectadas'
+export const SIN_RESERVAS_AFECTADAS =
+  'Ya no quedan reservas confirmadas por cancelar. Vuelve a dar de baja el espacio.'

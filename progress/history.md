@@ -1352,3 +1352,43 @@
   cambiar la razón social (D14).
 - **Resultado:** `./init.sh` completo en verde tras la vuelta 1, en la máquina del implementer y en la del revisor
   (1438 unitarias y 859 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-04 — HU-21 Pausar o dar de baja una publicación (done)
+
+- **Dueño:** Sebastian Garate · prueba y documenta: Adriana Callupe · rama `feature/HU-21-pausar-baja-publicacion`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-21.md`) → spec-author (`specs/HU-21/`, R1–R40, T1–T20) →
+  aprobación de Sebastian Garate el 2026-11-04 (decisiones 1–13 de `design.md` § 2 tal como están) → implementer →
+  reviewer (`progress/review_HU-21.md`, APPROVED en la primera vuelta).
+- **Cambios (backend):** `Espacio` con `esPausable`, `esReanudable`, `admiteBaja`, `pausar`, `reanudar`, `darDeBaja`;
+  `BloqueReservado.terminaDespuesDe`; `EstadoEspacioService` nuevo (orden rol → propiedad con bloqueo de fila → estado →
+  identidad/fotos o reservas por terminar → cambio → auditoría `PAUSA_ESPACIO` / `REANUDACION_ESPACIO` / `BAJA_ESPACIO`,
+  con `;actor=ADMIN;arrendadorId=` si actúa el admin); `EstadoEspacioDTO`; `EstadoEspacioController`
+  (`POST /api/arrendadores/actual/espacios/{id}/pausa|reanudacion|baja`) y `EspacioAdminController`
+  (`POST /api/admin/espacios/{id}/pausa|baja`); `EspacioService.habilitacion` y `aDto` a visibilidad de paquete; filtro
+  opcional `espacioId` en `GET /api/arrendadores/actual/reservas` (`ConsultaReservasService`, 400 si no es entero
+  positivo, 404 si no es propio). Sin migración, sin puerto nuevo, sin cambios en `busqueda`, `pagos` ni `comun`.
+- **Cambios (frontend):** `pausarEspacio`, `reanudarEspacio`, `darDeBajaEspacio`; `listarReservasDeMisEspacios` con
+  `espacioId`; `pages/espacios/EstadoPublicacion.jsx` y `ReservasAfectadas.jsx`; `pages/reservas/TarjetaReservaDeMiEspacio.jsx`
+  extraída de `ReservasDeMisEspacios.jsx`; avisos `PAUSADO`/`BAJA` y solo lectura en `EditarEspacio.jsx`. Solo kit y tokens.
+- **Docs:** `docs/architecture.md` (estados del espacio, sección "Estado del espacio: qué deja HU-21 (HU-27)",
+  Disponibilidad, Mis reservas, Cancelación) y `docs/frontend.md` (`/panel/espacios/:id`).
+- **Tests:** 84 con `@DisplayName("HU-21 …")`: `EspacioTest` (casos nuevos), `BloqueReservadoTest`,
+  `EstadoEspacioServiceTest`, `ConsultaReservasServiceTest` (casos nuevos), `EstadoEspacioControllerIT`,
+  `EspacioAdminControllerIT`, `BajaEspacioConReservasIT` (puerto real, cancelación HU-15 al 100 %) y
+  `BajaEspacioConcurrenciaIT` (R17: el invariante no depende del orden de los hilos y los dos órdenes se prueban además en
+  secuencia). R1–R40 trazados en `progress/impl_HU-21.md`.
+- **Bloqueo y decisión (opción 1):** la primera corrida de `./init.sh` falló en `MisReservasControllerIT
+  .deSusEspaciosEnCualquierEstado` (HU-14): HU-21 R21 (404 con `espacioId` ajeno) chocaba con HU-14 R7 ("se ignora
+  cualquier parámetro distinto de `grupo` y `pagina`, como `espacioId`"). Sebastian Garate eligió la opción 1: **R21 deja
+  sin efecto la parte de HU-14 R7 sobre `espacioId` solo en la ruta del arrendador** (`GET /api/reservas` sigue
+  ignorándolo); documentado en `specs/HU-21/design.md`. Único test existente cambiado: línea 383 de
+  `MisReservasControllerIT`, sin `&espacioId=<ajeno>` (sigue comprobando que se ignora `arrendadorId`).
+- **Pendientes:**
+  - **Al abrir el PR, avisar a Adriana Callupe (dueña de HU-14)** del ajuste en `MisReservasControllerIT` línea 383 y de
+    la excepción a HU-14 R7.
+  - Opcional (observación 2 del review): en `ReservasDeMisEspacios.jsx`, `tarjetaDeReserva(reserva)` es un envoltorio
+    de una línea de `TarjetaReservaDeMiEspacio`; podría pasarse el componente directamente.
+  - HU-27 puede llamar a las rutas del admin desde su cola de moderación; el admin aún no tiene pantalla ni avisa por
+    correo (decisión 5).
+- **Resultado:** `./init.sh` completo en verde tras el desbloqueo, en la máquina del implementer y en la del reviewer
+  (1493 unitarias y 894 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.

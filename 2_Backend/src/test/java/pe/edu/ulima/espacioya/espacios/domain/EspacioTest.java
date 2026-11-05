@@ -137,4 +137,87 @@ class EspacioTest {
         assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
         assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.BORRADOR);
     }
+
+    @Test
+    @DisplayName("HU-21 R6, R8, R16: pausable solo PUBLICADO, reanudable solo PAUSADO, baja desde PUBLICADO o PAUSADO")
+    void predicadosDeEstado() {
+        for (var estado : EstadoEspacio.values()) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esPausable()).isEqualTo(estado == EstadoEspacio.PUBLICADO);
+            assertThat(espacio.esReanudable()).isEqualTo(estado == EstadoEspacio.PAUSADO);
+            assertThat(espacio.admiteBaja())
+                    .isEqualTo(estado == EstadoEspacio.PUBLICADO || estado == EstadoEspacio.PAUSADO);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: pausar un PUBLICADO lo deja PAUSADO con actualizadoEn del reloj")
+    void pausarPublicado() {
+        var espacio = enEstado(EstadoEspacio.PUBLICADO);
+
+        espacio.pausar(DESPUES);
+
+        assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.PAUSADO);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-21 R6: pausar fuera de PUBLICADO lanza y no cambia estado ni actualizadoEn")
+    void pausarFueraDePublicadoLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.PAUSADO, EstadoEspacio.BAJA,
+                EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.pausar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: reanudar un PAUSADO lo deja PUBLICADO con actualizadoEn del reloj")
+    void reanudarPausado() {
+        var espacio = enEstado(EstadoEspacio.PAUSADO);
+
+        espacio.reanudar(DESPUES);
+
+        assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.PUBLICADO);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-21 R8: reanudar fuera de PAUSADO lanza y no cambia estado ni actualizadoEn")
+    void reanudarFueraDePausadoLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.PUBLICADO, EstadoEspacio.BAJA,
+                EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.reanudar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: dar de baja un PUBLICADO o un PAUSADO lo deja en BAJA con actualizadoEn del reloj")
+    void darDeBajaPublicadoOPausado() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.PUBLICADO, EstadoEspacio.PAUSADO}) {
+            var espacio = enEstado(estado);
+
+            espacio.darDeBaja(DESPUES);
+
+            assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.BAJA);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+            assertThat(espacio.esEditable()).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R16: dar de baja un BORRADOR, BAJA u OCULTO lanza y no cambia estado ni actualizadoEn")
+    void darDeBajaNoAdmitidaLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.darDeBaja(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
 }

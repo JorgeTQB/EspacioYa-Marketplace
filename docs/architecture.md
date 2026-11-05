@@ -292,8 +292,42 @@ leyendo repositorios de `espacios` desde otro módulo):
 - **HU-12, consulta en lote (HU-10 DT-6, D7), hecho:** `ReservasDelEspacioImpl` sobrescribe el método **default**
   `bloquesReservadosDelDia` con una sola consulta (`espacio_id IN (…)` y `fecha = …`) con el mismo criterio de reservas
   activas. Los ids sin reservas faltan en el mapa.
-- **HU-21 (baja con reservas):** usa el mismo puerto `ReservasDelEspacio` con la ventana completa
-  (`desde`, `hasta` de `VentanaReserva`).
+- **HU-21 (baja con reservas), hecho:** usa el mismo puerto `ReservasDelEspacio` con la ventana completa
+  (`desde`, `hasta` de `VentanaReserva`) y filtra con `BloqueReservado.terminaDespuesDe(ahoraLocal)`. Ver
+  [Estado del espacio](#estado-del-espacio-qué-deja-hu-21-hu-27).
+
+### Estado del espacio: qué deja HU-21 (HU-27)
+
+Pausa, reanudación y baja viven en `espacios.service.EstadoEspacioService` (clase concreta, sin interfaz), que reutiliza
+`EspacioService.habilitacion` y `aDto`. Las reglas de estado están en la entidad: `Espacio.esPausable()` (`PUBLICADO`),
+`esReanudable()` (`PAUSADO`), `admiteBaja()` (`PUBLICADO` o `PAUSADO`) y `pausar`, `reanudar`, `darDeBaja(Instant)`, que
+lanzan `IllegalStateException` si el predicado no se cumple y fijan `actualizado_en`. `BAJA` es final. Sin migración: la
+fecha queda en `actualizado_en` y en la auditoría.
+
+| Ruta | Rol | Respuesta |
+|------|-----|-----------|
+| `POST /api/arrendadores/actual/espacios/{id}/pausa` · `/reanudacion` · `/baja` (`EstadoEspacioController`) | `ARRENDADOR` con correo verificado; espacio propio (ajeno = 404) | `EspacioDTO` |
+| `POST /api/admin/espacios/{id}/pausa` · `/baja` (`EspacioAdminController`, dentro de `espacios`) | `ADMIN` (IP permitida + MFA + rol en el servicio, antes de leer) | `EstadoEspacioDTO(id, estado)` |
+
+- **Orden.** Arrendador: rol y correo (403) → `findParaActualizar(id, arrendadorId)` (bloqueo de fila, 404) → estado (400)
+  → *reanudar:* identidad `VERIFICADA` → al menos una foto (mensajes de HU-07) / *baja:* reservas por terminar → cambio →
+  auditoría. Admin: rol → `findParaReservar(id)` (mismo bloqueo, sin filtro de dueño) → estado → reservas. El admin no
+  reanuda ni cancela reservas; pausar y dar de baja no exigen identidad verificada.
+- **Reserva por terminar.** Algún bloque de `ReservasDelEspacio.bloquesReservados(id, ventana)` (reservas `CONFIRMADA` o
+  `PENDIENTE_PAGO` vigente) con `terminaDespuesDe(ZonaHoraria.ahora(reloj))`: incluye las futuras, las en curso y las
+  pendientes de pago vigentes. Sin bean del puerto, no hay reservas. Si hay, 400 con un error en el campo `reservas`
+  (`MENSAJE_RESERVAS_POR_TERMINAR`, o `…_ADMIN` para el admin); el arrendador las ve con el filtro `espacioId` de
+  [Mis reservas](#mis-reservas-qué-deja-hu-14-hu-15-hu-21-hu-22-hu-24-hu-26) y las cancela una a una con HU-15 (100 %).
+  Las en curso y las pendientes no se cancelan: hay que esperar a que terminen o venzan.
+- **Carrera (R17).** Las reservas se leen después de tomar el bloqueo de la fila del espacio y en la misma transacción;
+  crear una reserva (`retenerSiLibres`), el webhook y la cancelación toman el mismo bloqueo. O la reserva entra primero y la
+  baja la ve, o la baja entra primero y la reserva relee `BAJA` y responde 404.
+- **Auditoría.** `PAUSA_ESPACIO`, `REANUDACION_ESPACIO`, `BAJA_ESPACIO`, entidad `espacio`, detalle
+  `estado=<anterior>-><nuevo>` y, si actúa el admin, `;actor=ADMIN;arrendadorId=<dueño>`. Los rechazos no se auditan.
+- **Visibilidad.** No cambió nada en `busqueda`: toda la visibilidad pública exige `estado == PUBLICADO` (HU-09 D1), así que
+  un `PAUSADO` o `BAJA` no aparece en la búsqueda, su ficha da 404 y no recibe reservas. Un `PAUSADO` sigue editable; un
+  `BAJA` no (`esEditable`), sigue en "Mis espacios" y sus reservas pasadas se siguen liquidando (HU-19 no filtra estado).
+- **HU-27** puede llamar a las rutas del admin desde su cola de moderación; `OCULTO` no admite pausa, reanudación ni baja.
 
 ### Reservas: qué deja HU-12 (HU-13, HU-14, HU-15)
 
@@ -443,6 +477,11 @@ sin cambios) y `GET /api/arrendadores/actual/reservas` (rol `ARRENDADOR`, `Pagin
 `CONFIRMADA`, con `usuarioNombre` y sin `usuarioId`, correo, teléfono ni pago). Otro rol recibe 403 antes de validar los
 parámetros. Ninguna escribe ni audita. `ConsultaReservasService` coordina las dos.
 
+**Filtro por espacio (HU-21).** `GET /api/arrendadores/actual/reservas` acepta `espacioId` opcional: solo dígitos y de 1 a
+`Long.MAX_VALUE` (si no, 400 en `espacioId`, junto con los errores de `grupo` y `pagina`); si no es uno de los espacios del
+arrendador de la sesión, 404 genérico. Con él, `ConsultaReservasService` pasa `Set.of(espacioId)` a
+`ReservaDAO.confirmadasDeEspacios`; sin él, responde igual que HU-14. Es la lista de "reservas afectadas" de una baja.
+
 | Pieza | Patrón ★ | Qué hace |
 |-------|----------|----------|
 | `reservas.repository.ReservaDAO` | **DAO** (DataAccessObject) | **Primer DAO explícito del repo.** Interfaz sin métodos de consulta general: `delUsuario(usuarioId)` recibe el dueño directamente; `confirmadasDeEspacios(espacioIds)` recibe ids de espacios, no el arrendador, y la propiedad la garantiza `ConsultaReservasService`, que solo le pasa los espacios ya filtrados por el arrendador de la sesión (`CatalogoEspaciosService.nombresDelArrendador`); colección vacía → `List.of()` sin consultar (STRIDE E/I). El servicio solo conoce esta interfaz |
@@ -490,8 +529,8 @@ espacio y la segunda ve `CANCELADA` (400). La vista previa es `readOnly` y no bl
 **`CANCELADA` con sus datos.** La fila guarda `cancelada_por`, `cancelada_en` y `monto_reembolso` (HU-16 y HU-28 los leen sin
 parsear la auditoría); el porcentaje y la política quedan en el detalle de `RESERVA_CANCELADA`. Para el usuario la cancelada
 cae en Pasadas; para el arrendador desaparece de su lista (HU-14 R15, sin cambios). La regla "id bien escrito" de las rutas
-`/{id}` de reservas vive en `ConversionReservas.idReserva`. HU-21 puede reutilizar `CancelacionReservaService` con
-`QuienCancela.ARRENDADOR` o agregar una estrategia.
+`/{id}` de reservas vive en `ConversionReservas.idReserva`. HU-21 la reutiliza sin cambios: el arrendador cancela una a una
+las reservas que impiden la baja con la ruta `ARRENDADOR` (100 %).
 
 ## Seguridad transversal (STRIDE)
 
@@ -560,7 +599,9 @@ En el modelo de datos se reparten en `usuario.correo_verificado`,
 arrendador cambia su documento o su razón social en el perfil (HU-20, RN-02); en revisión no puede cambiarlos.
 
 - **Espacio:** `BORRADOR` → `PUBLICADO` (requiere identidad verificada) ⇄
-  `PAUSADO`; `PUBLICADO` → `BAJA`; `OCULTO` por moderación (HU-27). Si el
+  `PAUSADO` (pausa el arrendador o el admin; reanuda solo el arrendador, con identidad verificada y al menos una foto);
+  `PUBLICADO` o `PAUSADO` → `BAJA` (el arrendador o el admin, sin reservas por terminar); `BAJA` es final: no se
+  reactiva ni se edita (HU-21); `OCULTO` por moderación (HU-27). Si el
   arrendador está suspendido, sus espacios no se muestran pero conservan su estado.
 - **Reserva:** `PENDIENTE_PAGO` (retiene los bloques 15 minutos) → `CONFIRMADA`
   (pago aprobado) o `EXPIRADA` (sin pago a tiempo); `CONFIRMADA` → `CANCELADA`.

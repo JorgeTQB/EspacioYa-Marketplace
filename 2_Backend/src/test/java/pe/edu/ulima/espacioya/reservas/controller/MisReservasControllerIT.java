@@ -380,7 +380,7 @@ class MisReservasControllerIT extends ReservasControllerSoporte {
                 .containsExactly(enPublicado, enPausado, enOculto);
         assertThat(conId(proximas, enPausado).get("espacioNombre")).isEqualTo("Auditorio Pausado");
         assertThat(ids(deMisEspacios(sesion, "?grupo=pasadas"))).containsExactly(pasadaEnBaja);
-        assertThat(ids(deMisEspacios(sesion, "?grupo=proximas&arrendadorId=" + otro + "&espacioId=" + ajeno)))
+        assertThat(ids(deMisEspacios(sesion, "?grupo=proximas&arrendadorId=" + otro)))
                 .containsExactly(enPublicado, enPausado, enOculto);
 
         var delOtro = token(CORREO_OTRO_ARRENDADOR);

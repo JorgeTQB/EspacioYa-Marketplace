@@ -18,7 +18,8 @@ import jakarta.persistence.Table;
 
 /**
  * Espacio de un arrendador (HU-07). Nace en {@code BORRADOR}; solo {@link #publicar} lo lleva a
- * {@code PUBLICADO} y editarlo nunca cambia su estado.
+ * {@code PUBLICADO} y editarlo nunca cambia su estado. HU-21: {@code PUBLICADO ⇄ PAUSADO} con {@link #pausar} y
+ * {@link #reanudar}, y {@link #darDeBaja} desde {@code PUBLICADO} o {@code PAUSADO}; {@code BAJA} es final.
  */
 @Entity
 @Table(name = "espacio")
@@ -114,6 +115,30 @@ public class Espacio {
         actualizadoEn = ahora;
     }
 
+    public void pausar(Instant ahora) {
+        if (!esPausable()) {
+            throw new IllegalStateException("Solo se pausa un espacio publicado, no en " + estado);
+        }
+        estado = EstadoEspacio.PAUSADO;
+        actualizadoEn = ahora;
+    }
+
+    public void reanudar(Instant ahora) {
+        if (!esReanudable()) {
+            throw new IllegalStateException("Solo se reanuda un espacio pausado, no en " + estado);
+        }
+        estado = EstadoEspacio.PUBLICADO;
+        actualizadoEn = ahora;
+    }
+
+    public void darDeBaja(Instant ahora) {
+        if (!admiteBaja()) {
+            throw new IllegalStateException("Solo se da de baja un espacio publicado o pausado, no en " + estado);
+        }
+        estado = EstadoEspacio.BAJA;
+        actualizadoEn = ahora;
+    }
+
     public void tocar(Instant ahora) {
         actualizadoEn = ahora;
     }
@@ -125,6 +150,18 @@ public class Espacio {
 
     public boolean esPublicable() {
         return estado == EstadoEspacio.BORRADOR;
+    }
+
+    public boolean esPausable() {
+        return estado == EstadoEspacio.PUBLICADO;
+    }
+
+    public boolean esReanudable() {
+        return estado == EstadoEspacio.PAUSADO;
+    }
+
+    public boolean admiteBaja() {
+        return estado == EstadoEspacio.PUBLICADO || estado == EstadoEspacio.PAUSADO;
     }
 
     private void asignar(DatosEspacio datos) {
