@@ -15,8 +15,10 @@ export function listarMisReservas({ grupo, pagina }) {
   return peticion(`/api/reservas?${parametros}`)
 }
 
-export function listarReservasDeMisEspacios({ grupo, pagina }) {
+// HU-21: con espacioId, solo las de ese espacio propio (las reservas afectadas por una baja).
+export function listarReservasDeMisEspacios({ grupo, pagina, espacioId }) {
   const parametros = new URLSearchParams({ grupo, pagina: String(pagina) })
+  if (espacioId !== undefined && espacioId !== null) parametros.set('espacioId', String(espacioId))
   return peticion(`/api/arrendadores/actual/reservas?${parametros}`)
 }
 

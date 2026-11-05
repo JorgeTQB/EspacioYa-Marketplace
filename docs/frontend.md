@@ -321,6 +321,20 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   que el monto cambió, `Alerta atencion` dentro del modal y nueva vista previa; otro error, `Alerta error` bajo la tarjeta.
   Tras cancelar, `Alerta exito` y un contador `recarga` como `key` de las dos secciones: la reserva pasa a Pasadas como
   "Cancelada" (usuario) o desaparece (arrendador). No agrega componentes al kit, estados ni colores.
+- **`/panel/espacios/:id` — pausar, reanudar y dar de baja (HU-21, `pages/espacios/EditarEspacio.jsx`):** con el
+  espacio `PAUSADO`, `Alerta info` "Este espacio está pausado…"; con `BAJA`, `Alerta info` "Este espacio está dado de
+  baja…" y "Guardar cambios", "Subir foto" y "Quitar foto" `deshabilitado` (igual en `OCULTO`). Con `PUBLICADO` o
+  `PAUSADO`, debajo de las fotos, el bloque "Estado de la publicación" (`pages/espacios/EstadoPublicacion.jsx`, no es del
+  kit; solo botones `secundario` o `peligro`, porque el primario de la pantalla es "Guardar cambios"): "Pausar" (`Modal`
+  `primario` → `pausarEspacio`), "Reanudar" sin modal (`reanudarEspacio`; un error va en `Alerta error` tal cual, con
+  "Verificar mi identidad" si `sesion.aviso`) y `Boton peligro` "Dar de baja" (`Modal` `peligro-confirmar` →
+  `darDeBajaEspacio`). Cada éxito actualiza el espacio y muestra `Alerta exito` arriba. Si la baja responde 400 con un
+  error en el campo `reservas`, `Alerta atencion` con ese mensaje y "Reservas afectadas"
+  (`pages/espacios/ReservasAfectadas.jsx`, no es del kit): `SeccionReservas` de "proximas" con
+  `listarReservasDeMisEspacios({ grupo, pagina, espacioId })` y, en cada `CONFIRMADA`,
+  `pages/reservas/TarjetaReservaDeMiEspacio.jsx` (extraída de `ReservasDeMisEspacios`) con `CancelarReserva` (HU-15,
+  100 %); tras cada cancelación, `Alerta exito` y recarga. Luego el arrendador vuelve a pulsar "Dar de baja". Las rutas
+  del admin no tienen pantalla. No agrega componentes al kit, estados ni colores.
 - **`/admin/reembolsos` (HU-16, `pages/pagos/ReembolsosPorAtender.jsx`, con `RutaProtegida`):** "Reembolsos por atender"
   (enlace desde `Panel` para `ADMIN`); otro rol vuelve a `/panel` con `Navigate` (la API igual responde 403). Lista lo que
   devuelve `GET /api/admin/reembolsos` (`listarReembolsosPorAtender`): una `Tarjeta` por reembolso con "Reserva #N",
