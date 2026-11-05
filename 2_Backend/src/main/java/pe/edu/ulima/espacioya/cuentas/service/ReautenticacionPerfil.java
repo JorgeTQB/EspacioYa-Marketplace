@@ -12,9 +12,10 @@ import pe.edu.ulima.espacioya.comun.limite.LimitadorIntentos;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 
 /**
- * Contraseña para cambiar el correo o la facturación (HU-20 STRIDE S, RNF-SEG-03). Un solo cupo de fallos por cuenta
- * para las dos rutas (D6): alternarlas no duplica los intentos. Se llama sin transacción abierta, así la auditoría del
- * fallo se confirma sola y bcrypt no retiene una conexión (como HU-18).
+ * Contraseña para cambiar el correo o la facturación (HU-20 STRIDE S, RNF-SEG-03), y para exportar o eliminar la
+ * cuenta (HU-22). Un solo cupo de fallos por cuenta para todas las rutas (D6): alternarlas no duplica los intentos.
+ * Se llama sin transacción abierta, así la auditoría del fallo se confirma sola y bcrypt no retiene una conexión (como
+ * HU-18).
  */
 @Component
 public class ReautenticacionPerfil {
@@ -29,7 +30,8 @@ public class ReautenticacionPerfil {
     static final String PREFIJO_CLAVE = "perfil|";
     private static final String ENTIDAD_USUARIO = "usuario";
 
-    public enum Operacion { CORREO, FACTURACION }
+    // HU-22 DT-4: exportar y eliminar comparten el mismo cupo perfil|<id>.
+    public enum Operacion { CORREO, FACTURACION, EXPORTACION, ELIMINACION }
 
     private final CuentaService cuentas;
     private final LimitadorIntentos limitador;

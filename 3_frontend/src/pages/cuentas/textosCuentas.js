@@ -112,3 +112,24 @@ export const ENLACE_CORREO_INVALIDO =
   'El enlace para confirmar tu correo no es válido o ya expiró. Solicita el cambio de nuevo.'
 export const ENLACE_IR_A_PERFIL = 'Ir a mi perfil'
 export const ENLACE_INICIAR_SESION = 'Iniciar sesión'
+
+// Mis datos personales (HU-22).
+export const TITULO_MIS_DATOS = 'Mis datos personales'
+export const EXPLICACION_MIS_DATOS = 'Puedes descargar una copia de tus datos o eliminar tu cuenta.'
+export const BOTON_DESCARGAR_DATOS = 'Descargar mis datos'
+export const BOTON_ELIMINAR_CUENTA = 'Eliminar mi cuenta'
+export const EXPLICACION_CONTRASENA_DESCARGA = 'Por tu seguridad, escribe tu contraseña para descargar tus datos.'
+export const BOTON_DESCARGAR = 'Descargar'
+export const DATOS_DESCARGADOS = 'Descargamos tus datos en un archivo JSON.'
+export const TITULO_ELIMINAR_CUENTA = '¿Eliminar tu cuenta?'
+export const AVISO_ELIMINAR_CUENTA =
+  'Se desactivará tu cuenta y se borrarán tus datos personales. Conservaremos tus reservas y pagos sin tus datos, ' +
+  'como exige la ley. No podrás deshacerlo.'
+export const TITULO_IMPEDIMENTOS = 'Antes de eliminar tu cuenta, resuelve esto:'
+export const ENLACE_VER_RESERVAS = 'Ver mis reservas'
+export const ENLACE_VER_RESERVAS_ESPACIOS = 'Ver las reservas de mis espacios'
+export const ENLACE_VER_LIQUIDACIONES = 'Ver mis liquidaciones'
+
+export function nombreArchivoDatos(fecha) {
+  return `espacioya-mis-datos-${fecha}.json`
+}

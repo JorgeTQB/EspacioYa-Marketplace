@@ -131,7 +131,7 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | Interfaz (la define)                  | La implementa              | Para |
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
-| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda  | HU-22: exportar, verificar impedimentos y anonimizar. Se inyecta como `List<>`: agregar un módulo no cambia nada (OCP) |
+| `cuentas.ParticipanteDatosPersonales` | reservas, pagos (busqueda lo sumará con HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19: `describir(Collection<Long> reservaIds)` → `List<ReservaLiquidable>` (reserva, arrendador, espacio y su nombre, fecha, horas, `finEn` = fin del último bloque en Lima, `admitida` = `CONFIRMADA` o `CANCELADA` por el usuario con `monto_reembolso = 0`, `cancelada`). `readOnly`, una consulta por lote, sin sesión ni rol; colección vacía → `List.of()` sin consultar; una reserva sin bloques no aparece. Lo implementa `ReservasLiquidablesImpl` (no usa `ReservaDAO`: es una consulta del sistema con ids que salen de `pagos`). Se inyecta directo, como `ReservasPorCobrar` |
@@ -175,7 +175,8 @@ Tabla `cuenta_bancaria` (`V5_2`): **una sola fila por arrendador** (`uq_cuenta_b
 directo. **HU-19** lee la cuenta con `CuentaBancariaRepository.findByArrendadorId` y decide con
 `CuentaBancaria.estaRetenida(ahora)` (`retener_hasta` > ahora, RN-11: tras un **cambio**, no tras el primer registro); sin fila,
 la liquidación queda `PENDIENTE_CUENTA`. HU-18 **no** expone el número completo en ninguna ruta; cómo lo ve el admin para
-transferir a mano lo decide HU-19. **HU-22** anonimiza la fila (no hay cascada desde `usuario`). Rutas: `GET` y `PUT
+transferir a mano lo decide HU-19. **HU-22** **borra** la fila al eliminar la cuenta (no hay cascada desde
+`usuario`; la liquidación `PAGADA` ya guardó banco y cuenta enmascarada). Rutas: `GET` y `PUT
 /api/arrendadores/actual/cuenta-bancaria` (siempre `no-store`). El `PUT` exige rol `ARRENDADOR`, identidad verificada y la
 contraseña (5 fallos en 15 min por cuenta → 429); contraseña incorrecta es 400 y no 401 porque `api/cliente.js` borra el
 token ante un 401 con token.
@@ -395,7 +396,10 @@ además de esas validaciones: si ya hay un reembolso `CANCELACION` del pago → 
 `REEMBOLSO_SOLICITADO` igual que antes y entrega el Command a `EjecutorReembolsos.ejecutarDespuesDelCommit`: la pasarela se
 llama **después del commit**, en el mismo hilo, antes de que la cancelación responda. Un fallo de la pasarela nunca lanza
 ahí: deja el reembolso `FALLIDO` y el pago `REEMBOLSO_FALLIDO`, y la cancelación responde igual 200. Ver
-[Reembolsos](#reembolsos-qué-deja-hu-16-hu-26-hu-28).
+[Reembolsos](#reembolsos-qué-deja-hu-16-hu-26-hu-28). **HU-22** le agregó `pagosDeReservas(Collection<Long> reservaIds) →
+List<PagoDeReserva>` (`readOnly`, sin sesión ni rol; colección vacía → `List.of()` sin consultar): cada pago de esas reservas
+con monto, estado, fecha y sus `ReembolsoDePago` (monto, estado, fecha), en dos consultas por lote y **sin** `ultimos4` ni ids
+de la pasarela. Lo usa `reservas` para exportar los pagos del usuario, porque `pagos` no sabe qué reservas son suyas.
 
 **Lo que deben saber las historias que siguen.** Una reserva tiene como mucho un
 pago `PAGADO`. HU-19 y HU-28 cuentan solo `PAGADO` (HU-28, también los reembolsados): `PAGADO_TARDIO` y `MONTO_DISTINTO`
@@ -531,6 +535,44 @@ parsear la auditoría); el porcentaje y la política quedan en el detalle de `RE
 cae en Pasadas; para el arrendador desaparece de su lista (HU-14 R15, sin cambios). La regla "id bien escrito" de las rutas
 `/{id}` de reservas vive en `ConversionReservas.idReserva`. HU-21 la reutiliza sin cambios: el arrendador cancela una a una
 las reservas que impiden la baja con la ruta `ARRENDADOR` (100 %).
+
+### Datos personales: qué deja HU-22 (HU-24, HU-26, HU-27)
+
+Derecho de acceso y supresión (Ley 29733) en `cuentas.service.DatosPersonalesService` (clase concreta) y
+`DatosPersonalesController`. Dos rutas `POST` con `{ "contrasena" }` en el cuerpo (nunca en la URL), sin id, `no-store`:
+`/api/usuarios/actual/exportaciones` (200 con el JSON y `Content-Disposition: attachment;
+filename="espacioya-mis-datos-<AAAA-MM-DD>.json"`, fecha de Lima de `generadaEn`) y `/api/usuarios/actual/eliminacion` (200
+`MensajeDTO`). `ADMIN` recibe 403 antes de todo. La contraseña la comprueba `ReautenticacionPerfil` (operaciones
+`EXPORTACION` y `ELIMINACION`, el **mismo** cupo `perfil|<id>` de HU-20) fuera de transacción: con contraseña incorrecta
+no se revelan los impedimentos.
+
+- **Exportación.** Una transacción: `perfil` (rol, correo, correo pendiente, nombre, teléfono, si hay foto, si hay MFA,
+  consentimiento y, para el arrendador, facturación con el documento **enmascarado**) + las secciones de cada participante
+  en orden (`reservas` y `pagos` del usuario; `reservas` `CONFIRMADA` de sus espacios sin datos de quien reservó,
+  `liquidaciones` y `cuentaBancaria` enmascarada o `null` del arrendador) + auditoría `DATOS_EXPORTADOS`
+  (`secciones=<claves>`). Nunca hash, documento o cuenta completos, secreto MFA, `ultimos4` ni ids de la pasarela.
+- **Eliminación.** `bcrypt` del secreto descartable **antes** de la transacción → `usuario` `FOR UPDATE` → impedimentos de
+  todos los participantes (400 `ValidacionException`, un error por campo en el orden `reservas`, `liquidaciones`, `pagos`;
+  nada cambia) → `Usuario.anonimizar` → perfil del arrendador (`findParaActualizar`, `PerfilArrendador.anonimizar`) y sus
+  `documento_identidad` → tokens pendientes de **todos** los `TipoToken` anulados → `codigo_respaldo`, `mfa`,
+  `desafio_mfa` borrados → `anonimizar` de cada participante (`pagos` borra `cuenta_bancaria`) → auditoría
+  `CUENTA_ELIMINADA` (`rol=<ROL>`) → archivos (foto y documentos) con `DespuesDelCommit` → `SesionRepository.revocarTodas`
+  (último: hace `flush` y `clear`). Cualquier fallo revierte todo. Marcadores y tablas: `docs/modelo-datos.md`.
+- **Impedimentos (RN-17).** Usuario: alguna reserva con `ReservaConHorario.esProxima` (pendiente vigente o confirmada que
+  no terminó). Arrendador: por cada espacio (`nombresDelArrendador`, id ascendente) `bloquearEspacio` y **después**
+  `ReservasDelEspacio.bloquesReservados` con algún bloque que `terminaDespuesDe` ahora (criterio de HU-21); después
+  `LiquidacionRepository.bloquearGeneracion` y **después** liquidaciones `GENERADA`/`PENDIENTE_CUENTA` y cobros por liquidar
+  (`pagadosSinLiquidar` + `ReservasLiquidables.describir`, del arrendador y `admitida`; mismo criterio de simulados que
+  `GeneradorLiquidaciones`). Reembolsos pendientes o fallidos y pagos `PAGADO_TARDIO`/`MONTO_DISTINTO` no bloquean (D3).
+- **Orden de bloqueos.** `usuario → espacio` (como crear una reserva, `usuario → espacio`, y la baja de HU-21) y `usuario →
+  advisory 190019 → perfil_arrendador → cuenta_bancaria`. Crear una reserva relee `cuentaActiva` bajo el bloqueo del
+  espacio: o la eliminación la ve, o la reserva encuentra la cuenta eliminada (404). `pagadosSinLiquidar` es global: riesgo
+  aceptado.
+- **Qué se conserva.** Las filas de `usuario` y `perfil_arrendador` (anonimizadas), reservas, pagos, reembolsos,
+  liquidaciones, auditoría (sin fecha de fin: el plazo legal sigue abierto, §9 punto 6), `revision_identidad`,
+  `suspension_cuenta` y los espacios con su estado, ocultos por HU-09 D1. No hay correo de aviso (D8).
+- **Para las que siguen.** **HU-24** implementa el puerto en `busqueda` cuando cree `resena` (decide si la reseña se
+  exporta y cómo se anonimiza); **HU-26** y **HU-27** igual con reclamos y reportes si guardan datos personales.
 
 ## Seguridad transversal (STRIDE)
 

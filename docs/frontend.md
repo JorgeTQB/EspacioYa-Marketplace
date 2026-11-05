@@ -267,6 +267,17 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   `Modal primario` "Confirma con tu contraseña": un error de `contrasena` o sin campo (429, en revisión, documento no
   disponible) se queda en el modal; uno de otro campo lo cierra y se ve bajo su `Campo`. La contraseña vive solo en el
   estado del modal y se vacía tras cada respuesta. No agrega componentes al kit, estados ni colores.
+  **HU-22** agrega al final una quinta `Tarjeta`, "Mis datos personales" (`pages/cuentas/DatosPersonales.jsx`, no es del
+  kit), con `Boton secundario` "Descargar mis datos" y `Boton peligro` "Eliminar mi cuenta". Descargar abre el `Modal
+  primario` "Confirma con tu contraseña" (`exportarMisDatos`, con `peticion`): con 200 arma un `Blob` JSON y lo descarga con
+  un `<a download="espacioya-mis-datos-<fecha>.json">` temporal (fecha de Lima de `generadaEn`, `URL.createObjectURL`
+  revocado al terminar) y muestra `Alerta exito`. Eliminar abre el `Modal` `peligro-confirmar` "¿Eliminar tu cuenta?" con
+  `Alerta atencion` y la contraseña (`eliminarMiCuenta`): con 200, `borrarToken()`, `salir()` y `navegar('/iniciar-sesion',
+  { replace: true, state: { mensaje, tipo: 'exito' } })` (el token se borra antes, así el 401 siguiente no avisa de sesión
+  perdida). Un 400 con `reservas`, `liquidaciones` o `pagos` cierra el modal y lista los mensajes en un `Alerta atencion`
+  "Antes de eliminar tu cuenta, resuelve esto:" con enlaces (`reservas` → `/mis-reservas` o `/panel/reservas` según el rol;
+  `liquidaciones` y `pagos` → `/panel/liquidaciones`); `contrasena`, 429 o sin campo se quedan en el modal. El JSON solo vive
+  en memoria. No agrega componentes al kit, estados ni colores.
 - **`/confirmar-correo` (HU-20, `pages/cuentas/ConfirmarCorreo.jsx`, pública):** como `/restablecer-contrasena`, lee el
   token del `#token=…` y lo quita de la URL con `navegar(pathname, { replace: true })`. No confirma al cargar (D19): un
   único `Boton primario` "Confirmar mi nuevo correo" llama a `confirmarCambioCorreo` (`autenticada: false`). 200 → `Alerta

@@ -17,6 +17,7 @@ import Imagen from '../../components/ui/Imagen.jsx'
 import Modal from '../../components/ui/Modal.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import useSesion from '../../sesion/useSesion.js'
+import DatosPersonales from './DatosPersonales.jsx'
 import { erroresPorCampo } from './erroresCampo.js'
 import {
   ALT_FOTO,
@@ -452,6 +453,8 @@ function Perfil() {
           </form>
         </Tarjeta>
       )}
+
+      <DatosPersonales />
 
       <Modal
         abierto={operacion !== null}

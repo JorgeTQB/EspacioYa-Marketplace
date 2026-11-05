@@ -171,3 +171,13 @@ export function actualizarFacturacion({ tipoDocumento, numeroDocumento, razonSoc
     cuerpo: { tipoDocumento, numeroDocumento, razonSocial, direccionFiscal, contrasena },
   })
 }
+
+// Derechos sobre datos personales (HU-22). POST con la contraseña en el cuerpo: nunca en la URL. La exportación
+// devuelve el JSON y la pantalla arma el archivo.
+export function exportarMisDatos({ contrasena }) {
+  return peticion('/api/usuarios/actual/exportaciones', { metodo: 'POST', cuerpo: { contrasena } })
+}
+
+export function eliminarMiCuenta({ contrasena }) {
+  return peticion('/api/usuarios/actual/eliminacion', { metodo: 'POST', cuerpo: { contrasena } })
+}

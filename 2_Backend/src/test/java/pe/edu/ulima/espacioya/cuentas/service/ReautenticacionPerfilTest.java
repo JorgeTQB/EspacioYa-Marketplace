@@ -125,6 +125,37 @@ class ReautenticacionPerfilTest {
     }
 
     @Test
+    @DisplayName("HU-22 R17: una contraseña incorrecta al exportar se audita con operacion=EXPORTACION")
+    void exportacionAuditaOperacion() {
+        when(cuentas.confirmarContrasena(TITULAR, "Mala123!")).thenReturn(false);
+
+        assertThatThrownBy(() -> reautenticacion.exigir(TITULAR, "Mala123!", Operacion.EXPORTACION, IP))
+                .isInstanceOf(ReglaNegocioException.class);
+
+        var evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        assertThat(evento.getValue()).isEqualTo(new EventoAuditoria(7L, "PERFIL_CONTRASENA_FALLIDA", "usuario", 7L, IP,
+                "operacion=EXPORTACION"));
+    }
+
+    @Test
+    @DisplayName("HU-22 R17: una contraseña incorrecta al eliminar se audita con operacion=ELIMINACION y cuenta en "
+            + "el mismo cupo")
+    void eliminacionAuditaOperacion() {
+        when(cuentas.confirmarContrasena(TITULAR, "Mala123!")).thenReturn(false);
+        fallar(ReautenticacionPerfil.MAXIMO_FALLOS - 1);
+
+        assertThatThrownBy(() -> reautenticacion.exigir(TITULAR, "Mala123!", Operacion.ELIMINACION, IP))
+                .isInstanceOf(ReglaNegocioException.class);
+
+        var evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        assertThat(evento.getValue().detalle()).isEqualTo("operacion=ELIMINACION");
+        assertThat(limitador.superaLimite(CLAVE, ReautenticacionPerfil.MAXIMO_FALLOS,
+                ReautenticacionPerfil.VENTANA_FALLOS)).isTrue();
+    }
+
+    @Test
     @DisplayName("HU-20 R42: registrarFallo cuenta un fallo en perfil|<id> sin auditar")
     void registrarFalloCuenta() {
         reautenticacion.registrarFallo(TITULAR);

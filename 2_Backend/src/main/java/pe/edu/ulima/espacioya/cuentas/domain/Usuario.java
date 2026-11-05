@@ -20,6 +20,8 @@ import jakarta.persistence.Table;
 @Table(name = "usuario")
 public class Usuario {
 
+    public static final String TEXTO_ANONIMIZADO = "Cuenta eliminada";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -204,6 +206,40 @@ public class Usuario {
 
     public boolean puedeReactivarse() {
         return esGestionablePorAdmin() && estado == EstadoUsuario.SUSPENDIDA;
+    }
+
+    // HU-22: el titular elimina su propia cuenta; el admin no tiene a quién pedir supresión (P4 de HU-17).
+    public boolean puedeEliminarse() {
+        return (rol == Rol.USUARIO || rol == Rol.ARRENDADOR) && estado == EstadoUsuario.ACTIVA;
+    }
+
+    /**
+     * Supresión (HU-22 R21–R23): el correo pasa al marcador (libera el original para otro registro, R33), los datos
+     * personales quedan nulos y la contraseña es un hash que nadie conoce. Se conservan el rol y el consentimiento.
+     *
+     * @return la ruta de la foto quitada (o null) para borrarla tras el commit.
+     * @throws IllegalStateException si la cuenta no es {@code USUARIO}/{@code ARRENDADOR} {@code ACTIVA}.
+     */
+    public String anonimizar(String hashNuevo) {
+        if (!puedeEliminarse()) {
+            throw new IllegalStateException("La cuenta no se puede eliminar: " + rol + " " + estado);
+        }
+        if (hashNuevo == null || hashNuevo.isBlank()) {
+            throw new IllegalArgumentException("La anonimización exige un hash nuevo");
+        }
+        var foto = quitarFoto();
+        correo = marcadorCorreo(id);
+        nombre = null;
+        telefono = null;
+        correoPendiente = null;
+        hashContrasena = hashNuevo;
+        estado = EstadoUsuario.ELIMINADA;
+        return foto;
+    }
+
+    // .invalid es un TLD reservado (RFC 2606): nunca recibe correo. En minúsculas por ck_usuario_correo_normalizado.
+    public static String marcadorCorreo(Long id) {
+        return "eliminada-" + id + "@espacioya.invalid";
     }
 
     public void suspender() {

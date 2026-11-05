@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.pagos.repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -40,4 +41,7 @@ public interface LiquidacionRepository extends JpaRepository<Liquidacion, Long> 
     Slice<Liquidacion> findByArrendadorId(Long arrendadorId, Pageable pagina);
 
     boolean existsByArrendadorIdAndEstadoIn(Long arrendadorId, Collection<EstadoLiquidacion> estados);
+
+    // HU-22 R8: todas las del arrendador para su exportación, de la más reciente a la más antigua.
+    List<Liquidacion> findByArrendadorIdOrderByGeneradaEnDescIdDesc(Long arrendadorId);
 }

@@ -3,6 +3,9 @@ package pe.edu.ulima.espacioya.pagos.service.impl;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -12,10 +15,13 @@ import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.pagos.domain.EstadoPago;
 import pe.edu.ulima.espacioya.pagos.domain.OrigenReembolso;
+import pe.edu.ulima.espacioya.pagos.domain.Pago;
 import pe.edu.ulima.espacioya.pagos.domain.Reembolso;
 import pe.edu.ulima.espacioya.pagos.repository.PagoRepository;
 import pe.edu.ulima.espacioya.pagos.repository.ReembolsoRepository;
+import pe.edu.ulima.espacioya.pagos.service.PagoDeReserva;
 import pe.edu.ulima.espacioya.pagos.service.PagoService;
+import pe.edu.ulima.espacioya.pagos.service.ReembolsoDePago;
 import pe.edu.ulima.espacioya.pagos.service.ReembolsoPorCancelacion;
 import pe.edu.ulima.espacioya.pagos.service.reembolso.Disparo;
 import pe.edu.ulima.espacioya.pagos.service.reembolso.EjecutorReembolsos;
@@ -69,5 +75,27 @@ public class PagoServiceImpl implements PagoService {
                 "origen=CANCELACION;reservaId=" + solicitud.reservaId() + ";monto=" + monto.toPlainString()));
         ejecutor.ejecutarDespuesDelCommit(solicitudes.crear(reembolso.getId(), Disparo.AUTOMATICO,
                 solicitud.solicitadoPor(), solicitud.ip()));
+    }
+
+    // HU-22 R6, R13: dos consultas por lote; nunca ultimos4 ni ids de la pasarela.
+    @Override
+    @Transactional(readOnly = true)
+    public List<PagoDeReserva> pagosDeReservas(Collection<Long> reservaIds) {
+        if (reservaIds == null || reservaIds.isEmpty()) {
+            return List.of();
+        }
+        var deLasReservas = pagos.findByReservaIdInOrderByCreadoEnAscIdAsc(reservaIds);
+        if (deLasReservas.isEmpty()) {
+            return List.of();
+        }
+        var pagoIds = deLasReservas.stream().map(Pago::getId).toList();
+        var porPago = reembolsos.findByPagoIdInOrderByCreadoEnAscIdAsc(pagoIds).stream()
+                .collect(Collectors.groupingBy(Reembolso::getPagoId, Collectors.mapping(
+                        r -> new ReembolsoDePago(r.getMonto(), r.getEstado().name(), r.getCreadoEn()),
+                        Collectors.toList())));
+        return deLasReservas.stream()
+                .map(p -> new PagoDeReserva(p.getReservaId(), p.getMonto(), p.getEstado().name(), p.getCreadoEn(),
+                        List.copyOf(porPago.getOrDefault(p.getId(), List.of()))))
+                .toList();
     }
 }
