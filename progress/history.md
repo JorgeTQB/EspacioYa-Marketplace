@@ -1482,3 +1482,65 @@
   `deshabilitado` en el kit.
 - **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1605 unitarias y 956 IT,
   0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-06 — Reasignación de HU-24
+
+- HU-24 pasa de Adriana Callupe a Ariel Enriquez, a pedido de Ariel en la sesión. El tester sigue siendo Sebastian Garate.
+- Archivos: `feature_list.json`, `docs/historias/HU-24.md`, `docs/requerimientos.md`.
+
+## 2026-11-06 — HU-24 Reseñas y calificaciones (done)
+
+- **Dueño:** Ariel Enriquez · prueba y documenta: Sebastian Garate · rama `feature/HU-24-resenas-calificaciones`.
+- **Reasignación:** HU-24 pasó de Adriana Callupe a Ariel Enriquez a pedido de Ariel en la sesión; el tester no cambió (ver la
+  entrada "Reasignación de HU-24"). Actualizados `feature_list.json`, `docs/historias/HU-24.md` y `docs/requerimientos.md`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-24.md`) → spec-author (`specs/HU-24/`, R1–R43, T1–T29) →
+  aprobación de Ariel Enriquez el 2026-11-06 → implementer (`progress/impl_HU-24.md`) → reviewer `APPROVED`
+  (`progress/review_HU-24.md`).
+- **Decisiones aprobadas (P1–P13, valores propuestos):** P1 ventana `fin ≤ ahora < fin + 14 días` desde `instanteDeFin`, hora
+  de Lima; P2 `POST /api/resenas` con `reservaId` en el cuerpo (ajena o inexistente 404, propia no reseñable 400, otro rol
+  403); P3 comentario obligatorio de 1 a 500; P4 sanitizar al guardar, sin escapar a entidades y sin dependencias; P5
+  `GET /api/resenas/pendientes`, `ReservaDTO` sin cambios; P6 `FichaPublicaDTO` gana `calificacionPromedio` y `totalResenas`,
+  reseñas en `GET /api/espacios/{id}/resenas` de 10 en 10, promedio con 1 decimal `HALF_UP`, calculado al consultar; P7 la
+  búsqueda no muestra, ordena ni filtra por promedio; P8 sin datos del autor en la ficha; P9 se puede reseñar aunque el
+  espacio ya no sea visible; P10 un reembolso por reclamo no impide reseñar, sin consultar `pagos`; P11 HU-22 exporta las
+  reseñas (solo `USUARIO`), al eliminar la cuenta el comentario pasa a "Comentario eliminado." y la calificación se conserva,
+  sin impedimentos; P12 una reseña oculta no se ve, no cuenta y no se puede repetir (único sobre `reserva_id` sin filtrar por
+  estado); P13 sin límite por usuario, la ruta pública usa el cupo `catalogo`.
+- **Resoluciones (P14–P18):** P14 `ReservaDTO` no se amplía y la autorización queda para HU-26; P15 `busqueda` solo importa
+  `cuentas.service.puertos`, con flecha nueva en el diagrama; P16 mandan `feature_list.json` y `docs/historias/HU-24.md`, y
+  `specs/HU-14/` no se toca; P17 `design.md` § 7 fija lo que faltaba de `resena` y se actualiza `docs/modelo-datos.md`; P18
+  sin efecto, `FichaPublicaDTO` pasa de 10 a 12 campos.
+- **Cambios (backend):** migración `V7_2__resena.sql`; en `busqueda`, `domain` (`EstadoResena`, `MotivoNoResenable`,
+  `ReglasResena`, `Resena`, `ResumenCalificaciones`), `ResenaRepository`, `TotalesResena`, DTO de reseñas, `ResenaService`,
+  `ResenaController` y `DatosPersonalesResenasImpl` (`@Order(3)`); `comun/texto/SanitizadorTexto`; en `reservas`,
+  `ReservasParaResena`, `ReservaParaResena` y su implementación; ajustes en `FichaPublicaDTO`, `FichaService`,
+  `BusquedaService` (solo visibilidad de `pagina`), `ReglasLimiteFicha` y `ConfiguracionSeguridad`. Sin puertos nuevos ni
+  dependencias nuevas.
+- **Cambios (frontend):** `ResenarReserva` y `ResenasEspacio` (con sus `.module.css`); cambios en `api/busqueda.js`,
+  `MisReservas.jsx`, `FichaEspacio.jsx`, `textosFicha.js` y `textosReservas.js`. Solo tokens y kit.
+- **Docs:** `docs/architecture.md`, `docs/modelo-datos.md`, `docs/frontend.md`, `docs/requerimientos.md`.
+- **Desviación justificada:** `ResenaService.deEspacio` responde vacío si el offset no cabe en un `int`, porque
+  `PageableUtils.getOffsetAsInteger` de spring-data-jpa 4.1.2 lanza una excepción y sería un 500 con una `pagina` válida según
+  R34. No cambia ningún `R<n>`; `design.md` no se editó y el comportamiento quedó en `docs/architecture.md`.
+- **Entorno:** Docker no respondía durante la implementación, así que las IT se escribieron sin ejecutarse y T29 quedó abierta
+  hasta tener `./init.sh` completo en verde. Se reinició Docker Desktop. T29 se marcó al cerrar y `progress/impl_HU-24.md` se
+  actualizó con ese resultado.
+- **No verificado:** las pantallas **no se revisaron en un navegador**, solo con lectura de código, lint y build. Lo visible
+  queda para la caja negra de UAT (`docs/verification.md`, Nivel 3). Tampoco se arrancó el backend con `spring-boot:run`:
+  en este entorno faltan `CIFRADO_LLAVE`, `CIFRADO_LLAVE_HUELLA` y `ALMACENAMIENTO_LLAVE_FIRMA`.
+- **Pendientes (observaciones 1 a 6 del review, no bloqueantes):**
+  1. Decisión del dueño sobre la sanitización: `2 < 4 y 5 > 3` se guarda como `2  3`, porque `< 4 y 5 >` parece una etiqueta y se
+     borra. Cumple P4, DT-8 y R21, pero se pierde texto sin aviso. Si Ariel no lo acepta, es un cambio de spec.
+  2. R38 se prueba de forma indirecta: `resenasConCupoAgotado` comprueba el 429 y que no salen datos, no cuenta consultas. Basta
+     porque el límite se aplica en un filtro, antes del controlador.
+  3. Marcar T29 y actualizar `progress/impl_HU-24.md`: resuelto en este cierre.
+  4. Corridas de `./init.sh` cortadas sin causa conocida: dos, ambas en las pruebas del backend (salida 4, sin salida de Maven)
+     y con Docker apagado. Sin fallo de prueba asociado. `ResenaControllerIT` suma un contexto y un contenedor propios, y
+     Docker tiene unos 7.9 GB de memoria. Vigilar en las próximas corridas.
+  5. Parpadeo posible, sin observar: tras publicar, "Calificar" puede verse un instante si "Pasadas" recarga antes que los
+     pendientes (`MisReservas.jsx:65-77`). El servidor respondería *ya reseñada*.
+  6. Migración: si HU-25 llega antes a `develop` con `V7_2`, renombrar antes del merge (`docs/conventions.md`).
+- **Resultado:** `./init.sh` completo salida 0 en la corrida del reviewer y en la de cierre (1722 unitarias y 1044 IT, 0 fallos;
+  arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+- 2026-11-06: Ariel Enriquez aceptó la observación 1 del review de HU-24: la sanitización de P4 se mantiene aunque texto como `2 < 4 y 5 > 3` pierda lo que parece una etiqueta. No cambia el spec.

@@ -259,13 +259,14 @@ class FichaControllerIT {
     }
 
     @Test
-    @DisplayName("HU-11 R2: la ficha trae exactamente los diez campos del contrato")
+    @DisplayName("HU-11 R2: la ficha trae exactamente los diez campos del contrato y los dos del resumen de HU-24")
     void fichaConExactamenteSusCampos() throws Exception {
         var id = publicado();
         foto(id, 1);
 
         assertThat(cuerpo(ficha(id).andExpect(status().isOk()))).containsOnlyKeys("id", "nombre", "tipo",
-                "direccion", "zona", "zonaNombre", "capacidad", "precioHora", "descripcion", "fotos");
+                "direccion", "zona", "zonaNombre", "capacidad", "precioHora", "descripcion", "fotos",
+                "calificacionPromedio", "totalResenas");
     }
 
     @Test

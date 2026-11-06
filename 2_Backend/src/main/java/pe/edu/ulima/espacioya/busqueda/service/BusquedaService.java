@@ -167,7 +167,7 @@ public class BusquedaService {
     }
 
     // Sin parámetro, la página 1. 0 = página no válida (fuera de 1..Integer.MAX_VALUE o no solo dígitos).
-    private static int pagina(String texto) {
+    static int pagina(String texto) {
         if (texto == null) {
             return 1;
         }
