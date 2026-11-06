@@ -97,7 +97,8 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
     // ── Exportación ──────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("HU-22 R1, R10, R11: el usuario descarga un JSON adjunto con perfil, reservas y pagos, sin caché")
+    @DisplayName("HU-22 R1, R10, R11: el usuario descarga un JSON adjunto con perfil, reservas, pagos y reseñas, sin "
+            + "caché")
     void usuarioExporta() throws Exception {
         var escenario = escenarioUsuario();
         var sesion = token(CORREO_USUARIO);
@@ -113,7 +114,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                 .andExpect(jsonPath("$.perfil.correo").value(CORREO_USUARIO));
         var exportacion = mapa(texto(respuesta));
 
-        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos");
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
         assertThat(ids(lista(exportacion, "reservas"), "id"))
                 .containsExactly(escenario.reservaPasada(), escenario.reservaCancelada());
         assertThat(ids(lista(exportacion, "pagos"), "reservaId"))
@@ -135,7 +136,106 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
         assertThat(fila.get("ip")).isEqualTo(ip);
         assertThat(fila.get("entidad")).isEqualTo("usuario");
         assertThat(((Number) fila.get("entidad_id")).longValue()).isEqualTo(escenario.usuario());
-        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos");
+        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos,resenas");
+    }
+
+    // ── Reseñas (HU-24) ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-24 R39: la exportación trae, después de pagos, las reseñas visibles y ocultas del titular")
+    void exportaLasResenasDelUsuario() throws Exception {
+        var escenario = escenarioUsuario();
+        var espacio = jdbc.queryForObject("SELECT id FROM espacio", Long.class);
+        var segunda = reserva(escenario.usuario(), espacio, "CONFIRMADA", hoy().minusDays(3), 8);
+        resena(escenario.reservaPasada(), escenario.usuario(), espacio, 5, "Excelente", "VISIBLE");
+        resena(segunda, escenario.usuario(), espacio, 2, "Regular", "OCULTA");
+        resena(escenario.reservaAjena(), escenario.otro(), espacio, 1, "Texto ajeno", "VISIBLE");
+        var sesion = token(CORREO_USUARIO);
+
+        var exportacion = mapa(texto(exportar(sesion, CONTRASENA).andExpect(status().isOk())));
+
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
+        var resenas = lista(exportacion, "resenas");
+        assertThat(ids(resenas, "reservaId")).containsExactly(escenario.reservaPasada(), segunda);
+        assertThat(resenas).extracting(r -> r.get("comentario")).containsExactly("Excelente", "Regular");
+        assertThat(resenas).extracting(r -> r.get("estado")).containsExactly("VISIBLE", "OCULTA");
+        assertThat(resenas.getFirst()).containsOnlyKeys("reservaId", "espacioNombre", "calificacion", "comentario",
+                "estado", "fecha");
+        assertThat(resenas.getFirst()).containsEntry("espacioNombre", "Cancha Norte")
+                .containsEntry("calificacion", 5)
+                .containsEntry("fecha", hoy().toString());
+    }
+
+    @Test
+    @DisplayName("HU-24 R39: sin reseñas, la sección resenas aparece vacía")
+    void seccionDeResenasVacia() throws Exception {
+        crearUsuario(CORREO_USUARIO);
+        var sesion = token(CORREO_USUARIO);
+
+        var exportacion = mapa(texto(exportar(sesion, CONTRASENA).andExpect(status().isOk())));
+
+        assertThat(secciones(exportacion)).containsKey("resenas");
+        assertThat(lista(exportacion, "resenas")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-24 R40: el arrendador no exporta la sección resenas aunque sus espacios tengan reseñas")
+    void arrendadorSinSeccionDeResenas() throws Exception {
+        var escenario = escenarioArrendador();
+        resena(escenario.reserva(), escenario.usuario(), escenario.espacio(), 4, "Buena", "VISIBLE");
+        var sesion = token(CORREO_ARRENDADOR);
+
+        var exportacion = mapa(texto(exportar(sesion, CONTRASENA).andExpect(status().isOk())));
+
+        assertThat(secciones(exportacion).keySet()).doesNotContain("resenas");
+    }
+
+    @Test
+    @DisplayName("HU-24 R41: una reseña no impide eliminar la cuenta")
+    void resenaNoImpideEliminar() throws Exception {
+        var escenario = escenarioUsuario();
+        var espacio = jdbc.queryForObject("SELECT id FROM espacio", Long.class);
+        resena(escenario.reservaPasada(), escenario.usuario(), espacio, 5, "Excelente", "VISIBLE");
+        var sesion = token(CORREO_USUARIO);
+
+        eliminar(sesion, CONTRASENA).andExpect(status().isOk());
+
+        assertThat(filaUsuario(escenario.usuario()).get("estado")).isEqualTo("ELIMINADA");
+    }
+
+    @Test
+    @DisplayName("HU-24 R42, R43: eliminar la cuenta reemplaza sus comentarios y conserva calificación, estado, autor "
+            + "y resumen")
+    void eliminarAnonimizaLasResenas() throws Exception {
+        var escenario = escenarioUsuario();
+        var espacio = jdbc.queryForObject("SELECT id FROM espacio", Long.class);
+        var segunda = reserva(escenario.usuario(), espacio, "CONFIRMADA", hoy().minusDays(3), 8);
+        var visible = resena(escenario.reservaPasada(), escenario.usuario(), espacio, 5, "Mi teléfono es 912",
+                "VISIBLE");
+        var oculta = resena(segunda, escenario.usuario(), espacio, 2, "Texto oculto", "OCULTA");
+        var ajena = resena(escenario.reservaAjena(), escenario.otro(), espacio, 4, "Texto ajeno", "VISIBLE");
+        var antes = texto(mvc.perform(get("/api/espacios/" + espacio)).andExpect(status().isOk()));
+        var sesion = token(CORREO_USUARIO);
+
+        eliminar(sesion, CONTRASENA).andExpect(status().isOk());
+
+        var filaVisible = filaResena(visible);
+        assertThat(filaVisible.get("comentario")).isEqualTo("Comentario eliminado.");
+        assertThat(((Number) filaVisible.get("calificacion")).intValue()).isEqualTo(5);
+        assertThat(filaVisible.get("estado")).isEqualTo("VISIBLE");
+        assertThat(((Number) filaVisible.get("usuario_id")).longValue()).isEqualTo(escenario.usuario());
+        var filaOculta = filaResena(oculta);
+        assertThat(filaOculta.get("comentario")).isEqualTo("Comentario eliminado.");
+        assertThat(filaOculta.get("estado")).isEqualTo("OCULTA");
+        assertThat(filaResena(ajena).get("comentario")).isEqualTo("Texto ajeno");
+
+        var despues = mapa(texto(mvc.perform(get("/api/espacios/" + espacio)).andExpect(status().isOk())));
+        assertThat(despues.get("calificacionPromedio")).isEqualTo(mapa(antes).get("calificacionPromedio"));
+        assertThat(despues.get("totalResenas")).isEqualTo(mapa(antes).get("totalResenas")).isEqualTo(2);
+    }
+
+    private Map<String, Object> filaResena(long id) {
+        return jdbc.queryForMap("SELECT * FROM resena WHERE id = ?", id);
     }
 
     @Test

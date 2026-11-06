@@ -20,3 +20,18 @@ export function consultarBloquesLibres(id, fecha) {
   const parametros = new URLSearchParams({ fecha })
   return peticion(`/api/espacios/${encodeURIComponent(id)}/disponibilidad?${parametros}`, { autenticada: false })
 }
+
+// HU-24. El servidor toma el usuario de la sesión y el espacio de la reserva, y decide si se puede reseñar.
+export function crearResena({ reservaId, calificacion, comentario }) {
+  return peticion('/api/resenas', { metodo: 'POST', cuerpo: { reservaId, calificacion, comentario } })
+}
+
+export function listarResenasPendientes() {
+  return peticion('/api/resenas/pendientes')
+}
+
+// Pública, como la ficha: de 10 en 10, de la más nueva a la más antigua, sin datos del autor.
+export function listarResenasDeEspacio(id, pagina) {
+  const parametros = new URLSearchParams({ pagina: String(pagina) })
+  return peticion(`/api/espacios/${encodeURIComponent(id)}/resenas?${parametros}`, { autenticada: false })
+}

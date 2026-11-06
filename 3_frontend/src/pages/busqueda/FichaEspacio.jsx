@@ -19,7 +19,9 @@ import {
   SIN_BLOQUES,
   TITULO_BLOQUES,
   TITULO_POLITICA,
+  resumenResenas,
 } from './textosFicha.js'
+import ResenasEspacio from './ResenasEspacio.jsx'
 import estilos from './FichaEspacio.module.css'
 
 const NO_ENCONTRADO = 404
@@ -166,6 +168,7 @@ function FichaEspacio() {
           <p className={estilos.dato}>{`Dirección: ${espacio.direccion}`}</p>
           <p className={estilos.dato}>{`Capacidad: ${espacio.capacidad} personas`}</p>
           <p className={estilos.descripcion}>{espacio.descripcion}</p>
+          <p className={estilos.dato}>{resumenResenas(espacio.calificacionPromedio, espacio.totalResenas)}</p>
 
           <h2 className={estilos.seccion}>{TITULO_POLITICA}</h2>
           <ul className={estilos.politica}>
@@ -210,6 +213,8 @@ function FichaEspacio() {
           </Boton>
         </div>
       )}
+
+      <ResenasEspacio key={espacio.id} espacioId={espacio.id} />
     </section>
   )
 }

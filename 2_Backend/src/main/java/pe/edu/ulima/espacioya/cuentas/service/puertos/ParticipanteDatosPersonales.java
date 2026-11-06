@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Puerto de HU-22 que implementa cada módulo que guarda datos de una cuenta ({@code reservas}, {@code pagos}; más
- * adelante {@code busqueda} con HU-24). {@code cuentas} lo recibe como {@code List<>} ordenada con {@code @Order}:
+ * Puerto de HU-22 que implementa cada módulo que guarda datos de una cuenta ({@code reservas}, {@code pagos},
+ * {@code busqueda}). {@code cuentas} lo recibe como {@code List<>} ordenada con {@code @Order}:
  * sumar un módulo es sumar un bean (OCP, R45). Ningún método exige sesión ni rol: el titular ya lo validó
  * {@code cuentas}.
  */

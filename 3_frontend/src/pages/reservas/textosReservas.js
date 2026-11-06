@@ -61,6 +61,22 @@ export const LINEA_REEMBOLSO = {
   },
 }
 
+// HU-24. Solo textos: qué reservas se pueden reseñar lo decide el servidor.
+export const BOTON_CALIFICAR = 'Calificar'
+export const TITULO_CALIFICAR = 'Califica tu reserva'
+export const BOTON_PUBLICAR_RESENA = 'Publicar reseña'
+export const ETIQUETA_CALIFICACION = 'Calificación'
+export const ETIQUETA_COMENTARIO = 'Comentario'
+export const AYUDA_COMENTARIO = 'Hasta 500 caracteres.'
+export const RESENA_PUBLICADA = 'Tu reseña ya está publicada.'
+export const OPCIONES_CALIFICACION = [
+  { valor: '5', etiqueta: '5 - Excelente' },
+  { valor: '4', etiqueta: '4 - Muy bueno' },
+  { valor: '3', etiqueta: '3 - Regular' },
+  { valor: '2', etiqueta: '2 - Malo' },
+  { valor: '1', etiqueta: '1 - Muy malo' },
+]
+
 export function reembolsoEnProceso(monto) {
   return `El reembolso de ${monto} está en proceso.`
 }

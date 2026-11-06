@@ -29,8 +29,9 @@ import pe.edu.ulima.espacioya.cuentas.repository.PerfilArrendadorRepository;
 import pe.edu.ulima.espacioya.cuentas.repository.UsuarioRepository;
 
 /**
- * Cupo del catálogo (bajado a 3 por minuto) compartido por la búsqueda, la ficha y su disponibilidad. Usa las mismas
- * propiedades y dobles que {@link LimiteCatalogoIT} para compartir contexto, pero su propio rango de IP (10.13.x.x).
+ * Cupo del catálogo (bajado a 3 por minuto) compartido por la búsqueda, la ficha, su disponibilidad y sus reseñas.
+ * Usa las mismas propiedades y dobles que {@link LimiteCatalogoIT} para compartir contexto, pero su propio rango de IP
+ * (10.13.x.x).
  */
 @SpringBootTest(properties = {"espacioya.limite.catalogo.maximo=3", "espacioya.limite.catalogo.ventana=PT1M"})
 @AutoConfigureMockMvc
@@ -101,6 +102,10 @@ class LimiteFichaIT {
         return pedir("/api/espacios/" + espacio + "/disponibilidad?fecha=" + LUNES);
     }
 
+    private ResultActions resenas() throws Exception {
+        return pedir("/api/espacios/" + espacio + "/resenas");
+    }
+
     private void esDemasiadosIntentos(ResultActions respuesta) throws Exception {
         respuesta.andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.mensaje").value(DEMASIADOS_INTENTOS))
@@ -169,5 +174,38 @@ class LimiteFichaIT {
         pedir("/api/espacios/abc").andExpect(status().isNotFound());
 
         esDemasiadosIntentos(disponibilidad());
+    }
+
+    @Test
+    @DisplayName("HU-24 R37: una búsqueda, una ficha y una lista de reseñas agotan el mismo cupo de 3")
+    void resenasCompartenElCupo() throws Exception {
+        pedir(BUSQUEDA).andExpect(status().isOk());
+        ficha().andExpect(status().isOk());
+        resenas().andExpect(status().isOk());
+
+        esDemasiadosIntentos(pedir(BUSQUEDA));
+        esDemasiadosIntentos(ficha());
+        esDemasiadosIntentos(resenas());
+    }
+
+    @Test
+    @DisplayName("HU-24 R37: las listas de reseñas con 400 y 404 cuentan en el cupo")
+    void resenasInvalidasCuentan() throws Exception {
+        pedir("/api/espacios/" + espacio + "/resenas?pagina=0").andExpect(status().isBadRequest());
+        pedir("/api/espacios/abc/resenas").andExpect(status().isNotFound());
+        pedir("/api/espacios/" + (espacio + 1000) + "/resenas").andExpect(status().isNotFound());
+
+        esDemasiadosIntentos(ficha());
+    }
+
+    @Test
+    @DisplayName("HU-24 R38: con el cupo agotado, las reseñas responden 429 sin ejecutar la consulta")
+    void resenasConCupoAgotado() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            resenas().andExpect(status().isOk());
+        }
+
+        esDemasiadosIntentos(resenas());
+        resenas().andExpect(jsonPath("$.resenas").doesNotExist()).andExpect(jsonPath("$.hayMas").doesNotExist());
     }
 }

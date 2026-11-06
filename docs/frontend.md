@@ -333,6 +333,19 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   para el arrendador). "Ver reserva" → `/reservas/:id` va en **todas** las del usuario, en cualquier estado (ahí están
   "Pagar" y el aviso de pago no aplicado de HU-13); "Ver espacio" va a `/espacios/:id` (usuario) o `/panel/espacios/:id`
   (arrendador). Lista vacía: texto secundario; error (p. ej. 403 por otro rol): `Alerta error` con el mensaje tal cual.
+- **Reseñar una reserva (HU-24, en `/mis-reservas`):** `MisReservas` pide `listarResenasPendientes()` al montarse y con cada
+  `recarga`, y guarda los ids en un `Set`; si la consulta falla, la lista funciona igual, sin el botón. En "Pasadas", solo las
+  reservas de ese `Set` llevan `pages/reservas/ResenarReserva.jsx` (no es del kit): `Boton secundario` "Calificar" y `Modal`
+  `primario` "Califica tu reserva", con `Campo select` "Calificación" (de 5 a 1) y `Campo textarea` "Comentario". "Publicar reseña"
+  llama a `crearResena`; un `select` vacío viaja como `null` y responde el servidor. Con 201 se cierra el modal, `Alerta exito` "Tu
+  reseña ya está publicada." y `recarga` sube. Los errores de `calificacion` y `comentario` quedan bajo su `Campo`; otro rechazo (400
+  o 404) cierra el modal y va en `Alerta error` tal cual bajo el botón. No agrega componentes al kit, estados ni colores.
+- **Reseñas en la ficha (HU-24, `/espacios/:id`):** debajo de la descripción, "4.3 de 5 · 12 reseñas" o "Aún sin reseñas.", con el
+  promedio y el total de la API (texto, sin estrellas). Al final de la pantalla, después de "Reservar",
+  `pages/busqueda/ResenasEspacio.jsx` (no es del kit, `key={espacio.id}`): `listarResenasDeEspacio` sin token, una `Tarjeta` por reseña
+  con título "n de 5", comentario (`white-space: pre-line`) y fecha; "Ver más" (`Boton secundario`) mientras `hayMas`, sin repetir
+  ids; vacía, "Este espacio aún no tiene reseñas."; error, `Alerta error` tal cual. Nunca `dangerouslySetInnerHTML`. `VISIBLE` no se
+  muestra: la ficha solo recibe reseñas visibles. El único primario sigue siendo "Reservar".
 - **Cancelar una reserva (HU-15, en las mismas dos pantallas):** solo en las `CONFIRMADA` de "Próximas", el `Boton peligro`
   "Cancelar reserva" de `pages/reservas/CancelarReserva.jsx` (no es del kit) pide la vista previa (`obtenerCancelacion` u
   `obtenerCancelacionDeMiEspacio`) y abre el `Modal` `peligro-confirmar` "¿Cancelar esta reserva?" con espacio, fecha,

@@ -493,12 +493,12 @@
       "depends_on": [
         "HU-14"
       ],
-      "owner": "Adriana Callupe",
+      "owner": "Ariel Enriquez",
       "tester": "Sebastian Garate",
       "patterns": [],
       "historia": "docs/historias/HU-24.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-25",
