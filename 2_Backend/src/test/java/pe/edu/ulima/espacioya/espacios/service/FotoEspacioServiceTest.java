@@ -72,7 +72,7 @@ class FotoEspacioServiceTest {
             new ArchivoValidado("jpeg limpio".getBytes(StandardCharsets.UTF_8), TipoArchivo.JPEG, RECIBIDA.tamano());
     private static final EspacioDTO RESPUESTA = new EspacioDTO(ESPACIO_ID, "Cancha", "CANCHA", "Av. Uno 123",
             "MIRAFLORES", "Miraflores", 20, new BigDecimal("80.00"), "Descripción larga.", "BORRADOR", AHORA, AHORA,
-            List.of());
+            List.of(), List.of());
 
     @Mock
     private EspacioService espacioService;

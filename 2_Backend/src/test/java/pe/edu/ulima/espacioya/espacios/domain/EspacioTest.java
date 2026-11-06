@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -219,5 +220,64 @@ class EspacioTest {
             assertThat(espacio.getEstado()).isEqualTo(estado);
             assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
         }
+    }
+
+    private static DatosEspacio conCaracteristicas(Caracteristica... caracteristicas) {
+        return new DatosEspacio(DATOS.nombre(), DATOS.tipo(), DATOS.direccion(), DATOS.zona(), DATOS.capacidad(),
+                DATOS.precioHora(), DATOS.descripcion(), Set.of(caracteristicas));
+    }
+
+    @Test
+    @DisplayName("HU-23 R1: crear guarda exactamente las características de la ficha, en el orden fijo")
+    void crearGuardaCaracteristicas() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), AHORA);
+
+        assertThat(espacio.getCaracteristicas())
+                .containsExactly(Caracteristica.TECHADO, Caracteristica.VESTUARIOS);
+    }
+
+    @Test
+    @DisplayName("HU-23 R3: la ficha de HU-07 sin características deja el espacio sin ninguna")
+    void fichaSinCaracteristicas() {
+        assertThat(Espacio.crear(7L, DATOS, AHORA).getCaracteristicas()).isEmpty();
+        assertThat(new DatosEspacio("N", TipoEspacio.CANCHA, "D", "Z", 1, BigDecimal.ONE, "X", null)
+                .caracteristicas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R2, R7: editar reemplaza las características y anota caracteristicas=[antes]->[nuevas]")
+    void editarAnotaCambioDeCaracteristicas() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.ILUMINACION), AHORA);
+
+        var cambios = espacio.editar(
+                conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), DESPUES);
+
+        assertThat(cambios).containsExactly("caracteristicas=[ILUMINACION]->[TECHADO, VESTUARIOS]");
+        assertThat(espacio.getCaracteristicas())
+                .containsExactly(Caracteristica.TECHADO, Caracteristica.VESTUARIOS);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-23 R7: el cambio de características va después de la descripción y desde [] si no tenía")
+    void editarCaracteristicasDespuesDeDescripcion() {
+        var espacio = Espacio.crear(7L, DATOS, AHORA);
+        var nuevos = new DatosEspacio(DATOS.nombre(), DATOS.tipo(), DATOS.direccion(), DATOS.zona(),
+                DATOS.capacidad(), DATOS.precioHora(), "Otra descripción más completa.",
+                Set.of(Caracteristica.ESTACIONAMIENTO, Caracteristica.TECHADO));
+
+        assertThat(espacio.editar(nuevos, DESPUES))
+                .containsExactly("descripcion", "caracteristicas=[]->[TECHADO, ESTACIONAMIENTO]");
+    }
+
+    @Test
+    @DisplayName("HU-23 R8: el mismo conjunto en otro orden y sin otros cambios no anota nada ni toca actualizadoEn")
+    void editarMismasCaracteristicasSinCambios() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.TECHADO, Caracteristica.VESTUARIOS), AHORA);
+
+        var cambios = espacio.editar(conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), DESPUES);
+
+        assertThat(cambios).isEmpty();
+        assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
     }
 }

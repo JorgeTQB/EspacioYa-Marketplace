@@ -39,7 +39,8 @@ class BusquedaBaseTest {
     }
 
     private static EspacioPublicado publicado(long id, String precio) {
-        return new EspacioPublicado(id, "Cancha " + id, "CANCHA", "SURCO", "Santiago de Surco", new BigDecimal(precio));
+        return new EspacioPublicado(id, "Cancha " + id, "CANCHA", "SURCO", "Santiago de Surco", new BigDecimal(precio),
+                20, Set.of());
     }
 
     @Test

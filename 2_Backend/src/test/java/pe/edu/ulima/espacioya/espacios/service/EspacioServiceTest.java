@@ -34,6 +34,7 @@ import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.cuentas.dto.HabilitacionArrendadorDTO;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
+import pe.edu.ulima.espacioya.espacios.domain.Caracteristica;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FotoEspacio;
@@ -368,5 +369,74 @@ class EspacioServiceTest {
 
         assertThat(servicio.arrendadorHabilitado(ARRENDADOR)).isEqualTo(ID);
         verify(espacios, never()).findById(anyLong());
+    }
+
+    // ── Características (HU-23) ──────────────────────────────────────────
+
+    private static FichaEspacioDTO fichaCon(List<String> caracteristicas) {
+        return new FichaEspacioDTO(FICHA.nombre(), FICHA.tipo(), FICHA.direccion(), FICHA.zona(), FICHA.capacidad(),
+                FICHA.precioHora(), FICHA.descripcion(), caracteristicas);
+    }
+
+    private static Espacio espacioCon(EstadoEspacio estado, List<String> caracteristicas) {
+        var espacio = Espacio.crear(ID, fichaCon(caracteristicas).aDatos(), AHORA.minusSeconds(3600));
+        ReflectionTestUtils.setField(espacio, "id", ESPACIO_ID);
+        ReflectionTestUtils.setField(espacio, "estado", estado);
+        return espacio;
+    }
+
+    @Test
+    @DisplayName("HU-23 R6: el EspacioDTO trae las características en el orden de la lista fija")
+    void dtoConCaracteristicasEnOrdenFijo() {
+        var espacio = espacioCon(EstadoEspacio.BORRADOR, List.of("ESTACIONAMIENTO", "VESTUARIOS", "TECHADO"));
+
+        assertThat(servicio.aDto(espacio).caracteristicas())
+                .containsExactly("TECHADO", "VESTUARIOS", "ESTACIONAMIENTO");
+        assertThat(servicio.aDto(espacio(EstadoEspacio.BORRADOR)).caracteristicas()).isNotNull().isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R9: editar un espacio en BAJA u OCULTO responde no editable sin cambiar sus características")
+    void editarNoEditableNoCambiaCaracteristicas() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = espacioCon(estado, List.of("TECHADO"));
+            when(cuentas.habilitacionArrendador(ARRENDADOR)).thenReturn(new HabilitacionArrendadorDTO(true, true));
+            propio(espacio);
+
+            assertThatThrownBy(() -> servicio.editar(ARRENDADOR, ESPACIO_ID,
+                    fichaCon(List.of("VESTUARIOS", "ILUMINACION")), IP))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessage(EspacioService.MENSAJE_ESTADO_NO_EDITABLE);
+            assertThat(espacio.getCaracteristicas()).containsExactly(Caracteristica.TECHADO);
+        }
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("HU-23 R2, R7: editar las características audita EDICION_ESPACIO con caracteristicas=[…]->[…]")
+    void editarCaracteristicasAudita() {
+        habilitado(true, true);
+        var espacio = espacioCon(EstadoEspacio.PUBLICADO, List.of());
+        propio(espacio);
+        when(zonas.existsById("MIRAFLORES")).thenReturn(true);
+
+        var dto = servicio.editar(ARRENDADOR, ESPACIO_ID, fichaCon(List.of("VESTUARIOS", "TECHADO")), IP);
+
+        assertThat(dto.caracteristicas()).containsExactly("TECHADO", "VESTUARIOS");
+        var evento = auditado();
+        assertThat(evento.accion()).isEqualTo(EspacioService.ACCION_EDICION);
+        assertThat(evento.detalle()).isEqualTo("caracteristicas=[]->[TECHADO, VESTUARIOS]");
+    }
+
+    @Test
+    @DisplayName("HU-23 R8: editar con las mismas características en otro orden no audita")
+    void editarMismasCaracteristicasNoAudita() {
+        habilitado(true, true);
+        propio(espacioCon(EstadoEspacio.PUBLICADO, List.of("TECHADO", "VESTUARIOS")));
+        when(zonas.existsById("MIRAFLORES")).thenReturn(true);
+
+        servicio.editar(ARRENDADOR, ESPACIO_ID, fichaCon(List.of("VESTUARIOS", "TECHADO")), IP);
+
+        verifyNoInteractions(auditoria);
     }
 }

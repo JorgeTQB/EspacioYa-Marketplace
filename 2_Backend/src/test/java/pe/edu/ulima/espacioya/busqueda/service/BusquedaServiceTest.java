@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.LongStream;
 
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import pe.edu.ulima.espacioya.busqueda.dto.ResultadoBusquedaDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.ResultadoEspacioDTO;
 import pe.edu.ulima.espacioya.comun.error.ErrorCampoDTO;
 import pe.edu.ulima.espacioya.comun.error.ValidacionException;
@@ -42,6 +44,8 @@ class BusquedaServiceTest {
     private static final LocalDate HOY = LocalDate.of(2026, 10, 28);
     private static final String FECHA = "2026-11-02";
     private static final CriteriosBusqueda CRITERIOS = new CriteriosBusqueda("CANCHA", "SURCO", LocalDate.parse(FECHA));
+    private static final Set<String> CARACTERISTICAS =
+            Set.of("TECHADO", "ILUMINACION", "VESTUARIOS", "ESTACIONAMIENTO");
 
     @Mock
     private BusquedaEspacios busqueda;
@@ -55,11 +59,17 @@ class BusquedaServiceTest {
         servicio = new BusquedaService(busqueda, catalogo, Clock.fixed(AHORA, ZoneOffset.UTC));
         lenient().when(catalogo.esTipoValido(any())).thenAnswer(i -> "CANCHA".equals(i.getArgument(0)));
         lenient().when(catalogo.existeZona(any())).thenAnswer(i -> "SURCO".equals(i.getArgument(0)));
+        lenient().when(catalogo.esCaracteristicaValida(any()))
+                .thenAnswer(i -> CARACTERISTICAS.contains(i.<String>getArgument(0)));
     }
 
     private static EspacioPublicado publicado(long id) {
         return new EspacioPublicado(id, "Cancha " + id, "CANCHA", "SURCO", "Santiago de Surco",
-                new BigDecimal(String.valueOf(10 + id)));
+                new BigDecimal(String.valueOf(10 + id)), 20, Set.of());
+    }
+
+    private ResultadoBusquedaDTO buscar(String tipo, String zona, String fecha, String pagina) {
+        return servicio.buscar(new ConsultaBusqueda(tipo, zona, fecha, pagina, null, null, List.of()));
     }
 
     private static List<EspacioPublicado> disponibles(int cuantos) {
@@ -67,7 +77,7 @@ class BusquedaServiceTest {
     }
 
     private List<ErrorCampoDTO> errores(String tipo, String zona, String fecha, String pagina) {
-        return catchValidacion(() -> servicio.buscar(tipo, zona, fecha, pagina)).getErrores();
+        return catchValidacion(() -> buscar(tipo, zona, fecha, pagina)).getErrores();
     }
 
     @Test
@@ -76,9 +86,9 @@ class BusquedaServiceTest {
         when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(45));
         when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
 
-        var primera = servicio.buscar("CANCHA", "SURCO", FECHA, "1");
-        var segunda = servicio.buscar("CANCHA", "SURCO", FECHA, "2");
-        var tercera = servicio.buscar("CANCHA", "SURCO", FECHA, "3");
+        var primera = buscar("CANCHA", "SURCO", FECHA, "1");
+        var segunda = buscar("CANCHA", "SURCO", FECHA, "2");
+        var tercera = buscar("CANCHA", "SURCO", FECHA, "3");
 
         assertThat(primera.resultados()).extracting(ResultadoEspacioDTO::id)
                 .containsExactlyElementsOf(LongStream.rangeClosed(1, 20).boxed().toList());
@@ -98,7 +108,7 @@ class BusquedaServiceTest {
         when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(40));
         when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
 
-        var segunda = servicio.buscar("CANCHA", "SURCO", FECHA, "2");
+        var segunda = buscar("CANCHA", "SURCO", FECHA, "2");
 
         assertThat(segunda.resultados()).hasSize(20);
         assertThat(segunda.hayMas()).isFalse();
@@ -109,8 +119,8 @@ class BusquedaServiceTest {
     void paginaPosteriorALaUltima() {
         when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(45));
 
-        var cuarta = servicio.buscar("CANCHA", "SURCO", FECHA, "4");
-        var lejana = servicio.buscar("CANCHA", "SURCO", FECHA, String.valueOf(Integer.MAX_VALUE));
+        var cuarta = buscar("CANCHA", "SURCO", FECHA, "4");
+        var lejana = buscar("CANCHA", "SURCO", FECHA, String.valueOf(Integer.MAX_VALUE));
 
         assertThat(cuarta.resultados()).isEmpty();
         assertThat(cuarta.hayMas()).isFalse();
@@ -126,7 +136,7 @@ class BusquedaServiceTest {
         when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(25));
         when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
 
-        var resultado = servicio.buscar("CANCHA", "SURCO", FECHA, null);
+        var resultado = buscar("CANCHA", "SURCO", FECHA, null);
 
         assertThat(resultado.pagina()).isEqualTo(1);
         assertThat(resultado.resultados()).hasSize(20);
@@ -138,7 +148,7 @@ class BusquedaServiceTest {
     void sinDisponibles() {
         when(busqueda.buscar(CRITERIOS)).thenReturn(List.of());
 
-        var resultado = servicio.buscar("CANCHA", "SURCO", FECHA, null);
+        var resultado = buscar("CANCHA", "SURCO", FECHA, null);
 
         assertThat(resultado.resultados()).isEmpty();
         assertThat(resultado.hayMas()).isFalse();
@@ -151,7 +161,7 @@ class BusquedaServiceTest {
         when(busqueda.buscar(CRITERIOS)).thenReturn(List.of(publicado(7), publicado(3), publicado(9)));
         when(catalogo.fotosPrincipales(List.of(7L, 3L, 9L))).thenReturn(Map.of(7L, "/api/fotos/a", 9L, "/api/fotos/c"));
 
-        var resultado = servicio.buscar("CANCHA", "SURCO", FECHA, "1");
+        var resultado = buscar("CANCHA", "SURCO", FECHA, "1");
 
         assertThat(resultado.resultados()).containsExactly(
                 new ResultadoEspacioDTO(7L, "Cancha 7", "SURCO", "Santiago de Surco", new BigDecimal("17"),
@@ -167,7 +177,7 @@ class BusquedaServiceTest {
         when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(45));
         when(catalogo.fotosPrincipales(LongStream.rangeClosed(21, 40).boxed().toList())).thenReturn(Map.of());
 
-        assertThat(servicio.buscar("CANCHA", "SURCO", FECHA, "2").resultados()).hasSize(20);
+        assertThat(buscar("CANCHA", "SURCO", FECHA, "2").resultados()).hasSize(20);
     }
 
     @Test
@@ -215,8 +225,8 @@ class BusquedaServiceTest {
     void bordesDeLaVentana() {
         when(busqueda.buscar(any())).thenReturn(List.of());
 
-        assertThat(servicio.buscar("CANCHA", "SURCO", HOY.toString(), null).resultados()).isEmpty();
-        assertThat(servicio.buscar("CANCHA", "SURCO", HOY.plusDays(55).toString(), null).resultados()).isEmpty();
+        assertThat(buscar("CANCHA", "SURCO", HOY.toString(), null).resultados()).isEmpty();
+        assertThat(buscar("CANCHA", "SURCO", HOY.plusDays(55).toString(), null).resultados()).isEmpty();
     }
 
     @Test
@@ -242,7 +252,7 @@ class BusquedaServiceTest {
     @DisplayName("HU-10 R28: con varios parámetros inválidos responde un error por campo en orden tipo, zona, fecha, "
             + "pagina")
     void variosErroresEnOrden() {
-        var error = catchValidacion(() -> servicio.buscar("PISCINA", "", "2026-02-30", "0"));
+        var error = catchValidacion(() -> buscar("PISCINA", "", "2026-02-30", "0"));
 
         assertThat(error.getMessage()).isEqualTo("Revisa los datos del formulario.");
         assertThat(error.getErrores()).extracting(ErrorCampoDTO::campo).containsExactly("tipo", "zona", "fecha",
@@ -252,7 +262,7 @@ class BusquedaServiceTest {
     @Test
     @DisplayName("HU-10 R29: si la búsqueda no es válida no se llama a la búsqueda ni se calcula la disponibilidad")
     void invalidaNoBusca() {
-        assertThatThrownBy(() -> servicio.buscar("CANCHA", "SURCO", "2026-02-30", null))
+        assertThatThrownBy(() -> buscar("CANCHA", "SURCO", "2026-02-30", null))
                 .isInstanceOf(ValidacionException.class);
 
         verifyNoInteractions(busqueda);
@@ -264,5 +274,168 @@ class BusquedaServiceTest {
         var error = catchThrowable(accion);
         assertThat(error).isInstanceOf(ValidacionException.class);
         return (ValidacionException) error;
+    }
+
+    // ── Filtros (HU-23) ──────────────────────────────────────────────────
+
+    private static EspacioPublicado publicado(long id, String precio, int capacidad, String... caracteristicas) {
+        return new EspacioPublicado(id, "Cancha " + id, "CANCHA", "SURCO", "Santiago de Surco", new BigDecimal(precio),
+                capacidad, Set.of(caracteristicas));
+    }
+
+    private ResultadoBusquedaDTO filtrar(String pagina, String precioMaximo, String capacidadMinima,
+                                         String... caracteristicas) {
+        return servicio.buscar(new ConsultaBusqueda("CANCHA", "SURCO", FECHA, pagina, precioMaximo, capacidadMinima,
+                List.of(caracteristicas)));
+    }
+
+    private List<ErrorCampoDTO> erroresDeFiltros(String precioMaximo, String capacidadMinima,
+                                                 String... caracteristicas) {
+        return catchValidacion(() -> filtrar(null, precioMaximo, capacidadMinima, caracteristicas)).getErrores();
+    }
+
+    @Test
+    @DisplayName("HU-23 R12, R13, R14, R15: con los tres filtros devuelve solo los disponibles que cumplen todos")
+    void tresFiltrosCumplenTodo() {
+        when(busqueda.buscar(CRITERIOS)).thenReturn(List.of(
+                publicado(1, "40.00", 12, "TECHADO", "VESTUARIOS"),
+                publicado(2, "60.00", 30, "TECHADO", "VESTUARIOS", "ILUMINACION"),
+                publicado(3, "80.00", 10, "TECHADO", "VESTUARIOS"),
+                publicado(4, "80.01", 50, "TECHADO", "VESTUARIOS"),
+                publicado(5, "50.00", 9, "TECHADO", "VESTUARIOS"),
+                publicado(6, "50.00", 40, "TECHADO")));
+        when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
+
+        var resultado = filtrar(null, "80", "10", "VESTUARIOS", "TECHADO");
+
+        assertThat(resultado.resultados()).extracting(ResultadoEspacioDTO::id).containsExactly(1L, 2L, 3L);
+    }
+
+    @Test
+    @DisplayName("HU-23 R17: pagina sobre la lista filtrada: de 25 candidatos cumplen 21, páginas de 20 y 1")
+    void paginaSobreLaListaFiltrada() {
+        var candidatos = LongStream.rangeClosed(1, 25)
+                .mapToObj(id -> publicado(id, String.valueOf(10 + id), id % 6 == 0 ? 5 : 30))
+                .toList();
+        when(busqueda.buscar(CRITERIOS)).thenReturn(candidatos);
+        when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
+        var cumplen = candidatos.stream().filter(e -> e.capacidad() >= 10).map(EspacioPublicado::id).toList();
+        assertThat(cumplen).hasSize(21);
+
+        var primera = filtrar("1", null, "10");
+        var segunda = filtrar("2", null, "10");
+
+        assertThat(primera.resultados()).extracting(ResultadoEspacioDTO::id)
+                .containsExactlyElementsOf(cumplen.subList(0, 20));
+        assertThat(primera.hayMas()).isTrue();
+        assertThat(segunda.resultados()).extracting(ResultadoEspacioDTO::id).containsExactly(cumplen.get(20));
+        assertThat(segunda.hayMas()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-23 R19: si ninguno cumple los filtros responde vacío, sin hayMas y con la página pedida")
+    void ningunoCumpleLosFiltros() {
+        when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(30));
+
+        var resultado = filtrar("1", "5.00", null, "ESTACIONAMIENTO");
+
+        assertThat(resultado.resultados()).isEmpty();
+        assertThat(resultado.hayMas()).isFalse();
+        assertThat(resultado.pagina()).isEqualTo(1);
+        verify(catalogo, never()).fotosPrincipales(any());
+    }
+
+    @Test
+    @DisplayName("HU-23 R16: sin filtros busca con la base misma, sin envolverla")
+    void sinFiltrosUsaLaBase() {
+        when(busqueda.buscar(CRITERIOS)).thenReturn(disponibles(3));
+        when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
+
+        assertThat(filtrar(null, null, null).resultados()).hasSize(3);
+        verify(busqueda).buscar(CRITERIOS);
+    }
+
+    @Test
+    @DisplayName("HU-23 R12, R13: los límites son inclusivos y se aceptan los bordes del rango")
+    void bordesValidos() {
+        when(busqueda.buscar(CRITERIOS)).thenReturn(List.of(publicado(1, "1.00", 100_000),
+                publicado(2, "100000.00", 1)));
+        when(catalogo.fotosPrincipales(any())).thenReturn(Map.of());
+
+        assertThat(filtrar(null, "1", null).resultados()).extracting(ResultadoEspacioDTO::id).containsExactly(1L);
+        assertThat(filtrar(null, "100000.00", "100000").resultados()).extracting(ResultadoEspacioDTO::id)
+                .containsExactly(1L);
+        assertThat(filtrar(null, "100000", "1").resultados()).extracting(ResultadoEspacioDTO::id)
+                .containsExactly(1L, 2L);
+        assertThat(filtrar(null, "1.5", null).resultados()).extracting(ResultadoEspacioDTO::id).containsExactly(1L);
+    }
+
+    @Test
+    @DisplayName("HU-23 R20: un precio máximo vacío, fuera de rango o mal escrito responde 400 en precioMaximo")
+    void precioMaximoInvalido() {
+        for (var precio : new String[] {"", "0", "0.99", "100000.01", "12.345", "1e3", "-5", "abc", " 5", "+5",
+                "1000000", "5.", ".5", "50,60"}) {
+            assertThat(erroresDeFiltros(precio, null)).as("precioMaximo=%s", precio)
+                    .containsExactly(new ErrorCampoDTO("precioMaximo", BusquedaService.MENSAJE_PRECIO_MAXIMO_INVALIDO));
+        }
+        verifyNoInteractions(busqueda);
+    }
+
+    @Test
+    @DisplayName("HU-23 R21: una capacidad mínima vacía, fuera de rango o no entera responde 400 en capacidadMinima")
+    void capacidadMinimaInvalida() {
+        for (var capacidad : new String[] {"", "0", "100001", "2.5", "-1", "abc", "+3", " 3", "1000000"}) {
+            assertThat(erroresDeFiltros(null, capacidad)).as("capacidadMinima=%s", capacidad)
+                    .containsExactly(new ErrorCampoDTO("capacidadMinima",
+                            BusquedaService.MENSAJE_CAPACIDAD_MINIMA_INVALIDA));
+        }
+        verifyNoInteractions(busqueda);
+    }
+
+    @Test
+    @DisplayName("HU-23 R22: una característica fuera de la lista fija responde 400 en caracteristica")
+    void caracteristicaInvalida() {
+        for (var caracteristica : new String[] {"", "techado", "PISCINA", "TECHADO,VESTUARIOS", " TECHADO"}) {
+            assertThat(erroresDeFiltros(null, null, "ILUMINACION", caracteristica))
+                    .as("caracteristica=%s", caracteristica)
+                    .containsExactly(new ErrorCampoDTO("caracteristica",
+                            BusquedaService.MENSAJE_CARACTERISTICA_INVALIDA));
+        }
+        verifyNoInteractions(busqueda);
+    }
+
+    @Test
+    @DisplayName("HU-23 R23: la misma característica repetida responde 400 en caracteristica")
+    void caracteristicaRepetida() {
+        assertThat(erroresDeFiltros(null, null, "TECHADO", "VESTUARIOS", "TECHADO"))
+                .containsExactly(new ErrorCampoDTO("caracteristica", BusquedaService.MENSAJE_CARACTERISTICA_INVALIDA));
+        verifyNoInteractions(busqueda);
+    }
+
+    @Test
+    @DisplayName("HU-23 R24: con todo inválido hay un error por campo en orden tipo, zona, fecha, pagina, "
+            + "precioMaximo, capacidadMinima, caracteristica")
+    void erroresDeFiltrosEnOrden() {
+        var error = catchValidacion(() -> servicio.buscar(new ConsultaBusqueda("PISCINA", "", "2026-02-30", "0",
+                "0", "abc", List.of("PISCINA", "techado", "TECHADO", "TECHADO"))));
+
+        assertThat(error.getMessage()).isEqualTo("Revisa los datos del formulario.");
+        assertThat(error.getErrores()).extracting(ErrorCampoDTO::campo).containsExactly("tipo", "zona", "fecha",
+                "pagina", "precioMaximo", "capacidadMinima", "caracteristica");
+    }
+
+    @Test
+    @DisplayName("HU-23 R25: con un filtro inválido no se llama a la búsqueda ni se calcula la disponibilidad")
+    void filtroInvalidoNoBusca() {
+        for (var consulta : List.of(
+                new ConsultaBusqueda("CANCHA", "SURCO", FECHA, null, "0", null, List.of()),
+                new ConsultaBusqueda("CANCHA", "SURCO", FECHA, null, null, "0", List.of()),
+                new ConsultaBusqueda("CANCHA", "SURCO", FECHA, null, "50", "10", List.of("PISCINA")))) {
+            assertThatThrownBy(() -> servicio.buscar(consulta)).isInstanceOf(ValidacionException.class);
+        }
+
+        verifyNoInteractions(busqueda);
+        verify(catalogo, never()).publicados(any(), any());
+        verify(catalogo, never()).fotosPrincipales(any());
     }
 }

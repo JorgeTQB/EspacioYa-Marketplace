@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
+import pe.edu.ulima.espacioya.espacios.domain.Caracteristica;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
@@ -87,8 +88,10 @@ class CatalogoEspaciosServiceImplTest {
         var publicados = servicio.publicados("CANCHA", "LOS_OLIVOS");
 
         assertThat(publicados).containsExactly(
-                new EspacioPublicado(2L, "Cancha 2", "CANCHA", "LOS_OLIVOS", "Los Olivos", new BigDecimal("50.00")),
-                new EspacioPublicado(1L, "Cancha 1", "CANCHA", "LOS_OLIVOS", "Los Olivos", new BigDecimal("80.00")));
+                new EspacioPublicado(2L, "Cancha 2", "CANCHA", "LOS_OLIVOS", "Los Olivos", new BigDecimal("50.00"),
+                        20, Set.of()),
+                new EspacioPublicado(1L, "Cancha 1", "CANCHA", "LOS_OLIVOS", "Los Olivos", new BigDecimal("80.00"),
+                        20, Set.of()));
         verify(espacios, never()).buscarPublicadosExcluyendo(any(), any(), anyString(), any());
     }
 
@@ -311,5 +314,37 @@ class CatalogoEspaciosServiceImplTest {
     void arrendadoresDeVacio() {
         assertThat(servicio.arrendadoresDe(List.of())).isEmpty();
         verifyNoInteractions(espacios);
+    }
+
+    @Test
+    @DisplayName("HU-23 R29: publicados lleva la capacidad y los códigos de característica de cada espacio")
+    void publicadosConCapacidadYCaracteristicas() {
+        var datos = new DatosEspacio("Cancha 3", TipoEspacio.CANCHA, "Av. Universitaria 1234", "LOS_OLIVOS", 35,
+                new BigDecimal("60"), "Cancha de grass sintético techada.",
+                Set.of(Caracteristica.VESTUARIOS, Caracteristica.TECHADO));
+        var conCaracteristicas = Espacio.crear(7L, datos, AHORA);
+        ReflectionTestUtils.setField(conCaracteristicas, "id", 3L);
+        when(cuentas.arrendadoresNoActivos()).thenReturn(Set.of());
+        when(espacios.buscarPublicados(EstadoEspacio.PUBLICADO, TipoEspacio.CANCHA, "LOS_OLIVOS"))
+                .thenReturn(List.of(conCaracteristicas, espacio(1L, "80.00")));
+        zonaLosOlivos();
+
+        var publicados = servicio.publicados("CANCHA", "LOS_OLIVOS");
+
+        assertThat(publicados.get(0).capacidad()).isEqualTo(35);
+        assertThat(publicados.get(0).caracteristicas()).containsExactlyInAnyOrder("TECHADO", "VESTUARIOS");
+        assertThat(publicados.get(1).capacidad()).isEqualTo(20);
+        assertThat(publicados.get(1).caracteristicas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R30: solo los cuatro códigos exactos son características válidas")
+    void caracteristicasValidas() {
+        for (var caracteristica : Caracteristica.values()) {
+            assertThat(servicio.esCaracteristicaValida(caracteristica.name())).isTrue();
+        }
+        for (var texto : new String[] {null, "", " ", "techado", "PISCINA", "TECHADO,VESTUARIOS", " TECHADO"}) {
+            assertThat(servicio.esCaracteristicaValida(texto)).as(String.valueOf(texto)).isFalse();
+        }
     }
 }
