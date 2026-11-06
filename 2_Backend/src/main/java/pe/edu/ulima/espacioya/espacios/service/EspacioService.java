@@ -186,7 +186,8 @@ public class EspacioService {
         return new EspacioDTO(espacio.getId(), espacio.getNombre(), espacio.getTipo().name(), espacio.getDireccion(),
                 espacio.getZona(), zonaNombre, espacio.getCapacidad(), espacio.getPrecioHora(),
                 espacio.getDescripcion(), espacio.getEstado().name(), espacio.getCreadoEn(),
-                espacio.getActualizadoEn(), fotosDto);
+                espacio.getActualizadoEn(), fotosDto,
+                espacio.getCaracteristicas().stream().map(Enum::name).toList());
     }
 
     // R11: la URL estable es /api/fotos/<UUID>, el UUID de la clave espacios/<UUID>; nunca la clave entera (R7).

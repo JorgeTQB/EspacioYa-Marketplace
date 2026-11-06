@@ -14,6 +14,7 @@ function Campo({
   filas = 4,
   min,
   max,
+  step,
 }) {
   const id = useId()
   const idAyuda = `${id}-ayuda`
@@ -116,6 +117,7 @@ function Campo({
         type={tipo}
         min={min}
         max={max}
+        step={step}
         className={claseControl}
         value={valor}
         onChange={(evento) => onChange(evento.target.value)}

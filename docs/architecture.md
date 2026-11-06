@@ -243,7 +243,30 @@ URL `/api/fotos/<UUID>` de la foto con orden 1. HU-11 le agregó `publicado(espa
 una reserva cuyo espacio ya no se ve. HU-14 le agregó `nombresDelArrendador(arrendadorId)` → `Map<Long, String>`: id y
 nombre de **todos** los espacios del arrendador, en cualquier estado (`BORRADOR`, `PUBLICADO`, `PAUSADO`, `BAJA`, `OCULTO`)
 y sin filtro de visibilidad; vacío para `null` o sin espacios. Sin sesión ni rol: el llamador pasa el id de la sesión. Así
-`reservas` sabe qué espacios son del arrendador sin leer `EspacioRepository`. HU-19 le agregó `arrendadoresDe(espacioIds)` → `Map<Long, Long>` (id del espacio → id de su arrendador), sin filtro de estado ni de visibilidad, como `nombres`; colección vacía → `Map.of()` sin consultar. Lo usa `ReservasLiquidablesImpl`.
+`reservas` sabe qué espacios son del arrendador sin leer `EspacioRepository`. HU-19 le agregó `arrendadoresDe(espacioIds)` → `Map<Long, Long>` (id del espacio → id de su arrendador), sin filtro de estado ni de visibilidad, como `nombres`; colección vacía → `Map.of()` sin consultar. Lo usa `ReservasLiquidablesImpl`. HU-23 le agregó `esCaracteristicaValida(codigo)` (`true` solo con `TECHADO`, `ILUMINACION`, `VESTUARIOS` o `ESTACIONAMIENTO` exactos) y amplió `EspacioPublicado` con `capacidad` y `caracteristicas` (`Set<String>` de códigos); `publicados` las carga en la misma consulta (`@EntityGraph(attributePaths = "caracteristicas")` en `EspacioRepository.buscarPublicados*`, sin N+1).
+
+### Filtros: qué deja HU-23 (★ Decorator)
+
+- **Parámetros** de la misma `GET /api/espacios` (mismo cupo `catalogo`, sin regla nueva): `precioMaximo`
+  (`^[0-9]{1,6}(\.[0-9]{1,2})?$`, 1.00–100000.00, inclusivo), `capacidadMinima` (`^[0-9]{1,6}$`, 1–100000,
+  inclusivo) y `caracteristica` **repetido** una vez por valor (lista fija, sin repetir; el controlador lo lee con
+  `getParameterValues`, así `TECHADO,VESTUARIOS` no se parte y es 400). Presente y vacío = 400. Los nombres
+  desconocidos se siguen ignorando. La respuesta no cambia (seis campos de HU-10).
+- **Orden de errores** (un `ErrorCampoDTO` por campo, `ValidacionException`): `tipo`, `zona`, `fecha`, `pagina`,
+  `precioMaximo`, `capacidadMinima`, `caracteristica`. Con algún error no se arma la cadena ni se calcula la
+  disponibilidad.
+- **Decorator por petición** en `busqueda/service`: `BusquedaEspacios` (Component), `BusquedaBase`
+  (ConcreteComponent, sin cambios), `FiltroBusqueda` (Decorator abstracto: reenvía y conserva en orden lo que
+  `admite`), `FiltroPrecioMaximo`, `FiltroCapacidadMinima`, `FiltroCaracteristicas` (ConcreteDecorators).
+  `FiltrosBusqueda.envolver(base)` apila solo los presentes (precio adentro, características afuera); sin filtros
+  devuelve la base misma. Los decoradores no son beans: `BusquedaService` sigue recibiendo un solo `BusquedaEspacios`.
+- **Agregar un filtro**: una clase `extends FiltroBusqueda` con su `admite`, un componente en `FiltrosBusqueda` y su
+  validación en `BusquedaService` (después de `caracteristica`). Ni `BusquedaBase` ni los otros filtros cambian. Si el
+  dato no está en `EspacioPublicado`, se agrega allí (lo llena `CatalogoEspaciosServiceImpl.publicados`).
+- **Características del espacio** (CA1): `enum espacios.domain.Caracteristica` + `@ElementCollection` en `Espacio`
+  (tabla `espacio_caracteristica`); `FichaEspacioDTO.caracteristicas` con `@CaracteristicasDeLista` (error en el campo
+  `caracteristicas`); ausente o `null` = ninguna (el `PUT` reemplaza la ficha). `EspacioDTO.caracteristicas` en el
+  orden fijo; la edición audita `caracteristicas=[…]->[…]` en `EDICION_ESPACIO`.
 
 **Rate limiting por patrón y cupo del catálogo (HU-10, §9.9).** `comun/limite/ReglaLimite` compara la ruta con
 `PathPattern` de Spring (segmentos decodificados, como el enrutado de Spring MVC): una ruta literal coincide solo
@@ -676,7 +699,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 | HU-14 ★      | Iterator, DAO                   | `reservas`: recorrer reservas próximas y pasadas sin exponer la colección (`HistorialReservas` + `IteradorReservas` + `Pagina`); consultas siempre filtradas por el usuario de la sesión (`ReservaDAO` + `ReservaDAOJpa`, primer DAO explícito). Ver [Mis reservas](#mis-reservas-qué-deja-hu-14-hu-15-hu-21-hu-22-hu-24-hu-26) |
 | HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo (`CalculoReembolso` es el Context). Ver [Cancelación](#cancelación-qué-deja-hu-15-hu-16-hu-21-hu-28) |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
-| HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente |
+| HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente. Component `BusquedaEspacios`, ConcreteComponent `BusquedaBase`, Decorator `FiltroBusqueda`, ConcreteDecorators `FiltroPrecioMaximo`, `FiltroCapacidadMinima`, `FiltroCaracteristicas`; `FiltrosBusqueda.envolver` arma la cadena por petición y `BusquedaService` es el Client. Ver [Filtros](#filtros-qué-deja-hu-23--decorator) |
 | HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento; adaptador del proveedor de correo |
 | Todas        | DAO / Repository                | Un repositorio por agregado |
 

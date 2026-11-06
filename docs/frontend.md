@@ -31,7 +31,7 @@
 ├── styles/
 │   └── tokens.css        # ÚNICO archivo con colores literales
 ├── components/
-│   └── ui/               # Kit: Boton, Campo, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen, Galeria, CuentaRegresiva
+│   └── ui/               # Kit: Boton, Campo, GrupoCasillas, Alerta, EtiquetaEstado, Tarjeta, Modal, SelectorBloques, Imagen, Galeria, CuentaRegresiva
 ├── pages/                # Una carpeta por módulo: pages/cuentas/Registro.jsx
 ├── sesion/               # ProveedorSesion, useSesion, RutaProtegida (HU-03)
 └── api/                  # cliente.js, tokenSesion.js + un archivo por módulo: api/cuentas.js
@@ -181,7 +181,8 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | Componente | Para qué | Props mínimas |
 |------------|----------|---------------|
 | `Boton` | Toda acción | `variante` (`primario`, `secundario`, `peligro`, `peligro-confirmar`), `cargando`, `deshabilitado`, `onClick` |
-| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08) |
+| `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08), `step` (en la rama genérica, p. ej. `step="0.01"` para un precio con decimales; HU-23) |
+| `GrupoCasillas` | Marcar varias opciones de una lista cerrada con una leyenda común. Construido por HU-23 ("Características" en "Editar espacio" y en "Buscar espacios"): `<fieldset>` con `<legend>` y un `Campo tipo="checkbox"` por opción; el error y la ayuda van debajo del grupo con el estilo de `Campo` y el `fieldset` los referencia con `aria-describedby`. `onChange` recibe los valores marcados en el orden de `opciones`. Solo tokens | `leyenda`, `nombre`, `opciones` (`[{ valor, etiqueta }]`), `valores` (arreglo de los marcados), `onChange(nuevosValores)`, `error`, `ayuda` |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
 | `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`; HU-19: los de `Liquidación`, `GENERADA`, `PENDIENTE_CUENTA` y `PAGADA`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
@@ -235,6 +236,14 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   con token recibe 401, `cliente.js` borra el token y avisa a
   `alPerderSesion`; `ProveedorSesion` lleva entonces a `/iniciar-sesion` con el
   mensaje. El frontend no tiene temporizador de inactividad: decide el backend.
+- **Buscar espacios con filtros (HU-23, `pages/busqueda/BuscarEspacios.jsx`):** además de tipo, zona y fecha (HU-10),
+  `Campo tipo="number"` "Precio máximo por hora (S/)" (`step="0.01"`), "Capacidad mínima (personas)" y `GrupoCasillas`
+  "Características" (`CARACTERISTICAS` de `pages/espacios/textosEspacios.js`). Los filtros viven en la URL
+  (`precioMaximo`, `capacidadMinima` y `caracteristica` repetido, leído con `getAll`); "Buscar" omite los vacíos y
+  "Anterior"/"Siguiente" copian la URL y solo cambian `pagina`. `buscarEspacios` agrega un `caracteristica` por valor.
+  Con la página 1 vacía y algún filtro en la URL se muestra `SIN_RESULTADOS_CON_FILTROS`, `SUGERENCIA_QUITAR_FILTRO` y
+  el `Boton secundario` "Quitar filtros", que deja solo `tipo`, `zona`, `fecha` y `pagina=1` (CA3). Errores por campo
+  bajo cada filtro. "Editar espacio" (HU-07) suma el `GrupoCasillas` "Características" tras "Descripción".
 - **Inicio de sesión en dos pasos (HU-17, `pages/cuentas/IniciarSesion.jsx`):** si `POST /api/sesiones` responde
   `{ desafio, paso }` (202) en vez de `token`, la pantalla pasa al paso `codigo` (`PasoCodigoMfa.jsx`:
   `verificarMfa`) o, para el admin sin MFA, a `configuracion` (`ConfiguracionMfa.jsx`: `configurarMfaEnInicio`,

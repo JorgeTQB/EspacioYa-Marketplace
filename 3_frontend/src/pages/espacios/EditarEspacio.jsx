@@ -13,10 +13,11 @@ import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Campo from '../../components/ui/Campo.jsx'
 import EtiquetaEstado from '../../components/ui/EtiquetaEstado.jsx'
+import GrupoCasillas from '../../components/ui/GrupoCasillas.jsx'
 import useSesion from '../../sesion/useSesion.js'
 import EstadoPublicacion from './EstadoPublicacion.jsx'
 import FotoDelEspacio from './FotoDelEspacio.jsx'
-import { AVISO_BAJA, AVISO_PAUSADO, TIPOS_ESPACIO } from './textosEspacios.js'
+import { AVISO_BAJA, AVISO_PAUSADO, CARACTERISTICAS, TIPOS_ESPACIO } from './textosEspacios.js'
 import estilos from './EditarEspacio.module.css'
 
 const MAXIMO_FOTOS = 5
@@ -41,6 +42,7 @@ const FICHA_VACIA = {
   capacidad: '',
   precioHora: '',
   descripcion: '',
+  caracteristicas: [],
 }
 
 function fichaDe(espacio) {
@@ -52,6 +54,7 @@ function fichaDe(espacio) {
     capacidad: String(espacio.capacidad),
     precioHora: String(espacio.precioHora),
     descripcion: espacio.descripcion,
+    caracteristicas: espacio.caracteristicas ?? [],
   }
 }
 
@@ -311,6 +314,15 @@ function EditarEspacio() {
             onChange={cambiar('descripcion')}
             ayuda="De 10 a 2000 caracteres. Cuenta qué incluye el espacio."
             error={errores.descripcion}
+          />
+          <GrupoCasillas
+            leyenda="Características"
+            nombre="caracteristicas"
+            opciones={CARACTERISTICAS}
+            valores={ficha.caracteristicas}
+            onChange={cambiar('caracteristicas')}
+            ayuda="Marca lo que ofrece tu espacio."
+            error={errores.caracteristicas}
           />
           <Boton tipo="submit" cargando={guardando} deshabilitado={soloLectura}>
             {esNuevo ? 'Guardar borrador' : 'Guardar cambios'}

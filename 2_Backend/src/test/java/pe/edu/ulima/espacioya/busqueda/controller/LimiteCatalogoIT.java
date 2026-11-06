@@ -41,6 +41,9 @@ class LimiteCatalogoIT {
     // Miércoles 2026-10-28 a las 10:00 de Lima: el lunes 2026-11-02 está en la ventana.
     private static final String VALIDA = "/api/espacios?tipo=CANCHA&zona=MIRAFLORES&fecha=" + LocalDate.of(2026, 11, 2);
     private static final String INVALIDA = "/api/espacios?tipo=PISCINA&zona=MIRAFLORES&fecha=2026-11-02";
+    private static final String CON_FILTROS = VALIDA
+            + "&precioMaximo=80&capacidadMinima=10&caracteristica=TECHADO&caracteristica=VESTUARIOS";
+    private static final String FILTRO_INVALIDO = VALIDA + "&precioMaximo=0&caracteristica=PISCINA";
     private static final AtomicInteger SIGUIENTE_IP = new AtomicInteger(1);
 
     @Autowired
@@ -198,5 +201,29 @@ class LimiteCatalogoIT {
                 .andExpect(status().isTooManyRequests());
         desde(siguienteIp(), post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("HU-23 R27: las búsquedas con filtros descuentan del mismo cupo del catálogo que las de HU-10")
+    void filtrosDescuentanDelMismoCupo() throws Exception {
+        buscar(CON_FILTROS).andExpect(status().isOk());
+        buscar(VALIDA).andExpect(status().isOk());
+        buscar(CON_FILTROS).andExpect(status().isOk());
+
+        buscar(VALIDA).andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    @DisplayName("HU-23 R28: con el cupo agotado, una búsqueda con filtros responde 429 sin ejecutar la búsqueda")
+    void filtrosCon429() throws Exception {
+        agotarCupo();
+
+        buscar(CON_FILTROS).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.mensaje").value(DEMASIADOS_INTENTOS))
+                .andExpect(jsonPath("$.errores").isEmpty())
+                .andExpect(jsonPath("$.resultados").doesNotExist());
+        // Si la búsqueda se ejecutara, el filtro inválido respondería 400.
+        buscar(FILTRO_INVALIDO).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.mensaje").value(DEMASIADOS_INTENTOS));
     }
 }

@@ -498,4 +498,195 @@ class BusquedaControllerIT {
                     assertThat(regla.maximo()).isEqualTo(120);
                 });
     }
+
+    // ── Filtros (HU-23) ──────────────────────────────────────────────────
+
+    private long disponible(String precio, int capacidad, String... caracteristicas) {
+        var id = disponibleElLunes(precio);
+        jdbc.update("UPDATE espacio SET capacidad = ? WHERE id = ?", capacidad, id);
+        for (var caracteristica : caracteristicas) {
+            jdbc.update("INSERT INTO espacio_caracteristica (espacio_id, caracteristica) VALUES (?, ?)", id,
+                    caracteristica);
+        }
+        return id;
+    }
+
+    private static String conFiltros(String filtros) {
+        return lunes("CANCHA", SURCO) + "&" + filtros;
+    }
+
+    @Test
+    @DisplayName("HU-23 R12: con precioMaximo solo devuelve espacios con precio menor o igual (inclusivo)")
+    void filtraPorPrecioMaximo() throws Exception {
+        var barato = disponible("40.00", 20);
+        var justo = disponible("80.00", 20);
+        disponible("80.01", 20);
+        disponible("150.00", 20);
+
+        assertThat(ids(pagina(conFiltros("precioMaximo=80")))).containsExactly(barato, justo);
+        assertThat(ids(pagina(conFiltros("precioMaximo=79.99")))).containsExactly(barato);
+    }
+
+    @Test
+    @DisplayName("HU-23 R13: con capacidadMinima solo devuelve espacios con capacidad mayor o igual (inclusivo)")
+    void filtraPorCapacidadMinima() throws Exception {
+        disponible("40.00", 9);
+        var justo = disponible("50.00", 10);
+        var grande = disponible("60.00", 300);
+
+        assertThat(ids(pagina(conFiltros("capacidadMinima=10")))).containsExactly(justo, grande);
+    }
+
+    @Test
+    @DisplayName("HU-23 R14: con varias caracteristica solo devuelve los que tienen todas")
+    void filtraPorCaracteristicas() throws Exception {
+        var ambas = disponible("40.00", 20, "TECHADO", "VESTUARIOS");
+        disponible("50.00", 20, "TECHADO");
+        disponible("60.00", 20, "VESTUARIOS");
+        disponible("70.00", 20);
+        var mas = disponible("90.00", 20, "VESTUARIOS", "ILUMINACION", "TECHADO");
+
+        assertThat(ids(pagina(conFiltros("caracteristica=TECHADO&caracteristica=VESTUARIOS"))))
+                .containsExactly(ambas, mas);
+    }
+
+    @Test
+    @DisplayName("HU-23 R15: los tres filtros juntos devuelven los disponibles que cumplen todo, sin repetir")
+    void tresFiltrosJuntos() throws Exception {
+        var cumple = disponible("50.00", 15, "TECHADO", "VESTUARIOS");
+        var cumpleConMas = disponible("70.00", 40, "ESTACIONAMIENTO", "TECHADO", "VESTUARIOS");
+        disponible("90.00", 40, "TECHADO", "VESTUARIOS");
+        disponible("40.00", 5, "TECHADO", "VESTUARIOS");
+        disponible("30.00", 40, "TECHADO");
+        var noPublicado = espacio(arrendador, "CANCHA", SURCO, "20.00", "PAUSADO");
+        franja(noPublicado, LUNES, 8, 10);
+        jdbc.update("INSERT INTO espacio_caracteristica (espacio_id, caracteristica) VALUES (?, 'TECHADO'), "
+                + "(?, 'VESTUARIOS')", noPublicado, noPublicado);
+        var sinHorario = publicado("20.00");
+        jdbc.update("INSERT INTO espacio_caracteristica (espacio_id, caracteristica) VALUES (?, 'TECHADO'), "
+                + "(?, 'VESTUARIOS')", sinHorario, sinHorario);
+
+        var pagina = pagina(conFiltros("precioMaximo=80&capacidadMinima=10&caracteristica=VESTUARIOS"
+                + "&caracteristica=TECHADO"));
+
+        assertThat(ids(pagina)).containsExactly(cumple, cumpleConMas);
+        assertThat(pagina).containsEntry("hayMas", false).containsEntry("pagina", 1);
+    }
+
+    @Test
+    @DisplayName("HU-23 R16: sin filtros responde lo mismo que HU-10, también con espacios con características")
+    void sinFiltrosComoHu10() throws Exception {
+        var a = disponible("50.00", 5, "TECHADO", "VESTUARIOS", "ILUMINACION");
+        var b = disponible("40.00", 500);
+
+        var sinFiltros = pagina(lunes("CANCHA", SURCO));
+
+        assertThat(ids(sinFiltros)).containsExactly(b, a);
+        assertThat(sinFiltros).containsEntry("hayMas", false).containsEntry("pagina", 1);
+    }
+
+    @Test
+    @DisplayName("HU-23 R17: con filtros pagina sobre la lista filtrada")
+    void paginaSobreLaListaFiltrada() throws Exception {
+        var cumplen = new ArrayList<Long>();
+        for (int i = 0; i < 25; i++) {
+            var id = disponible("50.00", i < 21 ? 30 : 5);
+            if (i < 21) {
+                cumplen.add(id);
+            }
+        }
+
+        var primera = pagina(conFiltros("capacidadMinima=10&pagina=1"));
+        var segunda = pagina(conFiltros("capacidadMinima=10&pagina=2"));
+
+        assertThat(ids(primera)).containsExactlyElementsOf(cumplen.subList(0, 20));
+        assertThat(primera).containsEntry("hayMas", true);
+        assertThat(ids(segunda)).containsExactly(cumplen.get(20));
+        assertThat(segunda).containsEntry("hayMas", false);
+    }
+
+    @Test
+    @DisplayName("HU-23 R18: con filtros cada resultado trae solo los seis campos, sin capacidad ni características")
+    void seisCamposConFiltros() throws Exception {
+        disponible("50.00", 30, "TECHADO");
+
+        var pagina = pagina(conFiltros("precioMaximo=60&capacidadMinima=10&caracteristica=TECHADO"));
+
+        assertThat(resultados(pagina)).singleElement().satisfies(resultado -> assertThat(resultado)
+                .containsOnlyKeys("id", "nombre", "zona", "zonaNombre", "precioHora", "fotoPrincipal"));
+    }
+
+    @Test
+    @DisplayName("HU-23 R19: si ninguno cumple los filtros responde 200 vacío, sin hayMas y con la página pedida")
+    void ningunoCumpleLosFiltros() throws Exception {
+        disponible("50.00", 30, "TECHADO");
+
+        var pagina = pagina(conFiltros("caracteristica=ESTACIONAMIENTO&pagina=1"));
+
+        assertThat(resultados(pagina)).isEmpty();
+        assertThat(pagina).containsEntry("hayMas", false).containsEntry("pagina", 1);
+    }
+
+    @Test
+    @DisplayName("HU-23 R20, R21: precioMaximo y capacidadMinima fuera de la lista blanca responden 400 en su campo")
+    void precioYCapacidadInvalidos() throws Exception {
+        for (var precio : List.of("", "0", "0.99", "100000.01", "12.345", "1e3", "-5", "abc")) {
+            buscar(conFiltros("precioMaximo=" + precio)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errores.length()").value(1))
+                    .andExpect(jsonPath("$.errores[0].campo").value("precioMaximo"))
+                    .andExpect(jsonPath("$.errores[0].mensaje")
+                            .value("El precio máximo debe estar entre S/ 1.00 y S/ 100 000.00, con hasta 2 decimales."));
+        }
+        for (var capacidad : List.of("", "0", "100001", "2.5", "-1", "abc")) {
+            buscar(conFiltros("capacidadMinima=" + capacidad)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errores.length()").value(1))
+                    .andExpect(jsonPath("$.errores[0].campo").value("capacidadMinima"))
+                    .andExpect(jsonPath("$.errores[0].mensaje")
+                            .value("La capacidad mínima debe ser un número entero entre 1 y 100 000."));
+        }
+        buscar(conFiltros("precioMaximo=50&precioMaximo=60")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errores[0].campo").value("precioMaximo"));
+    }
+
+    @Test
+    @DisplayName("HU-23 R22, R23: una caracteristica fuera de la lista, con comas o repetida responde 400 en su campo")
+    void caracteristicaInvalida() throws Exception {
+        for (var filtro : List.of("caracteristica=TECHADO,VESTUARIOS", "caracteristica=", "caracteristica=techado",
+                "caracteristica=PISCINA", "caracteristica=TECHADO&caracteristica=TECHADO")) {
+            buscar(conFiltros(filtro)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mensaje").value(MENSAJE_VALIDACION))
+                    .andExpect(jsonPath("$.errores.length()").value(1))
+                    .andExpect(jsonPath("$.errores[0].campo").value("caracteristica"))
+                    .andExpect(jsonPath("$.errores[0].mensaje")
+                            .value("Elige características de la lista, sin repetir."));
+        }
+    }
+
+    @Test
+    @DisplayName("HU-23 R24: con todos los parámetros inválidos responde un error por campo en el orden fijo")
+    void todosLosErroresEnOrden() throws Exception {
+        buscar("tipo=PISCINA&zona=ATLANTIDA&fecha=2026-02-30&pagina=0&precioMaximo=0&capacidadMinima=abc"
+                + "&caracteristica=PISCINA&caracteristica=techado")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value(MENSAJE_VALIDACION))
+                .andExpect(jsonPath("$.errores.length()").value(7))
+                .andExpect(jsonPath("$.errores[0].campo").value("tipo"))
+                .andExpect(jsonPath("$.errores[1].campo").value("zona"))
+                .andExpect(jsonPath("$.errores[2].campo").value("fecha"))
+                .andExpect(jsonPath("$.errores[3].campo").value("pagina"))
+                .andExpect(jsonPath("$.errores[4].campo").value("precioMaximo"))
+                .andExpect(jsonPath("$.errores[5].campo").value("capacidadMinima"))
+                .andExpect(jsonPath("$.errores[6].campo").value("caracteristica"));
+    }
+
+    @Test
+    @DisplayName("HU-23 R26: precio, capacidad y caracteristicas no son filtros y se ignoran")
+    void ignoraParametrosDesconocidos() throws Exception {
+        var a = disponible("50.00", 5);
+        var b = disponible("150.00", 500, "TECHADO");
+
+        var pagina = pagina(conFiltros("precio=10&capacidad=1000&caracteristicas=PISCINA"));
+
+        assertThat(ids(pagina)).containsExactly(a, b);
+    }
 }

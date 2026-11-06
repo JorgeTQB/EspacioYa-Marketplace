@@ -5,6 +5,14 @@ export const TIPOS_ESPACIO = [
   { valor: 'AUDITORIO', etiqueta: 'Auditorio' },
 ]
 
+// HU-23. Lista fija de características, en el orden en que se muestran. El servidor valida la lista blanca.
+export const CARACTERISTICAS = [
+  { valor: 'TECHADO', etiqueta: 'Techado' },
+  { valor: 'ILUMINACION', etiqueta: 'Iluminación' },
+  { valor: 'VESTUARIOS', etiqueta: 'Vestuarios' },
+  { valor: 'ESTACIONAMIENTO', etiqueta: 'Estacionamiento' },
+]
+
 export function nombreTipo(tipo) {
   return TIPOS_ESPACIO.find((opcion) => opcion.valor === tipo)?.etiqueta ?? tipo
 }

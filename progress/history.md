@@ -1449,3 +1449,36 @@
   decisión" (`DatosPersonalesConcurrenciaIT` y `impl_HU-22.md`) para que apunten a § 15.1.
 - **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1562 unitarias y 931 IT,
   0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-05 — HU-23 Filtros de búsqueda por precio, capacidad y características ★ Decorator (done)
+
+- **Dueño:** Sebastian Garate · prueba y documenta: Adriana Callupe · rama `feature/HU-23-filtros-busqueda` (desde
+  `develop`).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-23.md`) → spec-author (`specs/HU-23/`, R1–R30, T1–T23) →
+  aprobación de Sebastian Garate el 2026-11-05 (P1–P8 aceptadas por defecto) → implementer → reviewer `APPROVED` en la
+  primera vuelta (`progress/review_HU-23.md`). Informe de implementación en `progress/impl_HU-23.md`.
+- **Decisiones aprobadas (P1–P8):** `PUT` sin `caracteristicas` = lista vacía; parámetros `precioMaximo`,
+  `capacidadMinima` y `caracteristica` repetido; límites inclusivos; rangos de la ficha; valor vacío = 400; repetidos =
+  400; los resultados no exponen capacidad ni características; tabla `caracteristica` con PK `codigo`.
+- **Patrón ★ Decorator:** Component `BusquedaEspacios` y ConcreteComponent `BusquedaBase` (de HU-10, sin cambios de
+  comportamiento); Decorator abstracto `FiltroBusqueda` (`buscar` `final`); ConcreteDecorators `FiltroPrecioMaximo`,
+  `FiltroCapacidadMinima`, `FiltroCaracteristicas`; ensamblador `FiltrosBusqueda.envolver` (solo los filtros presentes;
+  sin filtros devuelve la base misma). Prueba de composición en `FiltrosBusquedaTest`.
+- **Cambios (backend):** migración `V7_1__caracteristicas.sql` (tablas `caracteristica` y `espacio_caracteristica`);
+  enum `Caracteristica`; `DatosEspacio`/`Espacio` con `@ElementCollection` y auditoría del cambio de características;
+  `@CaracteristicasDeLista` + validador en `FichaEspacioDTO`; `EspacioDTO.caracteristicas`; `EspacioPublicado` con
+  capacidad y características, `CatalogoEspaciosService.esCaracteristicaValida` y `@EntityGraph` en
+  `buscarPublicados*`; `ConsultaBusqueda` y `BusquedaService.buscar(ConsultaBusqueda)` con lista blanca;
+  `BusquedaController` con `getParameterValues("caracteristica")`. Rate limiting compartido con HU-10, sin regla nueva.
+- **Cambios (frontend):** componente del kit `GrupoCasillas` (+ `.module.css`, solo tokens) y `step` en `Campo`;
+  características en `EditarEspacio.jsx`; filtros en `api/busqueda.js` y `BuscarEspacios.jsx` (en la URL, paginación que
+  los conserva, CA3 con "Quitar filtros").
+- **Docs:** `docs/architecture.md` (párrafo de `CatalogoEspaciosService`, "Filtros: qué deja HU-23", fila HU-23 de
+  patrones), `docs/modelo-datos.md`, `docs/frontend.md` (`GrupoCasillas`).
+- **Desviación menor (aceptada por el reviewer):** R28 ("sin ejecutar la búsqueda") se prueba de forma observable (429 en
+  lugar de 400 con un filtro inválido), sin espía sobre `BusquedaService`.
+- **Pendientes (observaciones no bloqueantes del review):** en `EditarEspacio.jsx` el `GrupoCasillas` no se deshabilita en
+  `BAJA`/`OCULTO` (igual que los demás campos; el servidor lo rechaza por R9). Se puede mejorar con una prop
+  `deshabilitado` en el kit.
+- **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1605 unitarias y 956 IT,
+  0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
