@@ -8,6 +8,13 @@
 #   ./init.sh --rapido   sin pruebas de integración ni build del frontend;
 #                        sirve para empezar una sesión o redactar un spec,
 #                        NUNCA para cerrar una historia
+#   ./init.sh --todo     corre TODAS las pruebas unitarias (se combina con
+#                        --rapido)
+#
+# Pruebas unitarias (*Test): por defecto solo las de las clases creadas o
+# modificadas en la rama respecto de `develop` (o de BASE_PRUEBAS), más los
+# cambios sin commit. Si cambia pom.xml o src/*/resources, corren todas.
+# Pruebas de integración (*IT): en el modo completo corren SIEMPRE todas.
 #
 # Salida esperada: códigos de salida claros y bloques marcados con [OK]/[FAIL].
 # En Windows se ejecuta desde Git Bash.
@@ -25,7 +32,14 @@ warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$1"; }
 fail()  { printf "${RED}[FAIL]${NC}  %s\n" "$1"; }
 
 RAPIDO=0
-if [ "${1:-}" = "--rapido" ]; then RAPIDO=1; fi
+TODO=0
+for arg in "$@"; do
+  case "$arg" in
+    --rapido) RAPIDO=1 ;;
+    --todo)   TODO=1 ;;
+    *) printf "Opción desconocida: %s (usa --rapido y/o --todo)\n" "$arg"; exit 2 ;;
+  esac
+done
 
 EXIT_CODE=0
 BACKEND=2_Backend
@@ -285,11 +299,95 @@ regla "Secretos trackeados en git" \
 echo ""
 echo "── 5. Ejecutando tests del backend ─────────────────────"
 
+# 5a. Qué pruebas unitarias correr: las de las clases tocadas en la rama.
+#     FILTRO_TEST vacío = todas; "NingunaUnitaria" = ninguna (solo compila).
+FILTRO_TEST=""
+if [ $TODO -eq 1 ]; then
+  ok "Unitarias: todas (--todo)"
+else
+  BASE=""
+  for rama in "${BASE_PRUEBAS:-develop}" origin/develop; do
+    if git rev-parse --verify -q "$rama^{commit}" >/dev/null 2>&1; then
+      BASE=$(git merge-base HEAD "$rama" 2>/dev/null) && break
+    fi
+  done
+  if [ -z "$BASE" ]; then
+    warn "No se encontró la rama base (${BASE_PRUEBAS:-develop}); se corren todas las unitarias"
+  else
+    { git -c core.quotepath=off diff --name-only "$BASE" HEAD 2>/dev/null
+      git -c core.quotepath=off diff --name-only HEAD 2>/dev/null
+      git -c core.quotepath=off ls-files --others --exclude-standard
+    } | sort -u > "$LOG_DIR/cambios.txt"
+
+    # Imprime una línea: "TODAS <motivo>", "NINGUNA" o "LISTA A,B,C".
+    SELECCION=$(node - "$LOG_DIR/cambios.txt" <<'JS'
+const fs = require("fs");
+const path = require("path");
+
+const cambios = fs.readFileSync(process.argv[2], "utf8").split(/\r?\n/)
+  .filter(f => f.startsWith("2_Backend/"));
+
+// Cambios que pueden afectar a cualquier prueba: corren todas. Las migraciones
+// (resources/db/) no cuentan: las unitarias no usan BD y las *IT corren todas.
+const global = cambios.find(f =>
+  f === "2_Backend/pom.xml" ||
+  f.startsWith("2_Backend/.mvn/") ||
+  (/^2_Backend\/src\/(main|test)\/resources\//.test(f) && !f.startsWith("2_Backend/src/main/resources/db/")));
+if (global) { console.log(`TODAS cambió ${global}`); process.exit(0); }
+
+// Clases Java creadas, modificadas o borradas (main o test).
+const clases = [...new Set(cambios
+  .filter(f => /^2_Backend\/src\/(main|test)\/java\/.*\.java$/.test(f))
+  .map(f => path.basename(f, ".java")))];
+if (!clases.length) { console.log("NINGUNA"); process.exit(0); }
+
+function archivosJava(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) return archivosJava(p);
+    return e.name.endsWith(".java") ? [p] : [];
+  });
+}
+
+// Una unitaria corre si ella misma cambió o si menciona una clase cambiada.
+const patron = new RegExp(`\\b(${clases.join("|")})\\b`);
+const elegidas = archivosJava("2_Backend/src/test/java")
+  .filter(f => f.endsWith("Test.java"))
+  .filter(f => clases.includes(path.basename(f, ".java")) || patron.test(fs.readFileSync(f, "utf8")))
+  .map(f => path.basename(f, ".java"))
+  .sort();
+console.log(elegidas.length ? `LISTA ${elegidas.join(",")}` : "NINGUNA");
+JS
+)
+    case "$SELECCION" in
+      TODAS*)
+        ok "Unitarias: todas (${SELECCION#TODAS })" ;;
+      LISTA*)
+        FILTRO_TEST=${SELECCION#LISTA }
+        ok "Unitarias de las clases tocadas ($(printf '%s' "$FILTRO_TEST" | awk -F, '{print NF}')):"
+        printf '%s\n' "$FILTRO_TEST" | tr ',' '\n' | sed 's/^/          /' ;;
+      NINGUNA)
+        FILTRO_TEST=NingunaUnitaria
+        ok "Unitarias: ninguna (no hay clases del backend tocadas con pruebas *Test)" ;;
+      *)
+        warn "No se pudo calcular la selección; se corren todas las unitarias" ;;
+    esac
+  fi
+fi
+
+MAVEN_ARGS=()
+if [ -n "$FILTRO_TEST" ]; then
+  MAVEN_ARGS=("-Dtest=$FILTRO_TEST" -Dsurefire.failIfNoSpecifiedTests=false)
+fi
+
+# 5b. Objetivo: test (solo unitarias) o verify (unitarias + TODAS las *IT).
 if [ $RAPIDO -eq 1 ]; then
   OBJETIVO=test
-  warn "Modo rápido: solo pruebas unitarias (./mvnw test)"
+  warn "Modo rápido: sin pruebas de integración (./mvnw test)"
 elif [ $DOCKER_OK -eq 1 ]; then
   OBJETIVO=verify
+  ok "Integración: todas las pruebas *IT (./mvnw verify)"
 else
   OBJETIVO=""
   fail "Sin Docker no se pueden correr las pruebas *IT (./mvnw verify)"
@@ -297,10 +395,12 @@ else
 fi
 
 if [ -n "$OBJETIVO" ]; then
-  if (cd "$BACKEND" && ./mvnw -B -ntp "$OBJETIVO") > "$LOG_DIR/maven.log" 2>&1; then
+  if (cd "$BACKEND" && ./mvnw -B -ntp "$OBJETIVO" "${MAVEN_ARGS[@]}") > "$LOG_DIR/maven.log" 2>&1; then
     grep -E 'Tests run: [0-9]+, Failures' "$LOG_DIR/maven.log" | grep -v ' -- in ' | sed 's/^\[[A-Z]*\] */          /'
     if grep -qE 'Tests run: [1-9]' "$LOG_DIR/maven.log"; then
       ok "Todos los tests del backend pasan (./mvnw $OBJETIVO)"
+    elif [ $RAPIDO -eq 1 ] && [ "$FILTRO_TEST" = "NingunaUnitaria" ]; then
+      ok "El backend compila; no había unitarias que correr"
     elif [ $RAPIDO -eq 1 ]; then
       warn "./mvnw test no encontró pruebas unitarias todavía"
     else

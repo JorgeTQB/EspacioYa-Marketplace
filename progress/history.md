@@ -1544,3 +1544,17 @@
   arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
 
 - 2026-11-06: Ariel Enriquez aceptó la observación 1 del review de HU-24: la sanitización de P4 se mantiene aunque texto como `2 < 4 y 5 > 3` pierda lo que parece una etiqueta. No cambia el spec.
+
+## 2026-11-06 — Pruebas unitarias selectivas en `init.sh`
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** `init.sh` (paso 5) corre solo las unitarias (`*Test`) de las
+  clases creadas, modificadas o borradas en la rama respecto de `develop`
+  (o `BASE_PRUEBAS`), más los cambios sin commit: `<Clase>Test` y toda
+  `*Test` que mencione la clase. Cambios en `pom.xml`, `.mvn/` o
+  `src/*/resources` (salvo `db/`) corren todas. Las `*IT` siguen corriendo
+  todas en el modo completo. Nueva bandera `--todo` para la suite unitaria
+  completa. Actualizados `AGENTS.md`, `README.md`, `CHECKPOINTS.md` (C4),
+  `docs/verification.md` y `docs/conventions.md`.
+- **Resultado:** con el diff de HU-24, `--rapido` corre 11 clases (211 tests)
+  en vez de 1722, en verde. En `develop` sin cambios solo compila. Falta
+  probar el modo completo con Docker encendido.

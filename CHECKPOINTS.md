@@ -73,7 +73,8 @@
       las dos operaciones a la vez.
 - [ ] Cada test comprueba un resultado concreto (estado, monto, código HTTP,
       campos del DTO), incluido el camino de error.
-- [ ] ⚙ `cd 2_Backend && ./mvnw verify` muestra > 0 tests y todos verdes.
+- [ ] ⚙ `./init.sh` (completo) corre las unitarias de las clases tocadas y
+      todas las `*IT`, con > 0 tests y todos verdes.
 - [ ] ⚙ `cd 3_frontend && npm run lint && npm run build` termina sin errores.
 
 ## C5 — La sesión se cerró bien
