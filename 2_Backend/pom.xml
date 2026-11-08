@@ -59,6 +59,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<!-- Envío de correo por SMTP (HU-25, D8): solo lo usa el adaptador comun.correo.EnvioCorreoSmtp -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 
 		<!-- Pruebas: JUnit 5, Mockito, AssertJ y MockMvc -->
 		<dependency>

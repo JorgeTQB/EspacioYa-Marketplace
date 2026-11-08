@@ -46,8 +46,13 @@ Aplica a ti y a todos los subagentes:
 - Backend: `./2_Backend/mvnw -f 2_Backend/pom.xml <objetivo>`.
 - Frontend: `npm --prefix 3_frontend run <script>`.
 - Para leer o buscar usa `Read`, `Grep` y `Glob`, no `cat`/`grep` por Bash.
-- Sin `timeout N` delante ni bucles con variables: usa el parámetro `timeout`
-  o `run_in_background` de la herramienta Bash.
+- Sin `timeout N` delante: usa el parámetro `timeout` o `run_in_background`
+  de la herramienta Bash.
+- **Prohibido** en Bash: bucles, variables (`$c`), `$(...)` y encadenar con
+  `;`, `&&` o `|`. Un comando simple por llamada. Nada de `python -c` ni
+  `sed -i` para reescribir archivos (usa `Edit`/`Write`). Los reportes de
+  pruebas y las salidas `.output` de tareas en segundo plano se leen con
+  `Read`/`Grep`.
 
 ### Protocolo de arranque (al recibir la primera tarea)
 

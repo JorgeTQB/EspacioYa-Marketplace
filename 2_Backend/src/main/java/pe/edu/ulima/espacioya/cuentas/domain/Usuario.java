@@ -66,6 +66,10 @@ public class Usuario {
     @Column(name = "foto_tipo_mime", length = 20)
     private String fotoTipoMime;
 
+    // HU-25 D4: opt-out, toda cuenta empieza con recordatorios. Solo la lee el proceso de recordatorios (D7, RN-14).
+    @Column(name = "recordatorios_activos", nullable = false)
+    private boolean recordatoriosActivos = true;
+
     protected Usuario() {
     }
 
@@ -165,6 +169,19 @@ public class Usuario {
 
     public boolean tieneFoto() {
         return fotoRuta != null;
+    }
+
+    public boolean tieneRecordatoriosActivos() {
+        return recordatoriosActivos;
+    }
+
+    /** @return true si el valor cambió (HU-25 R8, R9). */
+    public boolean cambiarRecordatorios(boolean activos) {
+        if (recordatoriosActivos == activos) {
+            return false;
+        }
+        recordatoriosActivos = activos;
+        return true;
     }
 
     public boolean esAdmin() {

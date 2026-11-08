@@ -7,6 +7,15 @@
 RAIZ="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 LOG="${TMPDIR:-/tmp}/espacioya_init.log"
 
+# Si ya hay un ./init.sh en curso (p. ej. el completo de un subagente), no se
+# lanza otro: los dos escribirían en el mismo 2_Backend/target y se pisarían
+# los reportes de pruebas. init.sh crea .init.lock mientras corre; uno de más
+# de 60 min se considera abandonado.
+LOCK="$RAIZ/.init.lock"
+if [ -f "$LOCK" ] && [ -z "$(find "$LOCK" -mmin +60 2>/dev/null)" ]; then
+  exit 0
+fi
+
 if "$RAIZ/init.sh" --rapido > "$LOG" 2>&1; then
   exit 0
 fi

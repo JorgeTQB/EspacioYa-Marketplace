@@ -36,6 +36,14 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
             + "and r.expiraEn <= :ahora order by r.id")
     List<Long> findIdsVencidas(@Param("ahora") Instant ahora);
 
+    // HU-25: candidatas del recordatorio; la regla exacta de 24 h la aplica ReglaRecordatorio en Java (alternativa 4).
+    @Query("select r.id from Reserva r "
+            + "where r.estado = pe.edu.ulima.espacioya.reservas.domain.EstadoReserva.CONFIRMADA "
+            + "and r.recordatorioEnviadoEn is null "
+            + "and exists (select 1 from ReservaBloque b where b.reservaId = r.id and b.activo = true "
+            + "and b.fecha between :desde and :hasta) order by r.id")
+    List<Long> findIdsPorRecordar(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Reserva r where r.id = :id")
     Optional<Reserva> findParaActualizar(@Param("id") Long id);
