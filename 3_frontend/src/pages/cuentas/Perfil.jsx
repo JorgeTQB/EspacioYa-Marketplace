@@ -18,6 +18,7 @@ import Modal from '../../components/ui/Modal.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import useSesion from '../../sesion/useSesion.js'
 import DatosPersonales from './DatosPersonales.jsx'
+import Recordatorios from './Recordatorios.jsx'
 import { erroresPorCampo } from './erroresCampo.js'
 import {
   ALT_FOTO,
@@ -395,6 +396,8 @@ function Perfil() {
           </Boton>
         </form>
       </Tarjeta>
+
+      <Recordatorios />
 
       {facturacion && (
         <Tarjeta titulo={TITULO_FACTURACION}>

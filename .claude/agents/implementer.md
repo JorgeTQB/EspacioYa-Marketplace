@@ -79,8 +79,17 @@ Eres un implementador. Tu trabajo es ejecutar **una sola** historia de
 - No antepongas `timeout N` a los comandos: usa el parámetro `timeout` de la
   herramienta Bash o `run_in_background` para procesos largos como
   `spring-boot:run`.
-- Evita bucles `for` y variables (`$j`) en comandos que leen archivos: escribe
-  un comando por archivo.
+- ❌ **Prohibido** en Bash: bucles `for`/`while`, variables (`$c`, `$j`),
+  sustitución `$(...)` y encadenar varios comandos con `;`, `&&` o `|`.
+  Claude Code no puede analizarlos y le pide permiso al usuario **cada vez**.
+  Un comando simple por llamada; si necesitas varios, haz varias llamadas
+  a Bash (pueden ir en paralelo).
+- ❌ No uses `python -c`, `sed -i` ni scripts para reescribir archivos
+  (ni para cambiar saltos de línea LF/CRLF): usa `Edit`/`Write`.
+- Para leer resultados de pruebas (`2_Backend/target/surefire-reports/`,
+  `2_Backend/target/failsafe-reports/`) o la salida de una tarea en segundo
+  plano (archivo `.output` en la carpeta temporal), usa `Read` o `Grep`
+  sobre el archivo, nunca `cat | tail | grep`.
 
 ## Reglas duras
 

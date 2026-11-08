@@ -61,6 +61,10 @@ public class Reserva {
     @Column(name = "monto_reembolso", precision = 10, scale = 2)
     private BigDecimal montoReembolso;
 
+    // HU-25 D3: marca de idempotencia del recordatorio 24 h antes ("como mucho una vez").
+    @Column(name = "recordatorio_enviado_en")
+    private Instant recordatorioEnviadoEn;
+
     protected Reserva() {
     }
 
@@ -150,6 +154,18 @@ public class Reserva {
                 && montoReembolso != null && montoReembolso.signum() == 0;
     }
 
+    /** {@code CONFIRMADA} y aún sin recordatorio (HU-25 R14, R17, R18). El plazo lo da {@link ReglaRecordatorio}. */
+    public boolean admiteRecordatorio() {
+        return estado == EstadoReserva.CONFIRMADA && recordatorioEnviadoEn == null;
+    }
+
+    public void marcarRecordatorio(Instant ahora) {
+        if (!admiteRecordatorio()) {
+            throw new IllegalStateException("La reserva no admite recordatorio: " + estado);
+        }
+        recordatorioEnviadoEn = ahora;
+    }
+
     public Long getId() {
         return id;
     }
@@ -192,5 +208,9 @@ public class Reserva {
 
     public BigDecimal getMontoReembolso() {
         return montoReembolso;
+    }
+
+    public Instant getRecordatorioEnviadoEn() {
+        return recordatorioEnviadoEn;
     }
 }

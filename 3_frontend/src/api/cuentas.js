@@ -165,6 +165,15 @@ export function confirmarCambioCorreo(token) {
   })
 }
 
+// Preferencia de recordatorios (HU-25, CA2). Solo apaga el recordatorio 24 h antes: pago y cancelación siempre llegan.
+export function obtenerPreferenciasCorreo() {
+  return peticion('/api/usuarios/actual/preferencias-correo')
+}
+
+export function actualizarPreferenciasCorreo({ recordatoriosActivos }) {
+  return peticion('/api/usuarios/actual/preferencias-correo', { metodo: 'PUT', cuerpo: { recordatoriosActivos } })
+}
+
 export function actualizarFacturacion({ tipoDocumento, numeroDocumento, razonSocial, direccionFiscal, contrasena }) {
   return peticion('/api/arrendadores/actual/facturacion', {
     metodo: 'PUT',

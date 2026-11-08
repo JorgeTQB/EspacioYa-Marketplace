@@ -169,7 +169,11 @@ para eso. HU-18 le agregó, para `pagos` (la dirección `pagos → cuentas` ya e
 intentos, lo hace el llamador con `LimitadorIntentos`; HU-20 y HU-22 pueden reutilizarlo) y `razonSocialDe(arrendadorId) →
 String` (solo la razón social del perfil, 404 sin perfil; nunca el documento, RNF-SEG-16). `NotificadorCorreo` ganó
 `notificarCambioCuentaBancaria(correo, AvisoCambioCuentaBancaria)` (HU-20 le agregó dos métodos más, ver
-[Perfil](#perfil-qué-deja-hu-20-hu-22-hu-25-hu-06-hu-18)). HU-19 le agregó, para `pagos`, `arrendadoresSinIdentidadVerificada(Collection<Long>) → Set<Long>`: de esos ids, los que no tienen perfil o cuyo `estado_identidad` no es `VERIFICADA`; una consulta por lote (`PerfilArrendadorRepository.idsConIdentidadVerificada`), colección vacía → `Set.of()` sin consultar, sin sesión ni rol y nunca datos del perfil.
+[Perfil](#perfil-qué-deja-hu-20-hu-22-hu-25-hu-06-hu-18)). HU-19 le agregó, para `pagos`, `arrendadoresSinIdentidadVerificada(Collection<Long>) → Set<Long>`: de esos ids, los que no tienen perfil o cuyo `estado_identidad` no es `VERIFICADA`; una consulta por lote (`PerfilArrendadorRepository.idsConIdentidadVerificada`), colección vacía → `Set.of()` sin consultar, sin sesión ni rol y nunca datos del perfil. HU-25 le agregó, para
+`reservas`, `correoParaRecordatorio(usuarioId) → Optional<String>`: el correo solo si la cuenta existe, está `ACTIVA` y
+tiene `recordatorios_activos = true`; si no, vacío (nunca 404). Sin sesión ni rol y nunca va a un cliente. Es el
+**único** lector de la preferencia: `correoDe`, `AvisosPago`, `AvisosCancelacion` y `NotificadorCorreo` no la consultan
+(RN-14).
 
 ### Cuenta bancaria: qué deja HU-18 (HU-19, HU-22)
 
@@ -213,8 +217,10 @@ arrendador da un 400 genérico y cuenta como fallo en `perfil|<id>` (D13).
 
 **Para las que siguen.** **HU-22** exporta `correo_pendiente` y si hay foto; al anonimizar borra `correo_pendiente`,
 `foto_ruta`/`foto_tipo_mime` **y el archivo** de `ArchivosPrivados`, anula los tokens `CAMBIO_CORREO` y puede reutilizar
-`ReautenticacionPerfil` (o su patrón) para su contraseña. **HU-25** implementa los dos métodos nuevos de
-`NotificadorCorreo` en el adaptador real; el tipo de token `VERIFICACION` sigue libre para el correo de registro.
+`ReautenticacionPerfil` (o su patrón) para su contraseña. **HU-25, hecho:** `NotificadorCorreoImpl` implementa los
+dos métodos nuevos de `NotificadorCorreo` (y los otros once) en el adaptador real, ver
+[Correo](#correo-qué-deja-hu-25--factory-method-adapter); el tipo de token `VERIFICACION` sigue libre para el correo de
+registro.
 
 **Regla para HU-10, HU-11 y HU-12 (HU-09 D1):** los espacios de un arrendador no `ACTIVA` conservan su estado pero
 no se muestran ni se reservan. No se lee `usuario` desde `busqueda` ni `reservas`: se filtra con esos dos métodos. La
@@ -366,6 +372,8 @@ fecha queda en `actualizado_en` y en la auditoría.
 | `ReservasDelEspacioImpl` | Implementación real del puerto: `PENDIENTE_PAGO` vigente o `CONFIRMADA` |
 | `ExpiracionReservas` | `expirarVencidas()` (una transacción por reserva) y `liberarVencidas(...)` (`MANDATORY`, dentro de la reserva que choca) |
 | `ProgramacionExpiracion` | Proceso programado con `@Scheduled(fixedDelay…)`. Propiedades `espacioya.reservas.expiracion.activa` (`RESERVAS_EXPIRACION_ACTIVA`, por defecto `true`) e `.intervalo` (`RESERVAS_EXPIRACION_INTERVALO`, por defecto `PT1M`). Apagado en `src/test/resources/config/application.properties`: las pruebas llaman a `expirarVencidas()` |
+| `service.recordatorio.RecordatoriosReserva` (HU-25) | `enviarPendientes()`: candidatas `ReservaRepository.findIdsPorRecordar(hoyLima, ReglaRecordatorio.ultimaFecha(ahora))` (`CONFIRMADA`, sin `recordatorio_enviado_en`, con un bloque activo en esas fechas) → una transacción por reserva: `findParaActualizar`, `admiteRecordatorio`, `ReglaRecordatorio.corresponde(instanteDeInicio, ahora)` (`inicio − 24 h ≤ ahora < inicio`), `marcarRecordatorio(ahora)`, `correoParaRecordatorio` de cada parte, auditoría `RECORDATORIO_RESERVA` (`origen=PROCESO;destinatarios=…`: `USUARIO,ARRENDADOR`, `USUARIO`, `ARRENDADOR` o `NINGUNO`) y un `DespuesDelCommit` por correo. Fuera de plazo no marca. "Como mucho una vez": un envío fallido no se reintenta. Solo toma el bloqueo de `reserva` |
+| `service.recordatorio.ProgramacionRecordatorios` (HU-25) | `@Scheduled(fixedDelay…)` con **su propio** `@EnableScheduling` (el de `ProgramacionExpiracion` se apaga con su propiedad). Propiedades `espacioya.reservas.recordatorios.activa` (`RESERVAS_RECORDATORIOS_ACTIVA`, por defecto `true`) e `.intervalo` (`RESERVAS_RECORDATORIOS_INTERVALO`, por defecto `PT5M`). Apagado en las pruebas: llaman a `enviarPendientes()` |
 
 **Orden fijo de bloqueos: `usuario → espacio → reserva`.** `crear` toma `CuentaService.bloquearCuenta` (serializa el
 cupo de 3 pendientes de un usuario que reserva dos espacios a la vez) y luego `retenerSiLibres` (serializa a dos
@@ -574,7 +582,7 @@ filename="espacioya-mis-datos-<AAAA-MM-DD>.json"`, fecha de Lima de `generadaEn`
 no se revelan los impedimentos.
 
 - **Exportación.** Una transacción: `perfil` (rol, correo, correo pendiente, nombre, teléfono, si hay foto, si hay MFA,
-  consentimiento y, para el arrendador, facturación con el documento **enmascarado**) + las secciones de cada participante
+  la preferencia `recordatoriosActivos` —HU-25 R37—, consentimiento y, para el arrendador, facturación con el documento **enmascarado**) + las secciones de cada participante
   en orden (`reservas` y `pagos` del usuario; `reservas` `CONFIRMADA` de sus espacios sin datos de quien reservó,
   `liquidaciones` y `cuentaBancaria` enmascarada o `null` del arrendador) + auditoría `DATOS_EXPORTADOS`
   (`secciones=<claves>`). Nunca hash, documento o cuenta completos, secreto MFA, `ultimos4` ni ids de la pasarela.
@@ -634,6 +642,52 @@ reseñable no hay forma de crear una.
 - **Para las que siguen.** **HU-27** agrega `Resena.ocultar` y la interfaz pública de `busqueda`, y lee el `id` de la reseña
   de la ficha para `reporte.objetivo_id`; las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
   Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada).
+
+### Correo: qué deja HU-25 (★ Factory Method, Adapter)
+
+Paquete `comun/correo` (no depende de ningún módulo). Ninguna clase fuera de `EnvioCorreoSmtp` importa
+`org.springframework.mail` ni `jakarta.mail`.
+
+| Pieza | Rol | Qué hace |
+|-------|-----|----------|
+| `comun.correo.EnvioCorreo` | Adapter · Target | `enviar(MensajeCorreo)`; falla del proveedor → `ServicioExternoException`. `MensajeCorreo(para, asunto, cuerpo)`: texto plano, un único destinatario, sin copia ni copia oculta; rechaza vacíos |
+| `comun.correo.EnvioCorreoSmtp` | Adapter · Adapter | Traduce a `SimpleMailMessage` (`from` = `espacioya.correo.remitente`) y lo entrega al Adaptee `JavaMailSender` (`spring-boot-starter-mail`). Cualquier `MailException` → `ServicioExternoException`, sin el texto del proveedor ni el destinatario. Sin remitente o sin `spring.mail.host` no se construye y el backend no arranca |
+| `comun.correo.EnvioCorreoSimulado` | Adapter sin proveedor | Solo escribe "Envío de correo simulado: no se envió ningún correo." (sin destinatario, asunto ni cuerpo). Es el de UAT |
+| `comun.correo.FabricaCorreo<E>` | Factory Method · Creator | `public final enviar(destinatario, evento)`: llama al método fábrica `protected abstract Correo crearCorreo(E)`, arma el `MensajeCorreo` y lo entrega a `EnvioCorreo`. Las fábricas **no son beans**: el Client las crea con el `EnvioCorreo` inyectado |
+| `comun.correo.Correo` | Factory Method · Product | `asunto()` (fijo por evento) y `cuerpo()`. Los ConcreteProducts son `record` que reciben su evento |
+| `comun.correo.FormatoCorreo`, `SinDatos` | — | Fecha `dd/MM/yyyy`, horario `HH:00 a HH:00` (fin 24 → `24:00`), monto `S/ 1234.50`, instante de Lima `dd/MM/yyyy HH:mm`; `SinDatos.VALOR` para los correos sin datos |
+| `cuentas.service.correo.FabricaCorreo*` / `Correo*` | ConcreteCreator / ConcreteProduct | 13 pares, uno por método de `NotificadorCorreo` (bienvenida, recuperación, identidad ×2, suspensión, reactivación, comprobante, reserva pagada, cancelación ×2, cuenta bancaria, cambio de correo ×2) |
+| `cuentas.service.impl.NotificadorCorreoImpl` | Client | Implementación real de `NotificadorCorreo` con `proveedor=smtp`; cada método llama a la fábrica de su evento. `notificarVerificacion` es un correo de bienvenida sin enlace (HU-25 D11). Con `simulado` queda `NotificadorCorreoSimulado` |
+| `reservas.service.recordatorio.FabricaRecordatorio{Usuario,Arrendador}` | ConcreteCreator | Crean `CorreoRecordatorio{Usuario,Arrendador}` con `DatosRecordatorio(espacio, fecha, horaInicio, horaFin)` y nada más (sin montos, tarjeta, documentos ni contacto de la otra parte). El recordatorio **no** pasa por `NotificadorCorreo` |
+
+`NotificadorCorreo` se queda en `cuentas.service` (HU-25 D10): moverlo a `comun` solo cambiaba imports.
+
+**Agregar un correo (HU-26, HU-27).** Un `record` que implementa `Correo` (asunto fijo, cuerpo con solo los datos
+necesarios) y una subclase `final` de `FabricaCorreo<Evento>` en el módulo dueño del evento; el Client la crea con el
+`EnvioCorreo` inyectado y llama a `enviar` tras el commit (`DespuesDelCommit`). No se toca `FabricaCorreo`,
+`EnvioCorreo` ni los demás correos.
+
+**Selección del proveedor.** `espacioya.correo.proveedor` (`CORREO_PROVEEDOR`, por defecto `simulado`) con
+`@ConditionalOnProperty`, como `PasarelaPago` (sin fábrica de adaptadores): `smtp` → `EnvioCorreoSmtp` +
+`NotificadorCorreoImpl`; `simulado` → `EnvioCorreoSimulado` + `NotificadorCorreoSimulado`; otro valor → no hay bean y el
+backend no arranca. Las pruebas fijan `simulado` y reemplazan `EnvioCorreo` o `NotificadorCorreo` con dobles `@Primary`.
+
+**Activar SMTP real (HU-25 D12).** UAT y desarrollo usan `simulado`. Para enviar correos reales basta con definir estas
+variables (servidor o `.env`, que no se versiona) y reiniciar; no se cambia código ni pruebas:
+
+| Variable | Ejemplo | Obligatoria con `smtp` |
+|---|---|---|
+| `CORREO_PROVEEDOR` | `smtp` | Sí |
+| `CORREO_REMITENTE` | `EspacioYa <no-responder@dominio-verificado>` (dirección autorizada por el proveedor) | Sí |
+| `CORREO_SMTP_HOST` | host SMTP del proveedor (Gmail, Brevo, SES, Mailtrap…) | Sí |
+| `CORREO_SMTP_PUERTO` | `587` (STARTTLS) | No, por defecto `587` |
+| `CORREO_SMTP_USUARIO` | usuario o clave de API SMTP | Según el proveedor |
+| `CORREO_SMTP_CONTRASENA` | contraseña de aplicación o clave SMTP | Según el proveedor |
+
+`application.properties` exige STARTTLS (RNF-SEG-13) y fija timeouts de 5 s; el proveedor debe aceptar STARTTLS en ese
+puerto y tener el remitente verificado. Para ensayar sin buzones reales sirve un servidor SMTP de pruebas (Mailtrap,
+MailHog) con las mismas variables. Riesgo aceptado: el envío corre tras el commit en el hilo que confirma (webhook,
+cancelación), así que una caída del proveedor alarga esas respuestas hasta 5 s por correo (no hay `@Async`).
 
 ## Seguridad transversal (STRIDE)
 
@@ -738,7 +792,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 | HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo (`CalculoReembolso` es el Context). Ver [Cancelación](#cancelación-qué-deja-hu-15-hu-16-hu-21-hu-28) |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
 | HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente. Component `BusquedaEspacios`, ConcreteComponent `BusquedaBase`, Decorator `FiltroBusqueda`, ConcreteDecorators `FiltroPrecioMaximo`, `FiltroCapacidadMinima`, `FiltroCaracteristicas`; `FiltrosBusqueda.envolver` arma la cadena por petición y `BusquedaService` es el Client. Ver [Filtros](#filtros-qué-deja-hu-23--decorator) |
-| HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento; adaptador del proveedor de correo |
+| HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento (Creator `FabricaCorreo<E>` con el método fábrica `crearCorreo`, Product `Correo`; ConcreteCreators y ConcreteProducts en el módulo del evento: `FabricaRecordatorio{Usuario,Arrendador}` en `reservas` y 13 `FabricaCorreo*` en `cuentas`; Clients `RecordatoriosReserva` y `NotificadorCorreoImpl`) y adaptador del proveedor de correo (Target `EnvioCorreo`, Adapter `EnvioCorreoSmtp` sobre el Adaptee `JavaMailSender`, `EnvioCorreoSimulado`; se elige con `espacioya.correo.proveedor`). Ver [Correo](#correo-qué-deja-hu-25--factory-method-adapter) |
 | Todas        | DAO / Repository                | Un repositorio por agregado |
 
 ## Qué NO hacer

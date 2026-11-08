@@ -1558,3 +1558,29 @@
 - **Resultado:** con el diff de HU-24, `--rapido` corre 11 clases (211 tests)
   en vez de 1722, en verde. En `develop` sin cambios solo compila. Falta
   probar el modo completo con Docker encendido.
+
+## 2026-11-08 — Reglas de shell más estrictas para los agentes
+- **Agente:** Jorge Quispe con Claude Code.
+- **Motivo:** el implementer de HU-25 corría comandos con bucles `for`,
+  variables y `;` encadenados (y `python -c` para cambiar CRLF), que Claude
+  Code no puede analizar y por eso pedía permiso a cada rato.
+- **Cambios:** `CLAUDE.md` y `.claude/agents/{orquestador,implementer,
+  spec-author,reviewer}.md`: se prohíben bucles, variables, `$(...)` y
+  encadenar con `;`/`&&`/`|`; un comando simple por llamada; nada de
+  `python -c`/`sed -i` para reescribir archivos; los reportes de pruebas y
+  las salidas `.output` se leen con `Read`/`Grep`.
+- **Pendiente:** agregar `Read(~/AppData/Local/Temp/claude/**)` a
+  `.claude/settings.json` (lo debe hacer el usuario).
+
+## 2026-11-08 — Candado para que el hook Stop no choque con `./init.sh`
+- **Agente:** Jorge Quispe con Claude Code.
+- **Motivo:** el hook Stop (`.claude/hooks/verificar-cierre.sh`) corre
+  `./init.sh --rapido` cada vez que Claude termina de responder, aunque un
+  subagente esté corriendo `./init.sh` completo. Los dos escribían en
+  `2_Backend/target` y se pisaban los reportes (2 IT falsas en la primera
+  revisión de HU-25).
+- **Cambios:** `init.sh` crea `.init.lock` mientras corre y lo borra al salir;
+  si ya hay uno vigente, espera hasta 30 min. Un candado de más de 60 min se
+  considera abandonado. El hook no corre si existe el candado. `.init.lock` en
+  `.gitignore`.
+- **Resultado:** con candado el hook sale en 0,2 s sin correr nada.

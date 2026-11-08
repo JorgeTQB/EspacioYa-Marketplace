@@ -277,6 +277,37 @@ class DatosPersonalesServiceTest {
     }
 
     @Test
+    @DisplayName("HU-25 R37: el bloque perfil trae la preferencia de recordatorios de la cuenta")
+    void perfilExportadoConRecordatorios() {
+        contrasenaCorrecta(USUARIO);
+        var cuenta = usuario();
+        cuenta.cambiarRecordatorios(false);
+        paraExportar(cuenta, null, true);
+        when(reservas.exportar(TITULAR_USUARIO)).thenReturn(List.of());
+        when(pagos.exportar(TITULAR_USUARIO)).thenReturn(List.of());
+
+        var perfil = servicio.exportar(USUARIO, CONTRASENA, IP).perfil();
+
+        assertThat(perfil.recordatoriosActivos()).isFalse();
+        assertThat(perfil.mfaActivo()).isTrue();
+        assertThat(perfil.correo()).isEqualTo("leo@correo.pe");
+    }
+
+    @Test
+    @DisplayName("HU-25 R37: con la preferencia activa el bloque perfil trae recordatoriosActivos true")
+    void perfilExportadoConRecordatoriosActivos() {
+        contrasenaCorrecta(ARRENDADOR);
+        paraExportar(arrendador(), perfil(), false);
+        when(reservas.exportar(TITULAR_ARRENDADOR)).thenReturn(List.of());
+        when(pagos.exportar(TITULAR_ARRENDADOR)).thenReturn(List.of());
+
+        var perfil = servicio.exportar(ARRENDADOR, CONTRASENA, IP).perfil();
+
+        assertThat(perfil.recordatoriosActivos()).isTrue();
+        assertThat(perfil.mfaActivo()).isFalse();
+    }
+
+    @Test
     @DisplayName("HU-22 R4: el arrendador exporta su facturación con el documento enmascarado")
     void facturacionEnmascarada() {
         contrasenaCorrecta(ARRENDADOR);
