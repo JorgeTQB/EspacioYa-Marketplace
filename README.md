@@ -297,7 +297,15 @@ Windows, corre los comandos desde Git Bash.
 ```bash
 ./init.sh            # verificación completa; debe terminar en verde
 ./init.sh --rapido   # sin pruebas de integración ni build, para empezar rápido
+./init.sh --todo     # corre todas las unitarias, no solo las de lo que cambió
 ```
+
+Las pruebas unitarias (`*Test`) corren solo para las clases creadas o
+modificadas en la rama respecto de `develop` (otra base con
+`BASE_PRUEBAS=<rama>`): las que se llaman igual que la clase o la mencionan.
+Si cambia `pom.xml` o un archivo de configuración en `src/*/resources`, corren
+todas. Las pruebas de integración (`*IT`) corren siempre todas en el modo
+completo.
 
 ### Paso a paso
 

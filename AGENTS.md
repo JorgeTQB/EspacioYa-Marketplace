@@ -11,7 +11,9 @@
 1. Ejecuta `./init.sh` y verifica que termina sin errores. Si falla, **para**
    y resuelve el entorno antes de tocar código. (`./init.sh --rapido` omite
    las pruebas de integración y el build: vale para empezar, nunca para
-   cerrar una historia.)
+   cerrar una historia.) Las pruebas unitarias corren solo para las clases
+   tocadas en la rama respecto de `develop`; las `*IT` corren siempre todas
+   en el modo completo. `./init.sh --todo` corre todas las unitarias.
 2. Lee `progress/HU-XX.md` de la historia que vas a trabajar para entender en qué
    estado quedó la última sesión.
 3. Lee `feature_list.json`. Toda historia de usuario nueva (`"sdd": true`) pasa por

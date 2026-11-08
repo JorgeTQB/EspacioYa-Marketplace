@@ -127,9 +127,9 @@ abstract class DatosPersonalesSoporte {
             return new NotificadorSinEfecto();
         }
 
-        // Solo existe en este contexto: los demás no lo ven.
+        // Solo existe en este contexto: los demás no lo ven. Después del último bean real (HU-24 DT-14).
         @Bean
-        @Order(3)
+        @Order(4)
         ParticipanteQueFalla participanteQueFalla() {
             return new ParticipanteQueFalla();
         }
@@ -239,6 +239,7 @@ abstract class DatosPersonalesSoporte {
         jdbc.update("DELETE FROM reembolso");
         jdbc.update("DELETE FROM checkout_pago");
         jdbc.update("DELETE FROM pago");
+        jdbc.update("DELETE FROM resena");
         jdbc.update("DELETE FROM reserva");
         jdbc.update("DELETE FROM bloqueo_fecha");
         jdbc.update("DELETE FROM espacio");
@@ -360,6 +361,13 @@ abstract class DatosPersonalesSoporte {
                     + "WHERE id = ?", Timestamp.from(creada.plus(Duration.ofDays(1))), id);
         }
         return id;
+    }
+
+    /** Reseña de HU-24 sembrada con {@code creado_en} = ahora; el comentario se recibe tal cual. */
+    long resena(long reservaId, long usuarioId, long espacioId, int calificacion, String comentario, String estado) {
+        return jdbc.queryForObject("INSERT INTO resena (reserva_id, usuario_id, espacio_id, calificacion, comentario, "
+                        + "estado, creado_en) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id", Long.class, reservaId,
+                usuarioId, espacioId, calificacion, comentario, estado, Timestamp.from(reloj.instant()));
     }
 
     long pago(long reservaId, String estado) {

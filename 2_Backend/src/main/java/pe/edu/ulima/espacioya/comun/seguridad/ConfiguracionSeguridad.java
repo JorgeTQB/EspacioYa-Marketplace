@@ -63,9 +63,11 @@ public class ConfiguracionSeguridad {
                         // trata como anónimo.
                         .requestMatchers(HttpMethod.GET, "/api/espacios").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/zonas").permitAll()
-                        // Ficha pública y sus bloques libres (HU-11 DT-12); cualquier otra subruta exige sesión.
+                        // Ficha pública, sus bloques libres y sus reseñas (HU-11 DT-12, HU-24); cualquier otra
+                        // subruta exige sesión.
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*/disponibilidad").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/espacios/*/resenas").permitAll()
                         // Lo llama la pasarela, sin sesión (HU-13 R22): la autorización es su firma.
                         .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                         .anyRequest().authenticated());

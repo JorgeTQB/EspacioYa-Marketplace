@@ -124,21 +124,24 @@ el de arriba la implementa (DIP). Dirección permitida:
 
 ```
 comun ← cuentas ← espacios ← reservas → pagos → cuentas
-                     ↑          ↑
-                 busqueda ──────┘        administracion → (todos)
+           ↑         ↑          ↑
+           └───── busqueda ─────┘        administracion → (todos)
 ```
+
+`busqueda → cuentas` existe **solo** por el puerto `ParticipanteDatosPersonales` (HU-24): `busqueda` no usa `CuentaService`.
 
 | Interfaz (la define)                  | La implementa              | Para |
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
-| `cuentas.ParticipanteDatosPersonales` | reservas, pagos (busqueda lo sumará con HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
+| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda (HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2, `DatosPersonalesResenasImpl` 3): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19: `describir(Collection<Long> reservaIds)` → `List<ReservaLiquidable>` (reserva, arrendador, espacio y su nombre, fecha, horas, `finEn` = fin del último bloque en Lima, `admitida` = `CONFIRMADA` o `CANCELADA` por el usuario con `monto_reembolso = 0`, `cancelada`). `readOnly`, una consulta por lote, sin sesión ni rol; colección vacía → `List.of()` sin consultar; una reserva sin bloques no aparece. Lo implementa `ReservasLiquidablesImpl` (no usa `ReservaDAO`: es una consulta del sistema con ids que salen de `pagos`). Se inyecta directo, como `ReservasPorCobrar` |
 | `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
 
 Solo los servicios que usan otros módulos llevan interfaz pública
-(`CuentaService`, `ReservaService`, `PagoService` — creada por HU-15 con `reembolsarCancelacion`, ver
+(`CuentaService`, `ReservaService`, `ReservasParaResena` — HU-24, ver
+[Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27) —, `PagoService` — creada por HU-15 con `reembolsarCancelacion`, ver
 [Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28)); los internos son clases
 concretas (YAGNI). `CuentaService` la creó HU-07 con
 `habilitacionArrendador` (correo e identidad verificados del arrendador de la
@@ -277,7 +280,7 @@ al crear el bean. `FiltroLimiteIntentos` descuenta un solo intento por grupo y s
 `limite.regla("GET", "/api/espacios/{id}")` (ver `ReglasLimiteBusqueda`) y comparten así el cupo. HU-11 registró
 en `busqueda/controller/ReglasLimiteFicha` dos reglas del grupo: `GET /api/espacios/{id}` (ficha) y
 `GET /api/espacios/{id}/disponibilidad` (un patrón `/{id}` no cubre la subruta); cuentan también las respuestas 404 y
-400. `GET /api/zonas` y las fotos no cuentan.
+400. HU-24 sumó allí `GET /api/espacios/{id}/resenas`, con el mismo cupo. `GET /api/zonas` y las fotos no cuentan.
 
 **Zona horaria.** El bean `Clock` sigue en UTC (`creado_en`, auditoría). Todo lo que depende del calendario local
 ("hoy", la hora actual, la ventana de 8 semanas) se calcula en `America/Lima` con
@@ -528,7 +531,8 @@ sin cambiar la API.
 
 **Lo que deben saber las historias que siguen.** HU-15: una `CANCELADA` cae en las pasadas del usuario y desaparece de la
 lista del arrendador (solo `CONFIRMADA`); si quiere mostrársela, amplía `confirmadasDeEspacios` o agrega un método al DAO,
-siempre con el dueño en la firma. HU-24 y HU-26 pueden **ampliar** `ReservaDTO`, sin quitar ni cambiar campos. Un índice en
+siempre con el dueño en la firma. HU-26 puede **ampliar** `ReservaDTO`, sin quitar ni cambiar campos, pero hay pruebas que fijan
+sus 11 campos; HU-24 prefirió `GET /api/resenas/pendientes`. Un índice en
 `reserva(espacio_id)` iría en una `V4_n` libre.
 
 ### Cancelación: qué deja HU-15 (HU-16, HU-21, HU-28)
@@ -594,8 +598,42 @@ no se revelan los impedimentos.
 - **Qué se conserva.** Las filas de `usuario` y `perfil_arrendador` (anonimizadas), reservas, pagos, reembolsos,
   liquidaciones, auditoría (sin fecha de fin: el plazo legal sigue abierto, §9 punto 6), `revision_identidad`,
   `suspension_cuenta` y los espacios con su estado, ocultos por HU-09 D1. No hay correo de aviso (D8).
-- **Para las que siguen.** **HU-24** implementa el puerto en `busqueda` cuando cree `resena` (decide si la reseña se
-  exporta y cómo se anonimiza); **HU-26** y **HU-27** igual con reclamos y reportes si guardan datos personales.
+- **Para las que siguen.** **HU-24** implementó el puerto en `busqueda` (ver [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27));
+  **HU-26** y **HU-27** igual con reclamos y reportes si guardan datos personales.
+
+### Reseñas: qué deja HU-24 (HU-26, HU-27)
+
+Tabla `resena` (`V7_2`) en `busqueda`, que estrena sus capas `domain` y `repository`. `ResenaService` es una clase concreta:
+HU-27 creará la interfaz pública cuando `administracion` la necesite. Una reseña es por **reserva**: sin una reserva propia
+reseñable no hay forma de crear una.
+
+| Ruta | Sesión | Respuesta |
+|------|--------|-----------|
+| `POST /api/resenas` con `reservaId`, `calificacion` y `comentario` | `USUARIO` | 201 `ResenaCreadaDTO`; 400 por campo o por regla; 403; 404 si la reserva es ajena o no existe |
+| `GET /api/resenas/pendientes` | `USUARIO` | `reservaIds` reseñables, ascendentes. Es lo que la pantalla usa para mostrar "Calificar": `ReservaDTO` **no** se amplió (P5) |
+| `GET /api/espacios/{id}/resenas?pagina=n` | Pública, cupo `catalogo`, `permitAll` en `ConfiguracionSeguridad` | `PaginaResenasDTO`, de 10 en 10, por `creado_en` e `id` descendentes; cada reseña solo con `id`, `calificacion`, `comentario` y `fecha`. 404 antes de validar `pagina` |
+
+- **Regla (`ReglasResena`).** Estado leído `CONFIRMADA` y `fin ≤ ahora < fin + 14 días`, con `fin` =
+  `ReservaConHorario.instanteDeFin`, el mismo de HU-19 y HU-26. Un espacio que dejó de ser visible se puede reseñar (P9), y una
+  reserva `CONFIRMADA` con reembolso por reclamo también (P10).
+- **`reservas.service.ReservasParaResena`.** Interfaz pública angosta, **no es un puerto** (`busqueda → reservas` ya estaba
+  permitida): `delUsuario(usuarioId, reservaId)` (404 si no es suya) y `confirmadasDe(usuarioId)` →
+  `ReservaParaResena(id, espacioId, confirmada, finEn)`. Sin sesión ni rol. `ReservasParaResenaImpl` lee con
+  `ReservaDAO.delUsuario` y filtra en memoria: el DAO exige el dueño.
+- **Orden de `crear`.** `@Valid` → rol → `SanitizadorTexto.limpiar` → transacción: reserva propia → *ya reseñada* → regla →
+  `saveAndFlush` → auditoría `RESENA_CREADA`. Sin bloqueos: una `CONFIRMADA` terminada ya no cambia, y `uq_resena_reserva` frena
+  la carrera. Sin `@Transactional`, con `TransactionTemplate`, para traducir esa violación por su nombre (como HU-12).
+- **Ficha.** `FichaPublicaDTO` agrega `calificacionPromedio` (1 decimal, `HALF_UP`, con enteros en `ResumenCalificaciones`; nulo sin
+  reseñas) y `totalResenas`, solo de las `VISIBLE`. `ResultadoEspacioDTO` no cambia: la búsqueda no muestra ni ordena por promedio.
+- **Paginación.** Spring Data rechaza un offset mayor que `Integer.MAX_VALUE`: `deEspacio` responde esa página (válida) vacía
+  sin consultar. Quien pagine con `PageRequest` y números enormes debe hacer lo mismo.
+- **`comun.texto.SanitizadorTexto.limpiar(String)`.** Normaliza saltos de línea, quita caracteres de control, etiquetas y todo `<` o
+  `>` restante, y recorta. Puede devolver vacío. No escapa a entidades. Reutilizable por HU-26.
+- **Datos personales.** `DatosPersonalesResenasImpl` exporta la sección `resenas` solo para el rol `USUARIO`, no genera
+  impedimentos y al anonimizar reemplaza el `comentario` por `Resena.COMENTARIO_ELIMINADO`, conservando calificación, estado y autor.
+- **Para las que siguen.** **HU-27** agrega `Resena.ocultar` y la interfaz pública de `busqueda`, y lee el `id` de la reseña
+  de la ficha para `reporte.objetivo_id`; las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
+  Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada).
 
 ## Seguridad transversal (STRIDE)
 
