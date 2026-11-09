@@ -41,11 +41,14 @@ import pe.edu.ulima.espacioya.pagos.domain.EstadoReembolso;
 import pe.edu.ulima.espacioya.pagos.domain.OrigenReembolso;
 import pe.edu.ulima.espacioya.pagos.domain.Pago;
 import pe.edu.ulima.espacioya.pagos.domain.Reembolso;
+import pe.edu.ulima.espacioya.pagos.repository.LiquidacionDetalleRepository;
+import pe.edu.ulima.espacioya.pagos.repository.LiquidacionRepository;
 import pe.edu.ulima.espacioya.pagos.repository.PagoRepository;
 import pe.edu.ulima.espacioya.pagos.repository.ReembolsoRepository;
 import pe.edu.ulima.espacioya.pagos.service.PagoDeReserva;
 import pe.edu.ulima.espacioya.pagos.service.ReembolsoDePago;
 import pe.edu.ulima.espacioya.pagos.service.ReembolsoPorCancelacion;
+import pe.edu.ulima.espacioya.pagos.service.ReembolsoPorReclamo;
 import pe.edu.ulima.espacioya.pagos.service.pasarela.PasarelaPago;
 import pe.edu.ulima.espacioya.pagos.service.reembolso.Disparo;
 import pe.edu.ulima.espacioya.pagos.service.reembolso.EjecutorReembolsos;
@@ -67,6 +70,10 @@ class PagoServiceImplTest {
     @Mock
     private ReembolsoRepository reembolsos;
     @Mock
+    private LiquidacionRepository liquidaciones;
+    @Mock
+    private LiquidacionDetalleRepository detalles;
+    @Mock
     private SolicitudesReembolso solicitudes;
     @Mock
     private AuditoriaService auditoria;
@@ -80,7 +87,7 @@ class PagoServiceImplTest {
     void preparar() {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        servicio = new PagoServiceImpl(pagos, reembolsos, solicitudes, ejecutor, auditoria,
+        servicio = new PagoServiceImpl(pagos, reembolsos, liquidaciones, detalles, solicitudes, ejecutor, auditoria,
                 Clock.fixed(AHORA, ZoneOffset.UTC));
     }
 
@@ -290,5 +297,120 @@ class PagoServiceImplTest {
         var anotacion = PagoServiceImpl.class.getMethod("pagosDeReservas", Collection.class)
                 .getAnnotation(Transactional.class);
         assertThat(anotacion.readOnly()).isTrue();
+    }
+
+    // ── HU-26 ────────────────────────────────────────────────────────────
+
+    private static ReembolsoPorReclamo porReclamo(String monto) {
+        return new ReembolsoPorReclamo(RESERVA_ID, new BigDecimal(monto), USUARIO_ID, IP);
+    }
+
+    @Test
+    @DisplayName("HU-26 R44: reembolsarReclamo guarda un reembolso RECLAMO PENDIENTE por el monto pedido")
+    void reclamoGuardaElReembolso() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.of(pagado()));
+        conReembolsoGuardado();
+
+        servicio.reembolsarReclamo(porReclamo("80.25"));
+
+        var guardado = ArgumentCaptor.forClass(Reembolso.class);
+        verify(reembolsos).saveAndFlush(guardado.capture());
+        var reembolso = guardado.getValue();
+        assertThat(reembolso.getPagoId()).isEqualTo(PAGO_ID);
+        assertThat(reembolso.getMonto()).isEqualByComparingTo("80.25");
+        assertThat(reembolso.getOrigen()).isEqualTo(OrigenReembolso.RECLAMO);
+        assertThat(reembolso.getEstado()).isEqualTo(EstadoReembolso.PENDIENTE);
+        assertThat(reembolso.getIntentos()).isZero();
+        assertThat(reembolso.getCreadoEn()).isEqualTo(AHORA);
+    }
+
+    @Test
+    @DisplayName("HU-26 R44: reembolsarReclamo audita REEMBOLSO_SOLICITADO con origen RECLAMO, reserva y monto")
+    void reclamoAudita() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.of(pagado()));
+        conReembolsoGuardado();
+
+        servicio.reembolsarReclamo(porReclamo("161.00"));
+
+        verify(auditoria).registrar(new EventoAuditoria(USUARIO_ID, "REEMBOLSO_SOLICITADO", "pago", PAGO_ID, IP,
+                "origen=RECLAMO;reservaId=7;monto=161.00"));
+    }
+
+    @Test
+    @DisplayName("HU-26 R45: reembolsarReclamo entrega al Invoker un comando AUTOMATICO para después del commit")
+    void reclamoEntregaElComando() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.of(pagado()));
+        conReembolsoGuardado();
+
+        servicio.reembolsarReclamo(porReclamo("161.00"));
+
+        verify(solicitudes).crear(REEMBOLSO_ID, Disparo.AUTOMATICO, USUARIO_ID, IP);
+        verify(ejecutor).ejecutarDespuesDelCommit(comando);
+        verify(ejecutor, never()).ejecutarAhora(any());
+        verifyNoInteractions(comando);
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("HU-26 R44: un monto de 0 o mayor que el pago lanza IllegalArgumentException sin reembolso")
+    void reclamoMontoFueraDeRango() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.of(pagado()));
+
+        assertThatThrownBy(() -> servicio.reembolsarReclamo(porReclamo("0.00")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> servicio.reembolsarReclamo(porReclamo("161.01")))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(auditoria, reembolsos, solicitudes, ejecutor);
+    }
+
+    @Test
+    @DisplayName("HU-26 R44: sin pago PAGADO lanza IllegalStateException sin reembolso")
+    void reclamoSinPago() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.reembolsarReclamo(porReclamo("10.00")))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(auditoria, reembolsos, solicitudes, ejecutor);
+    }
+
+    @Test
+    @DisplayName("HU-26 R44: un segundo reembolso RECLAMO del mismo pago lanza IllegalStateException sin guardar")
+    void reclamoYaReembolsado() {
+        when(pagos.findByReservaIdAndEstado(RESERVA_ID, EstadoPago.PAGADO)).thenReturn(Optional.of(pagado()));
+        when(reembolsos.existsByPagoIdAndOrigen(PAGO_ID, OrigenReembolso.RECLAMO)).thenReturn(true);
+
+        assertThatThrownBy(() -> servicio.reembolsarReclamo(porReclamo("10.00")))
+                .isInstanceOf(IllegalStateException.class);
+        verify(reembolsos, never()).saveAndFlush(any());
+        verifyNoInteractions(solicitudes, ejecutor, auditoria);
+    }
+
+    @Test
+    @DisplayName("HU-26 R8: reservaLiquidada pregunta a liquidacion_detalle por la reserva")
+    void reservaLiquidada() {
+        when(detalles.existsByReservaId(RESERVA_ID)).thenReturn(true);
+
+        assertThat(servicio.reservaLiquidada(RESERVA_ID)).isTrue();
+        verify(detalles).existsByReservaId(RESERVA_ID);
+    }
+
+    @Test
+    @DisplayName("HU-26 R21: bloquearGeneracionLiquidaciones toma el mismo bloqueo consultivo que la generación")
+    void bloqueaLaGeneracion() {
+        servicio.bloquearGeneracionLiquidaciones();
+
+        verify(liquidaciones).bloquearGeneracion(LiquidacionRepository.CLAVE_GENERACION);
+        assertThat(LiquidacionRepository.CLAVE_GENERACION).isEqualTo(190_019L);
+    }
+
+    @Test
+    @DisplayName("HU-26 R21, R44: los tres métodos nuevos se unen a la transacción del llamador (MANDATORY)")
+    void metodosNuevosExigenTransaccion() throws Exception {
+        assertThat(PagoServiceImpl.class.getMethod("reembolsarReclamo", ReembolsoPorReclamo.class)
+                .getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.MANDATORY);
+        assertThat(PagoServiceImpl.class.getMethod("bloquearGeneracionLiquidaciones")
+                .getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.MANDATORY);
+        assertThat(PagoServiceImpl.class.getMethod("reservaLiquidada", Long.class)
+                .getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.MANDATORY);
     }
 }

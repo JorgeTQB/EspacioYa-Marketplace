@@ -1,0 +1,45 @@
+.hilo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+}
+
+.titulo {
+  margin: 0;
+}
+
+.secundario {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mensaje {
+  padding: var(--espacio-3);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.autor {
+  margin: 0 0 var(--espacio-1);
+  font-weight: var(--peso-negrita);
+}
+
+.fecha {
+  font-weight: var(--peso-normal);
+  color: var(--color-texto-secundario);
+}
+
+.texto {
+  margin: 0;
+  white-space: pre-line;
+}

@@ -8,6 +8,10 @@ import Boton from './components/ui/Boton.jsx'
 import BuscarCuentas from './pages/administracion/BuscarCuentas.jsx'
 import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
 import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
+import DetalleReclamo from './pages/administracion/DetalleReclamo.jsx'
+import MisReclamos from './pages/administracion/MisReclamos.jsx'
+import ReclamosAdmin from './pages/administracion/ReclamosAdmin.jsx'
+import ResolverReclamo from './pages/administracion/ResolverReclamo.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
@@ -308,6 +312,40 @@ function App() {
             element={
               <RutaProtegida>
                 <DetalleLiquidacion />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-26: reclamos de las partes; la API valida rol y que la sesión sea parte del reclamo. */}
+          <Route
+            path="/reclamos"
+            element={
+              <RutaProtegida>
+                <MisReclamos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/reclamos/:id"
+            element={
+              <RutaProtegida>
+                <DetalleReclamo />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-26: panel admin de reclamos; la API valida IP y rol, y calcula los montos. */}
+          <Route
+            path="/admin/reclamos"
+            element={
+              <RutaProtegida>
+                <ReclamosAdmin />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/reclamos/:id"
+            element={
+              <RutaProtegida>
+                <ResolverReclamo />
               </RutaProtegida>
             }
           />

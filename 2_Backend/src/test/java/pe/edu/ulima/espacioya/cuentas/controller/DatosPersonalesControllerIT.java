@@ -115,7 +115,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                 .andExpect(jsonPath("$.perfil.correo").value(CORREO_USUARIO));
         var exportacion = mapa(texto(respuesta));
 
-        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas", "reclamos");
         assertThat(ids(lista(exportacion, "reservas"), "id"))
                 .containsExactly(escenario.reservaPasada(), escenario.reservaCancelada());
         assertThat(ids(lista(exportacion, "pagos"), "reservaId"))
@@ -137,7 +137,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
         assertThat(fila.get("ip")).isEqualTo(ip);
         assertThat(fila.get("entidad")).isEqualTo("usuario");
         assertThat(((Number) fila.get("entidad_id")).longValue()).isEqualTo(escenario.usuario());
-        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos,resenas");
+        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos,resenas,reclamos");
     }
 
     // ── Reseñas (HU-24) ──────────────────────────────────────────────────
@@ -155,7 +155,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
 
         var exportacion = mapa(texto(exportar(sesion, CONTRASENA).andExpect(status().isOk())));
 
-        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas", "reclamos");
         var resenas = lista(exportacion, "resenas");
         assertThat(ids(resenas, "reservaId")).containsExactly(escenario.reservaPasada(), segunda);
         assertThat(resenas).extracting(r -> r.get("comentario")).containsExactly("Excelente", "Regular");
@@ -256,11 +256,11 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                 .andExpect(jsonPath("$.secciones.cuentaBancaria.estado").value("DISPONIBLE"))));
 
         assertThat(secciones(exportacion).keySet())
-                .containsExactly("reservas", "liquidaciones", "cuentaBancaria");
+                .containsExactly("reservas", "liquidaciones", "cuentaBancaria", "reclamos");
         assertThat(ids(lista(exportacion, "reservas"), "id")).containsExactly(escenario.reserva());
         assertThat(ids(lista(exportacion, "liquidaciones"), "id")).containsExactly(escenario.liquidacion());
         assertThat(auditorias("DATOS_EXPORTADOS").getFirst().get("detalle"))
-                .isEqualTo("secciones=reservas,liquidaciones,cuentaBancaria");
+                .isEqualTo("secciones=reservas,liquidaciones,cuentaBancaria,reclamos");
     }
 
     @Test

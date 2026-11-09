@@ -61,10 +61,19 @@ public class Reembolso {
     }
 
     public static Reembolso porCancelacion(Long pagoId, BigDecimal monto, Instant ahora) {
+        return pendiente(pagoId, monto, OrigenReembolso.CANCELACION, ahora);
+    }
+
+    /** Reembolso total o parcial que decide el admin al resolver un reclamo a favor del usuario (HU-26 R44). */
+    public static Reembolso porReclamo(Long pagoId, BigDecimal monto, Instant ahora) {
+        return pendiente(pagoId, monto, OrigenReembolso.RECLAMO, ahora);
+    }
+
+    private static Reembolso pendiente(Long pagoId, BigDecimal monto, OrigenReembolso origen, Instant ahora) {
         var reembolso = new Reembolso();
         reembolso.pagoId = pagoId;
         reembolso.monto = monto;
-        reembolso.origen = OrigenReembolso.CANCELACION;
+        reembolso.origen = origen;
         reembolso.estado = EstadoReembolso.PENDIENTE;
         reembolso.intentos = 0;
         reembolso.creadoEn = ahora;

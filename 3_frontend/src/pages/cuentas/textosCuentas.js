@@ -137,6 +137,7 @@ export const TITULO_IMPEDIMENTOS = 'Antes de eliminar tu cuenta, resuelve esto:'
 export const ENLACE_VER_RESERVAS = 'Ver mis reservas'
 export const ENLACE_VER_RESERVAS_ESPACIOS = 'Ver las reservas de mis espacios'
 export const ENLACE_VER_LIQUIDACIONES = 'Ver mis liquidaciones'
+export const ENLACE_VER_RECLAMOS = 'Ver mis reclamos'
 
 export function nombreArchivoDatos(fecha) {
   return `espacioya-mis-datos-${fecha}.json`

@@ -127,9 +127,9 @@ abstract class DatosPersonalesSoporte {
             return new NotificadorSinEfecto();
         }
 
-        // Solo existe en este contexto: los demás no lo ven. Después del último bean real (HU-24 DT-14).
+        // Solo existe en este contexto: los demás no lo ven. Después del último bean real (HU-24 DT-14, HU-26).
         @Bean
-        @Order(4)
+        @Order(5)
         ParticipanteQueFalla participanteQueFalla() {
             return new ParticipanteQueFalla();
         }
@@ -234,6 +234,8 @@ abstract class DatosPersonalesSoporte {
 
     // Orden de las llaves foráneas (como PagosSoporte.limpiar), más las tablas de cuentas que toca HU-22.
     void limpiar() {
+        jdbc.update("DELETE FROM mensaje_reclamo");
+        jdbc.update("DELETE FROM reclamo");
         jdbc.update("DELETE FROM liquidacion_detalle");
         jdbc.update("DELETE FROM liquidacion");
         jdbc.update("DELETE FROM reembolso");

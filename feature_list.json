@@ -536,12 +536,12 @@
         "HU-16",
         "HU-19"
       ],
-      "owner": "Ariel Enriquez",
+      "owner": "Adriana Callupe",
       "tester": "Eduardo Saldaña",
       "patterns": [],
       "historia": "docs/historias/HU-26.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-27",
