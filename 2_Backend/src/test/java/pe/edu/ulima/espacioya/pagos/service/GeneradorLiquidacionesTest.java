@@ -46,6 +46,7 @@ import pe.edu.ulima.espacioya.pagos.repository.CuentaBancariaRepository;
 import pe.edu.ulima.espacioya.pagos.repository.LiquidacionDetalleRepository;
 import pe.edu.ulima.espacioya.pagos.repository.LiquidacionRepository;
 import pe.edu.ulima.espacioya.pagos.repository.PagoRepository;
+import pe.edu.ulima.espacioya.pagos.service.puertos.ReclamosAbiertos;
 import pe.edu.ulima.espacioya.pagos.service.puertos.ReservaLiquidable;
 import pe.edu.ulima.espacioya.pagos.service.puertos.ReservasLiquidables;
 
@@ -71,6 +72,8 @@ class GeneradorLiquidacionesTest {
     private CuentaBancariaRepository cuentas;
     @Mock
     private ReservasLiquidables reservas;
+    @Mock
+    private ReclamosAbiertos reclamos;
     @Mock
     private CuentaService cuentasUsuario;
     @Mock
@@ -99,7 +102,7 @@ class GeneradorLiquidacionesTest {
     }
 
     private GeneradorLiquidaciones generador(String pasarela) {
-        return new GeneradorLiquidaciones(liquidaciones, detalles, pagos, cuentas, reservas, cuentasUsuario,
+        return new GeneradorLiquidaciones(liquidaciones, detalles, pagos, cuentas, reservas, reclamos, cuentasUsuario,
                 auditoria, reloj, pasarela);
     }
 
@@ -347,6 +350,69 @@ class GeneradorLiquidacionesTest {
                         + "periodo=2026-11-06;simulada=false;avisos=CUENTA_NO_ACTIVA,IDENTIDAD_NO_VERIFICADA",
                 "arrendadorId=8;reservas=1;bruto=241.50;comision=24.15;neto=217.35;estado=PENDIENTE_CUENTA;"
                         + "periodo=2026-11-06;simulada=false");
+    }
+
+    // ── HU-26 ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-26 R20: una reserva con reclamo abierto queda fuera aunque cumpla las reglas de HU-19")
+    void excluyeConReclamoAbierto() {
+        dados(List.of(pago(11, 1), pago(12, 2)), List.of(usada(1, ANA), usada(2, ANA)));
+        when(reclamos.conReclamoAbierto(List.of(1L, 2L))).thenReturn(Set.of(1L));
+        when(cuentas.findByArrendadorId(ANA)).thenReturn(Optional.of(cuenta(ANA)));
+
+        var creadas = generador().generar(ADMIN, IP).creadas();
+
+        assertThat(creadas).hasSize(1);
+        assertThat(lineasGuardadas).extracting(LiquidacionDetalle::getReservaId).containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("HU-26 R20: si todas las reservas están retenidas por un reclamo, no crea nada")
+    void todasRetenidas() {
+        dados(List.of(pago(11, 1)), List.of(usada(1, ANA)));
+        when(reclamos.conReclamoAbierto(List.of(1L))).thenReturn(Set.of(1L));
+
+        assertThat(generador().generar(ADMIN, IP).creadas()).isEmpty();
+        verify(liquidaciones, never()).saveAndFlush(any());
+        verifyNoInteractions(detalles, auditoria, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-26 R50: sin reclamo abierto (p. ej. resuelto a favor del arrendador) la reserva entra")
+    void sinReclamoAbiertoEntra() {
+        dados(List.of(pago(11, 1)), List.of(usada(1, ANA)));
+        when(reclamos.conReclamoAbierto(List.of(1L))).thenReturn(Set.of());
+        when(cuentas.findByArrendadorId(ANA)).thenReturn(Optional.of(cuenta(ANA)));
+
+        assertThat(generador().generar(ADMIN, IP).creadas()).hasSize(1);
+        assertThat(lineasGuardadas).extracting(LiquidacionDetalle::getReservaId).containsExactly(1L);
+    }
+
+    @Test
+    @DisplayName("HU-26 R20, R21: consulta el puerto una sola vez por generación, después del bloqueo y del corte")
+    void puertoUnaVezDespuesDelBloqueo() {
+        dados(List.of(pago(11, 1), pago(12, 2), pago(13, 3)),
+                List.of(usada(1, ANA), usada(2, BETO), usada(3, ANA)));
+        when(cuentas.findByArrendadorId(anyLong())).thenReturn(Optional.empty());
+
+        generador().generar(ADMIN, IP);
+
+        var orden = inOrder(liquidaciones, reloj, reclamos);
+        orden.verify(liquidaciones).bloquearGeneracion(LiquidacionRepository.CLAVE_GENERACION);
+        orden.verify(reloj).instant();
+        orden.verify(reclamos).conReclamoAbierto(List.of(1L, 2L, 3L));
+        verify(reclamos, times(1)).conReclamoAbierto(any());
+    }
+
+    @Test
+    @DisplayName("HU-26 R20: sin pagos pendientes no consulta el puerto de reclamos")
+    void sinPendientesNoConsultaReclamos() {
+        when(pagos.pagadosSinLiquidar(true)).thenReturn(List.of());
+
+        generador().generar(ADMIN, IP);
+
+        verifyNoInteractions(reclamos);
     }
 
     @Test

@@ -32,6 +32,10 @@ const ESTADOS = {
   GENERADA: { texto: 'Por pagar', tipo: 'atencion' },
   PENDIENTE_CUENTA: { texto: 'Pendiente de cuenta', tipo: 'atencion' },
   PAGADA: { texto: 'Pagada', tipo: 'exito' },
+  // Reclamo (HU-26): una resolución es un final normal, como CANCELADA.
+  ABIERTO: { texto: 'Abierto', tipo: 'atencion' },
+  RESUELTO_USUARIO: { texto: 'Resuelto a favor del usuario', tipo: 'neutro' },
+  RESUELTO_ARRENDADOR: { texto: 'Resuelto a favor del arrendador', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

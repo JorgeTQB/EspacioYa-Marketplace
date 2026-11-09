@@ -133,14 +133,14 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | Interfaz (la define)                  | La implementa              | Para |
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
-| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda (HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2, `DatosPersonalesResenasImpl` 3): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
+| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda (HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2, `DatosPersonalesResenasImpl` 3, `DatosPersonalesReclamosImpl` 4 —HU-26—): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19: `describir(Collection<Long> reservaIds)` → `List<ReservaLiquidable>` (reserva, arrendador, espacio y su nombre, fecha, horas, `finEn` = fin del último bloque en Lima, `admitida` = `CONFIRMADA` o `CANCELADA` por el usuario con `monto_reembolso = 0`, `cancelada`). `readOnly`, una consulta por lote, sin sesión ni rol; colección vacía → `List.of()` sin consultar; una reserva sin bloques no aparece. Lo implementa `ReservasLiquidablesImpl` (no usa `ReservaDAO`: es una consulta del sistema con ids que salen de `pagos`). Se inyecta directo, como `ReservasPorCobrar` |
-| `pagos.ReclamosAbiertos`              | administracion             | RN-12 |
+| `pagos.ReclamosAbiertos`              | administracion (HU-26)     | RN-12: `conReclamoAbierto(Collection<Long> reservaIds) → Set<Long>`, de esos ids los que tienen un reclamo `ABIERTO`; colección vacía → `Set.of()` sin consultar; se une a la transacción y no bloquea. `GeneradorLiquidaciones` lo consulta una vez por generación, después del bloqueo consultivo, como un filtro más de `liquidablesPorArrendador`. Lo implementa `ReclamosAbiertosImpl`. Ver [Reclamos](#reclamos-qué-deja-hu-26) |
 
 Solo los servicios que usan otros módulos llevan interfaz pública
-(`CuentaService`, `ReservaService`, `ReservasParaResena` — HU-24, ver
+(`CuentaService`, `ReservaService`, `ReservasParaReclamo` — HU-26 —, `ReservasParaResena` — HU-24, ver
 [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27) —, `PagoService` — creada por HU-15 con `reembolsarCancelacion`, ver
 [Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28)); los internos son clases
 concretas (YAGNI). `CuentaService` la creó HU-07 con
@@ -434,6 +434,12 @@ ahí: deja el reembolso `FALLIDO` y el pago `REEMBOLSO_FALLIDO`, y la cancelaci�
 List<PagoDeReserva>` (`readOnly`, sin sesión ni rol; colección vacía → `List.of()` sin consultar): cada pago de esas reservas
 con monto, estado, fecha y sus `ReembolsoDePago` (monto, estado, fecha), en dos consultas por lote y **sin** `ultimos4` ni ids
 de la pasarela. Lo usa `reservas` para exportar los pagos del usuario, porque `pagos` no sabe qué reservas son suyas.
+**HU-26** le agregó, para `administracion` (todos `MANDATORY`, sin sesión ni rol): `bloquearGeneracionLiquidaciones()`
+(`pg_advisory_xact_lock(190019)`, el mismo bloqueo de `GeneradorLiquidaciones`), `reservaLiquidada(reservaId)` (`true` si está
+en `liquidacion_detalle`) y `reembolsarReclamo(ReembolsoPorReclamo(reservaId, monto, solicitadoPor, ip))`, gemelo de
+`reembolsarCancelacion` con origen `RECLAMO` (las dos comparten el método privado `reembolsar`): pago `PAGADO`, `0 < monto ≤
+pago.monto`, un reembolso `RECLAMO` por pago, `Reembolso.porReclamo`, auditoría `REEMBOLSO_SOLICITADO`
+(`origen=RECLAMO;…`) y Command `AUTOMATICO` tras el commit. El pago queda `REEMBOLSADO` aunque el reembolso sea parcial.
 
 **Lo que deben saber las historias que siguen.** Una reserva tiene como mucho un
 pago `PAGADO`. HU-19 y HU-28 cuentan solo `PAGADO` (HU-28, también los reembolsados): `PAGADO_TARDIO` y `MONTO_DISTINTO`
@@ -499,7 +505,7 @@ cuerpo) y transfiere a mano; no hay proceso programado ni llamada a ningún banc
 
 **Lo que deben saber las historias que siguen.** **HU-22:** conecta `MisLiquidacionesService.tieneLiquidacionesPendientes` a
 `cuentas.ParticipanteDatosPersonales`; los pagos `PAGADO` aún no liquidados no cuentan (si deben bloquear, lo decide su
-spec); `liquidacion` no tiene cascada. **HU-26:** abre reclamos solo si `ahora < fin + 48 h`, con el mismo fin
+spec); `liquidacion` no tiene cascada. **HU-26, hecho** (ver [Reclamos](#reclamos-qué-deja-hu-26)): abre reclamos solo si `ahora < fin + 48 h`, con el mismo fin
 (`ReservaConHorario.instanteDeFin`) y la misma `ReglasLiquidacion.ESPERA`, para que no haya hueco ni solape; agrega el puerto
 `pagos.ReclamosAbiertos` como un filtro más en `GeneradorLiquidaciones` (paso de selección); como cada generación liquida todo
 lo pendiente, una reserva que vuelve a ser liquidable entra sola en la siguiente; un reembolso por reclamo deja la reserva
@@ -642,6 +648,46 @@ reseñable no hay forma de crear una.
 - **Para las que siguen.** **HU-27** agrega `Resena.ocultar` y la interfaz pública de `busqueda`, y lee el `id` de la reseña
   de la ficha para `reporte.objetivo_id`; las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
   Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada).
+
+### Reclamos: qué deja HU-26
+
+Tablas `reclamo` y `mensaje_reclamo` (`V8_1`) en `administracion`. Un reclamo por reserva (`uq_reclamo_reserva`); guarda
+sus dos partes (`usuario_id`, `arrendador_id`) para resolver la propiedad sin cruzar módulos. Estados `ABIERTO` →
+`RESUELTO_USUARIO` / `RESUELTO_ARRENDADOR` (finales); la reserva sigue `CONFIRMADA`.
+
+| Ruta | Sesión | Qué hace |
+|------|--------|----------|
+| `POST /api/reclamos` | `USUARIO` | Abre un reclamo (`reservaId`, `motivo` de catálogo, `descripcion` 1–1000 sanitizada) sobre una reserva propia `CONFIRMADA` con `inicio ≤ ahora < fin + 48 h` y no liquidada |
+| `GET /api/reclamos/reclamables` | `USUARIO` | `reservaIds` reclamables, ascendentes (`ReservaDTO` no se amplió) |
+| `GET /api/reclamos?pagina=n` · `GET /api/reclamos/{id}` | Parte (`ADMIN` 403) | Lista de a 10 y detalle con el hilo, `papel`, `mensajesRestantes`, `puedeEscribir`; el monto solo al usuario |
+| `POST /api/reclamos/{id}/mensajes` | Parte | Hasta 10 mensajes por parte, solo mientras `ABIERTO`; el admin no escribe |
+| `GET /api/admin/reclamos?grupo=abiertos\|resueltos&pagina=n` · `/{id}` · `POST /{id}/resolucion` | `ADMIN` | Cola, detalle (nombres y monto pagado) y resolución: `USUARIO` con `TOTAL` (monto del servidor) o `PARCIAL` (`0 < m < pagado`, 2 decimales), o `ARRENDADOR` |
+
+Todas las `GET` son `no-store`; no hay `PUT`, `PATCH` ni `DELETE`. Un `id` mal escrito es el 404 genérico.
+
+- **Interfaz `reservas.service.ReservasParaReclamo`** (no es un puerto): `delUsuario(usuarioId, reservaId)` y
+  `confirmadasDe(usuarioId)` con `ReservaDAO.delUsuario` (exige el dueño) y `describir(ids)` por lote sin dueño →
+  `ReservaParaReclamo` (espacio, arrendador, `confirmada` leído con `estadoEn`, fecha, horas, `inicioEn`, `finEn` en Lima).
+- **Regla** `administracion.domain.ReglasReclamo`: `PLAZO = ReglasLiquidacion.ESPERA`; el borde superior coincide con el
+  inferior de `esLiquidable`.
+- **Retención (RN-12).** Abrir toma `PagoService.bloquearGeneracionLiquidaciones` y **después** lee el reloj y
+  `reservaLiquidada`: o la generación ve el reclamo, o su corte ya pasó `fin + 48 h`. `GeneradorLiquidaciones` excluye lo
+  que devuelve el puerto `ReclamosAbiertos`; un reclamo resuelto a favor del arrendador deja la reserva liquidable en la
+  siguiente generación; uno a favor del usuario crea un reembolso `RECLAMO` y la reserva queda fuera para siempre
+  (`pagadosSinLiquidar`), aunque el reembolso sea parcial (P7).
+- **Orden de bloqueos.** Abrir: `advisory 190019` → `INSERT reclamo`. Mensaje: `reclamo` (`FOR UPDATE`). Resolver:
+  `reclamo` → `INSERT reembolso`; tras el commit, `RegistroReembolsos` toma `reembolso → pago`. Nadie toma `reclamo` y
+  después `advisory`.
+- **Correos** (Factory Method de HU-25, en `administracion.service.correo`): al abrir, al arrendador sin la descripción ni
+  datos del usuario; al resolver, a cada parte (el del arrendador sin montos). Client `AvisosReclamo`, un `DespuesDelCommit`
+  por correo.
+- **Auditoría:** `RECLAMO_ABIERTO` (`reservaId;motivo`), `RECLAMO_MENSAJE` (`mensajeId;papel`), `RECLAMO_RESUELTO`
+  (`reservaId;aFavorDe[;reembolso;monto]`), nunca los textos.
+- **Datos personales:** `DatosPersonalesReclamosImpl` (`@Order(4)`) exporta la sección `reclamos` (solo los textos del
+  titular), impide eliminar la cuenta con un reclamo `ABIERTO` (campo `reclamos`) y reemplaza sus textos por "Texto
+  eliminado.".
+- **Pruebas:** toda IT que cree reclamos borra `mensaje_reclamo` y `reclamo` antes que `reserva` y `usuario`
+  (`PagosSoporte`, `DatosPersonalesSoporte` y `ReclamosSoporte` ya lo hacen).
 
 ### Correo: qué deja HU-25 (★ Factory Method, Adapter)
 

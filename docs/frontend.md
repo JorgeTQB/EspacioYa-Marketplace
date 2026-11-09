@@ -146,7 +146,7 @@ siempre muestra el **texto** del estado, no solo el color.
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
 | Liquidación (HU-19) | `PAGADA` ("Pagada") | `GENERADA` ("Por pagar"), `PENDIENTE_CUENTA` ("Pendiente de cuenta") | — | — |
 | Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
-| Reclamo | — | abierto | — | — |
+| Reclamo (HU-26) | — | `ABIERTO` ("Abierto") | — | `RESUELTO_USUARIO` ("Resuelto a favor del usuario"), `RESUELTO_ARRENDADOR` ("Resuelto a favor del arrendador") |
 | Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
 
 Cancelada y expirada van en neutro, no en error: no son fallos, son finales
@@ -184,7 +184,7 @@ se agrega al kit, no se improvisa en la pantalla**, y se anota en la sección
 | `Campo` | Toda entrada de formulario, con su etiqueta (`tipo="select"` para listas cerradas, HU-02; `tipo="archivo"` para subir un archivo, HU-05: no controlado, `onChange` recibe el archivo elegido o `null`; `tipo="textarea"` para textos largos, HU-07) | `etiqueta`, `nombre`, `tipo`, `valor`, `onChange`, `error`, `ayuda`, `opciones` (`[{ valor, etiqueta }]`, solo con `select`), `accept` (solo con `archivo`), `filas` (solo con `textarea`, por defecto 4), `min` y `max` (en la rama genérica, p. ej. `tipo="date"`; HU-08), `step` (en la rama genérica, p. ej. `step="0.01"` para un precio con decimales; HU-23) |
 | `GrupoCasillas` | Marcar varias opciones de una lista cerrada con una leyenda común. Construido por HU-23 ("Características" en "Editar espacio" y en "Buscar espacios"): `<fieldset>` con `<legend>` y un `Campo tipo="checkbox"` por opción; el error y la ayuda van debajo del grupo con el estilo de `Campo` y el `fieldset` los referencia con `aria-describedby`. `onChange` recibe los valores marcados en el orden de `opciones`. Solo tokens | `leyenda`, `nombre`, `opciones` (`[{ valor, etiqueta }]`), `valores` (arreglo de los marcados), `onChange(nuevosValores)`, `error`, `ayuda` |
 | `Alerta` | Mensajes de la API y de éxito | `tipo` (`exito`, `atencion`, `error`, `info`), `children` |
-| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`; HU-19: los de `Liquidación`, `GENERADA`, `PENDIENTE_CUENTA` y `PAGADA`) | `estado` |
+| `EtiquetaEstado` | Estado de una entidad (tabla anterior). Construido por HU-05 con los estados de identidad; cada historia agrega al mapa los de su entidad (HU-07: los de `Espacio`; HU-09: los de `Cuenta`, `ACTIVA`, `SUSPENDIDA` y `ELIMINADA`; HU-12: los de `Reserva`; HU-16: los de `Reembolso`, `FALLIDO` y `PENDIENTE`; HU-18: los de la cuenta bancaria, `DISPONIBLE` y `RETENIDA`; HU-19: los de `Liquidación`, `GENERADA`, `PENDIENTE_CUENTA` y `PAGADA`; HU-26: los de `Reclamo`, `ABIERTO`, `RESUELTO_USUARIO` y `RESUELTO_ARRENDADOR`) | `estado` |
 | `Tarjeta` | Agrupar contenido: espacio en resultados (HU-10, "Buscar espacios"), reserva en "Mis reservas" y en "Reservas de mis espacios" (HU-14; en `acciones` HU-15 pone el `Boton peligro` "Cancelar reserva" de las `CONFIRMADA` de Próximas). Construido por HU-07 ("Mis espacios") | `titulo`, `children`, `acciones` (nodo opcional al pie) |
 | `Imagen` | Foto pública con proporción 4:3 (`object-fit: cover`, `--radio`, `loading="lazy"`). Sin `src` muestra una caja `--color-gris-suave` con "Sin foto" en `--color-texto-secundario`. Construido por HU-10 (resultados de búsqueda); HU-11 lo reutiliza en la ficha. Para la foto de un borrador, que exige token, sigue `FotoDelEspacio` de HU-07 | `src` (URL o `null`), `alt` |
 | `Galeria` | Fotos de un espacio en su ficha pública. Construido por HU-11: la foto elegida en grande con `Imagen` (`alt` = "`<alt>`, foto n de N") y, si hay más de una, una fila de miniaturas; cada una es un `<button type="button" aria-pressed>` con `aria-label` "Ver foto n de N" y la elegida lleva borde `--color-primario`. Empieza en la primera (orden 1). Sin fotos muestra un `Imagen` "Sin foto". No llama a la API | `fotos` (URL ya completas, 0–5, en orden), `alt` (texto base, p. ej. el nombre del espacio) |
@@ -398,6 +398,19 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   neto, sus reservas y: `PAGADA` → "Pagada el … · Operación N.º … · <banco> <cuenta enmascarada>"; `PENDIENTE_CUENTA` →
   `Alerta atencion` con enlace a `/panel/cuenta-bancaria`; `GENERADA` → "En proceso de pago.". Sin totales acumulados (el
   panel de ingresos está fuera del alcance).
+- **Reclamos (HU-26, `specs/HU-26/design.md` § 12).** En `/mis-reservas`, las reservas de `listarReclamables()` llevan
+  `pages/reservas/ReportarProblema.jsx` (no es del kit): `Boton secundario` "Reportar un problema" y `Modal primario` con
+  `Campo select` "Motivo" y `Campo textarea` "Descripción" (`abrirReclamo`); con 201, `Alerta exito` con enlace "Ver
+  reclamo". `/reclamos` (`pages/administracion/MisReclamos.jsx`, "Mis reclamos" del `USUARIO` o "Reclamos de mis
+  reservas" del `ARRENDADOR`; un `ADMIN` vuelve a `/panel`) lista de 10 en 10 con "Ver más". `/reclamos/:id`
+  (`DetalleReclamo.jsx`) muestra el reclamo, la resolución, el monto solo si la API lo trae, el hilo
+  (`HiloReclamo.jsx`, no es del kit, "Tú" para el papel propio, nunca HTML) y, si `puedeEscribir`, el `Campo textarea`
+  "Tu mensaje" con el único primario "Enviar mensaje". `/admin/reclamos` (`ReclamosAdmin.jsx`) reutiliza
+  `SeccionLiquidaciones` para "Abiertos" y "Resueltos". `/admin/reclamos/:id` (`ResolverReclamo.jsx`) muestra nombres
+  ("Sin nombre" si faltan), monto pagado y el hilo; con `ABIERTO`, el formulario "A favor de" / "Reembolso" / "Monto a
+  reembolsar (S/)" / "Motivo de la resolución" y el primario "Resolver" con `Modal primario` que repite la decisión con
+  el monto de la API o el escrito. El impedimento `reclamos` de HU-22 enlaza a `/reclamos`. No agrega componentes al kit
+  ni colores; agrega los estados de la fila Reclamo.
 
 ## Accesibilidad mínima
 

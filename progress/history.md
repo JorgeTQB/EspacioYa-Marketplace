@@ -1584,3 +1584,58 @@
   considera abandonado. El hook no corre si existe el candado. `.init.lock` en
   `.gitignore`.
 - **Resultado:** con candado el hook sale en 0,2 s sin correr nada.
+
+## 2026-11-08 — Reasignación de HU-26
+- **Agente:** orquestador, a pedido de Adriana Callupe.
+- **Motivo:** coordinación del equipo: Ariel Enriquez tomó la HU-24 (ya
+  `done`) y Adriana Callupe toma la HU-26.
+- **Cambios:** `feature_list.json`: `owner` de HU-26 pasa de "Ariel
+  Enriquez" a "Adriana Callupe" (tester sin cambios: Eduardo Saldaña).
+  Rama `feature/HU-26-reclamos-reserva` creada desde `develop`.
+
+## 2026-11-08 — HU-26 Reclamos sobre una reserva (done)
+
+- **Dueña:** Adriana Callupe · prueba y documenta: Eduardo Saldaña · rama `feature/HU-26-reclamos-reserva` (desde `develop`
+  @ 023874f).
+- **Reasignación:** HU-26 pasó de Ariel Enriquez a Adriana Callupe por coordinación del equipo (Ariel tomó la HU-24); el
+  tester no cambió (ver la entrada "Reasignación de HU-26").
+- **Agentes:** orquestador → explorador (`progress/explore_HU-26.md`, huecos H1–H14) → spec-author (`specs/HU-26/`, R1–R70,
+  T1–T41) → aprobación de Adriana Callupe el 2026-11-08 ("aprobado", sin cambios) → implementer (`progress/impl_HU-26.md`)
+  → reviewer `APPROVED` (`progress/review_HU-26.md`).
+- **Decisiones aprobadas (P1–P12, valores por defecto):** hilo de mensajes de ambas partes (10 por parte, mientras el
+  reclamo esté abierto); ventana `inicio ≤ ahora < fin + 48 h` solo para reservas `CONFIRMADA`; motivos de catálogo;
+  reembolso `TOTAL` (monto del servidor) o `PARCIAL` (0 < monto < pagado); la reserva sigue `CONFIRMADA`; puerto
+  `pagos.ReclamosAbiertos` que retiene la liquidación mientras haya reclamo abierto (bloqueo de la generación al abrir);
+  el remanente de un reembolso parcial no se liquida (P7); correo al arrendador al abrir y a ambas partes al resolver;
+  participante de HU-22 `@Order(4)`.
+- **Cambios (backend):** migración `V8_1__reclamos.sql`; en `administracion`, dominio (`EstadoReclamo`, `MotivoReclamo`,
+  `PapelReclamo`, `TipoReembolsoReclamo`, `MotivoNoReclamable`, `ReglasReclamo`, `Reclamo`, `MensajeReclamo`),
+  repositorios, DTO, `ReclamoService`, `ReclamoAdminService`, `VistaReclamos`, `AvisosReclamo`, correos (Factory Method),
+  `ReclamosAbiertosImpl`, `DatosPersonalesReclamosImpl`, `ReclamoController` y `ReclamoAdminController`; en `reservas`,
+  `ReservasParaReclamo`; en `pagos`, `ReembolsoPorReclamo`, puerto `ReclamosAbiertos`, `Reembolso.porReclamo`,
+  `LiquidacionDetalleRepository.existsByReservaId`, 3 métodos nuevos en `PagoService` (con `reembolsar` común) y el puerto
+  en `GeneradorLiquidaciones`. Pruebas unitarias e IT nuevas; ajustadas `PagoServiceImplTest`,
+  `GeneradorLiquidacionesTest`, `PagosSoporte`, `DatosPersonalesSoporte` (`ParticipanteQueFalla` → `@Order(5)`) y
+  `DatosPersonalesControllerIT`.
+- **Cambios (frontend):** `ReportarProblema`, `MisReclamos`, `DetalleReclamo`, `HiloReclamo`, `ReclamosAdmin`,
+  `ResolverReclamo` (con sus `.module.css`); cambios en `api/administracion.js`, `EtiquetaEstado.jsx` (3 estados),
+  `textosAdministracion.js`, `MisReservas.jsx`, `Panel.jsx`, `DatosPersonales.jsx`, `textosCuentas.js` y `App.jsx`
+  (4 rutas). Solo tokens y kit.
+- **Docs:** `docs/architecture.md` (puerto `ReclamosAbiertos`, `@Order(4)`, sección de reclamos), `docs/modelo-datos.md`,
+  `docs/frontend.md`. `docs/requerimientos.md` §9 punto 3 no se tocó (pregunta abierta 1 sin confirmar por el PO).
+- **Desviaciones justificadas:** (1) `ck_reclamo_resolucion` más estricto que el design, con `IS NOT NULL` explícitos,
+  porque un `CHECK` con NULL se acepta en PostgreSQL (lo detectó `ReclamoRestriccionesIT`; cumple R65); (2) el parseo de
+  `pagina` va en `VistaReclamos.numeroDePagina` (service) y no en el controlador, para comprobar el rol antes; (3) la IT del
+  reembolso fallido va en `ReclamoReembolsoFallidoIT` (necesita otro contexto de Spring); (4) IT de HU-22 para reclamos en
+  `DatosPersonalesReclamosIT`; (5) `ReclamosAdmin.jsx` reutiliza `SeccionLiquidaciones.jsx`.
+- **Veredicto del reviewer:** `APPROVED`. R1–R70 trazados a tests, T1–T41 verificadas, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. Confirmar antes del merge que `V8_1` sigue libre en `develop` (HU-27 y HU-28 son del mismo sprint); si no, renombrar.
+  2. Pregunta abierta 1 con el PO: ¿se confirma el hilo de mensajes (P1) como "respuesta del arrendador" (§9 punto 3 de
+     `docs/requerimientos.md`)? Si es una sola respuesta o queda fuera, cambian R23–R30.
+  3. Pregunta abierta 2 con el PO: ¿el remanente de un reembolso parcial se liquida al arrendador? (Hoy no, P7.)
+  4. Observación del reviewer: si una reserva no tuviera bloques, `ReclamoAdminService.resolver` no enviaría correos sin dejar
+     rastro; imposible con los datos actuales.
+- **Resultado:** `./init.sh` completo salida 0 en la corrida del implementer y en la del reviewer (301 unitarias de las clases
+  tocadas y 1159 tests en `verify`, 0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.

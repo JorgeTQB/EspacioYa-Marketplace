@@ -27,4 +27,25 @@ public interface PagoService {
      * del titular.
      */
     List<PagoDeReserva> pagosDeReservas(Collection<Long> reservaIds);
+
+    /**
+     * {@code MANDATORY}. Toma {@code pg_advisory_xact_lock(190019)}, el mismo bloqueo que {@code GeneradorLiquidaciones},
+     * hasta el fin de la transacción del llamador (HU-26 DT-6, R21): abrir un reclamo y generar liquidaciones se
+     * serializan.
+     */
+    void bloquearGeneracionLiquidaciones();
+
+    /** {@code MANDATORY}. {@code true} si la reserva ya está en {@code liquidacion_detalle} (HU-26 R8). */
+    boolean reservaLiquidada(Long reservaId);
+
+    /**
+     * Como {@link #reembolsarCancelacion}, con origen {@code RECLAMO} (HU-26 R44, R45). {@code MANDATORY}: pago
+     * {@code PAGADO}, {@code 0 < monto ≤ pago.monto}, sin otro reembolso {@code RECLAMO} del pago; crea el reembolso
+     * {@code PENDIENTE}, audita {@code REEMBOLSO_SOLICITADO} ({@code origen=RECLAMO;reservaId=…;monto=…}) y entrega el
+     * Command {@code AUTOMATICO} al Invoker para después del commit.
+     *
+     * @throws IllegalStateException si la reserva no tiene pago {@code PAGADO} o ya tiene un reembolso por reclamo.
+     * @throws IllegalArgumentException si el monto no es mayor que 0 o supera el pago.
+     */
+    void reembolsarReclamo(ReembolsoPorReclamo solicitud);
 }
