@@ -8,7 +8,12 @@ import {
   ENLACE_RECLAMOS_ADMIN,
   ENLACE_RECLAMOS_ARRENDADOR,
 } from '../administracion/textosAdministracion.js'
-import { ENLACE_CUENTA_BANCARIA, ENLACE_LIQUIDACIONES, ENLACE_MIS_LIQUIDACIONES } from '../pagos/textosPagos.js'
+import {
+  ENLACE_CUENTA_BANCARIA,
+  ENLACE_LIQUIDACIONES,
+  ENLACE_MIS_LIQUIDACIONES,
+  ENLACE_MIS_PAGOS,
+} from '../pagos/textosPagos.js'
 import { ENLACE_PERFIL, ENLACE_SEGURIDAD } from './textosCuentas.js'
 import estilos from './Panel.module.css'
 
@@ -49,6 +54,9 @@ function Panel() {
         <>
           <p>
             <Link to="/mis-reservas">Mis reservas</Link>
+          </p>
+          <p>
+            <Link to="/mis-pagos">{ENLACE_MIS_PAGOS}</Link>
           </p>
           <p>
             <Link to="/reclamos">{ENLACE_MIS_RECLAMOS}</Link>

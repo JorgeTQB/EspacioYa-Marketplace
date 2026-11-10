@@ -1,0 +1,21 @@
+.pantalla {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.pantalla h2 {
+  margin: 0;
+}
+
+.dato {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.monto {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}

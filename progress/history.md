@@ -1639,3 +1639,25 @@
      rastro; imposible con los datos actuales.
 - **Resultado:** `./init.sh` completo salida 0 en la corrida del implementer y en la del reviewer (301 unitarias de las clases
   tocadas y 1159 tests en `verify`, 0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-10 — HU-28: cambio de dueño (arnés)
+
+- **Cambio:** por acuerdo del equipo, el dueño de HU-28 pasa de Eduardo Saldaña a Ariel Enriquez; Eduardo queda como tester. Edición de `feature_list.json` hecha por el orquestador a pedido de Ariel.
+- **Estado:** spec redactado por spec-author en `specs/HU-28/` (status `spec_ready`), a la espera de aprobación de Ariel.
+
+## 2026-11-10 — HU-28: Historial de pagos y comprobantes (implementer)
+
+- **Cambios:** `GET /api/transacciones?pagina=n` y `GET /api/transacciones/{id}/comprobante` (`TransaccionController`,
+  `HistorialPagosService`, solo rol `USUARIO`, `no-store`). Lista pagos `PAGADO` y `REEMBOLSADO` (`EstadoPago.EN_HISTORIAL`,
+  `PagoRepository.deReservas`, 10 por página) con `montoReembolsado`; los `sim-` solo con pasarela simulada. Puerto nuevo
+  `pagos.ReservasDelUsuario` implementado por `reservas.ReservasDelUsuarioImpl`. Comprobante PDF 1.4 escrito a mano
+  (`GeneradorComprobantePdf`, sin librería) con solo los últimos 4 dígitos; mismo 404 para id ajeno, inexistente o no
+  elegible. Sin migración ni auditoría. Frontend: `/mis-pagos` (`MisPagos.jsx`), `EtiquetaEstado` con `PAGADO` y
+  `REEMBOLSADO`, enlace en `Panel`. Docs: `docs/architecture.md`, `docs/frontend.md`.
+- **Tests:** `HistorialPagosServiceTest`, `GeneradorComprobantePdfTest`, `HistorialPagosControllerIT`,
+  `ReservasDelUsuarioImplIT`; trazabilidad R1-R22 en `progress/impl_HU-28.md`.
+- **Incidencias:** la sesión arrancó en `develop` (se creó la rama de la historia) y hubo un bloqueo temporal por Docker
+  apagado, resuelto.
+- **Veredicto del reviewer:** `APPROVED` (`progress/review_HU-28.md`).
+- **Resultado:** `./init.sh` completo salida 0 (233 unitarias, 1177 tests en `verify`, 0 fallos; lint y build OK). Status →
+  `done`. Todo sin commitear.

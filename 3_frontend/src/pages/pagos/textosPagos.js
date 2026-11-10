@@ -104,6 +104,22 @@ export const SIN_MIS_LIQUIDACIONES = 'Aún no tienes liquidaciones.'
 export const AVISO_REGISTRA_CUENTA = 'Registra tu cuenta bancaria para recibir este pago.'
 export const LIQUIDACION_EN_PROCESO = 'En proceso de pago.'
 
+// HU-28. Solo textos: qué pagos aparecen, sus montos y estados los decide el servidor.
+export const TITULO_MIS_PAGOS = 'Mis pagos'
+export const DESCRIPCION_MIS_PAGOS = 'Tus pagos y reembolsos. Descarga el comprobante de cada uno en PDF.'
+export const SIN_PAGOS = 'Aún no tienes pagos.'
+export const BOTON_DESCARGAR_COMPROBANTE = 'Descargar comprobante'
+export const ENLACE_MIS_PAGOS = 'Mis pagos'
+export const AVISO_PAGO_SIMULADO = 'Pago simulado'
+
+export function tituloPago(id) {
+  return `Pago #${id}`
+}
+
+export function reembolsadoDe(monto) {
+  return `Reembolsado: ${monto}`
+}
+
 export function liquidacionesGeneradas(cantidad) {
   return cantidad === 1 ? 'Se generó 1 liquidación.' : `Se generaron ${cantidad} liquidaciones.`
 }

@@ -34,6 +34,7 @@ import CuentaBancaria from './pages/pagos/CuentaBancaria.jsx'
 import DetalleLiquidacion from './pages/pagos/DetalleLiquidacion.jsx'
 import Liquidaciones from './pages/pagos/Liquidaciones.jsx'
 import MisLiquidaciones from './pages/pagos/MisLiquidaciones.jsx'
+import MisPagos from './pages/pagos/MisPagos.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
@@ -355,6 +356,15 @@ function App() {
             element={
               <RutaProtegida>
                 <MisLiquidaciones />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-28 CA1 y CA2: la API solo responde al rol USUARIO y con sus propios pagos. */}
+          <Route
+            path="/mis-pagos"
+            element={
+              <RutaProtegida>
+                <MisPagos />
               </RutaProtegida>
             }
           />
