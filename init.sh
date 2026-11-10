@@ -46,7 +46,20 @@ BACKEND=2_Backend
 FRONTEND=3_frontend
 JAVA_MAIN="$BACKEND/src/main/java/pe/edu/ulima/espacioya"
 LOG_DIR=$(mktemp -d)
-trap 'rm -rf "$LOG_DIR"' EXIT
+
+# Candado: dos init.sh a la vez escriben en el mismo 2_Backend/target y se
+# pisan los reportes de pruebas. Si hay otro en curso, se espera (máx. 30 min).
+# Un candado de más de 60 min se considera abandonado. El hook Stop
+# (.claude/hooks/verificar-cierre.sh) no corre si el candado existe.
+LOCK=.init.lock
+lock_vigente() { [ -f "$LOCK" ] && [ -z "$(find "$LOCK" -mmin +60 2>/dev/null)" ]; }
+if lock_vigente; then
+  warn "Hay otro ./init.sh en curso; espero a que termine (máx. 30 min)..."
+  ESPERA=0
+  while lock_vigente && [ "$ESPERA" -lt 1800 ]; do sleep 5; ESPERA=$((ESPERA + 5)); done
+fi
+echo $$ > "$LOCK"
+trap 'rm -rf "$LOG_DIR"; [ "$(cat "$LOCK" 2>/dev/null)" = "$$" ] && rm -f "$LOCK"' EXIT
 
 echo "── 1. Verificando entorno ─────────────────────────────"
 

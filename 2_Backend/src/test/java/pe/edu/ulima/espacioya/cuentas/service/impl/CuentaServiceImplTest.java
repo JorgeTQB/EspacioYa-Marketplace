@@ -167,6 +167,43 @@ class CuentaServiceImplTest {
         assertThatThrownBy(() -> servicio.correoDe(ID)).isInstanceOf(RecursoNoEncontradoException.class);
     }
 
+    @Test
+    @DisplayName("HU-25 R19, R20: correoParaRecordatorio da el correo de una cuenta activa con recordatorios activos")
+    void correoParaRecordatorioActiva() {
+        when(usuarios.findById(ID)).thenReturn(Optional.of(Usuario.registrar(CORREO, "hash", "2026-10", AHORA)));
+
+        assertThat(servicio.correoParaRecordatorio(ID)).contains(CORREO);
+    }
+
+    @Test
+    @DisplayName("HU-25 R19, R20: con la preferencia desactivada correoParaRecordatorio queda vacío")
+    void correoParaRecordatorioSinPreferencia() {
+        var cuenta = Usuario.registrar(CORREO, "hash", "2026-10", AHORA);
+        cuenta.cambiarRecordatorios(false);
+        when(usuarios.findById(ID)).thenReturn(Optional.of(cuenta));
+
+        assertThat(servicio.correoParaRecordatorio(ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-25 R21: una cuenta suspendida o eliminada no recibe recordatorios")
+    void correoParaRecordatorioNoActiva() {
+        when(usuarios.findById(ID)).thenReturn(Optional.of(cuenta(ID, Rol.USUARIO, EstadoUsuario.SUSPENDIDA)));
+        assertThat(servicio.correoParaRecordatorio(ID)).isEmpty();
+
+        when(usuarios.findById(ID)).thenReturn(Optional.of(cuenta(ID, Rol.ARRENDADOR, EstadoUsuario.ELIMINADA)));
+        assertThat(servicio.correoParaRecordatorio(ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-25 R21: una cuenta inexistente o un id nulo dan vacío, sin excepción")
+    void correoParaRecordatorioInexistente() {
+        when(usuarios.findById(ID)).thenReturn(Optional.empty());
+
+        assertThat(servicio.correoParaRecordatorio(ID)).isEmpty();
+        assertThat(servicio.correoParaRecordatorio(null)).isEmpty();
+    }
+
     private static Usuario arrendador(long id, EstadoUsuario estado) {
         var usuario = Usuario.registrarArrendador("arrendador" + id + "@correo.pe", "$2a$12$hash", "Ana " + id,
                 "987654321", "2026-10", AHORA);

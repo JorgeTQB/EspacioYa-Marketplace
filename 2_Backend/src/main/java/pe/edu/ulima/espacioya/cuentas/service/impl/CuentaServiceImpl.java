@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -235,6 +236,18 @@ public class CuentaServiceImpl implements CuentaService {
     @Transactional(readOnly = true)
     public String correoDe(Long usuarioId) {
         return usuarios.findById(usuarioId).map(Usuario::getCorreo).orElseThrow(RecursoNoEncontradoException::new);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> correoParaRecordatorio(Long usuarioId) {
+        if (usuarioId == null) {
+            return Optional.empty();
+        }
+        return usuarios.findById(usuarioId)
+                .filter(cuenta -> cuenta.getEstado() == EstadoUsuario.ACTIVA)
+                .filter(Usuario::tieneRecordatoriosActivos)
+                .map(Usuario::getCorreo);
     }
 
     @Override

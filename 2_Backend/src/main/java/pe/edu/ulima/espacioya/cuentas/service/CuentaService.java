@@ -3,6 +3,7 @@ package pe.edu.ulima.espacioya.cuentas.service;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
@@ -117,6 +118,13 @@ public interface CuentaService {
      * @throws pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException si la cuenta no existe.
      */
     String correoDe(Long usuarioId);
+
+    /**
+     * Correo de la cuenta solo si existe, está {@code ACTIVA} y tiene los recordatorios activos; si no, vacío (HU-25
+     * D6, R19–R21). Sin sesión ni rol: lo usa el proceso de recordatorios de {@code reservas}, que es el único que lee
+     * la preferencia (D7). Nunca se devuelve a un cliente.
+     */
+    Optional<String> correoParaRecordatorio(Long usuarioId);
 
     /**
      * Id → nombre de las cuentas con nombre no nulo ni en blanco; las demás no aparecen. Nunca correo ni teléfono

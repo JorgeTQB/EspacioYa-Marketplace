@@ -317,4 +317,36 @@ class UsuarioTest {
         assertThat(Usuario.enmascararCorreo("x@y.pe")).isEqualTo("x***@y.pe");
         assertThat(Usuario.enmascararCorreo(null)).isEqualTo("***");
     }
+
+    @Test
+    @DisplayName("HU-25 R10: toda cuenta nueva (usuario, arrendador o admin) empieza con recordatorios activos")
+    void cuentaNuevaConRecordatorios() {
+        assertThat(usuarioActivo().tieneRecordatoriosActivos()).isTrue();
+        assertThat(Usuario.registrarArrendador("beto@correo.pe", "$2a$12$hash", "Beto", "987654321", "2026-10", AHORA)
+                .tieneRecordatoriosActivos()).isTrue();
+        assertThat(Usuario.registrarAdmin("admin@correo.pe", "$2a$12$hash", "2026-10", AHORA)
+                .tieneRecordatoriosActivos()).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-25 R2: cambiarRecordatorios guarda el valor y avisa que cambió")
+    void cambiaLosRecordatorios() {
+        var usuario = usuarioActivo();
+
+        assertThat(usuario.cambiarRecordatorios(false)).isTrue();
+        assertThat(usuario.tieneRecordatoriosActivos()).isFalse();
+        assertThat(usuario.cambiarRecordatorios(true)).isTrue();
+        assertThat(usuario.tieneRecordatoriosActivos()).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-25 R9: el mismo valor no cuenta como cambio")
+    void mismoValorNoCambia() {
+        var usuario = usuarioActivo();
+
+        assertThat(usuario.cambiarRecordatorios(true)).isFalse();
+        usuario.cambiarRecordatorios(false);
+        assertThat(usuario.cambiarRecordatorios(false)).isFalse();
+        assertThat(usuario.tieneRecordatoriosActivos()).isFalse();
+    }
 }

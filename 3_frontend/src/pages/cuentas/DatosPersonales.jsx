@@ -16,6 +16,7 @@ import {
   BOTON_ELIMINAR_CUENTA,
   DATOS_DESCARGADOS,
   ENLACE_VER_LIQUIDACIONES,
+  ENLACE_VER_RECLAMOS,
   ENLACE_VER_RESERVAS,
   ENLACE_VER_RESERVAS_ESPACIOS,
   ETIQUETA_CONTRASENA,
@@ -31,7 +32,7 @@ import estilos from './DatosPersonales.module.css'
 
 const DESCARGAR = 'descargar'
 const ELIMINAR = 'eliminar'
-const CAMPOS_IMPEDIMENTO = ['reservas', 'liquidaciones', 'pagos']
+const CAMPOS_IMPEDIMENTO = ['reservas', 'liquidaciones', 'pagos', 'reclamos']
 
 // La fecha de Lima del instante en que el servidor generó el archivo (en-CA da AAAA-MM-DD); no es una regla de negocio.
 const FECHA_LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' })
@@ -53,6 +54,10 @@ function enlaceDe(campo, rol) {
     return rol === 'ARRENDADOR'
       ? { ruta: '/panel/reservas', texto: ENLACE_VER_RESERVAS_ESPACIOS }
       : { ruta: '/mis-reservas', texto: ENLACE_VER_RESERVAS }
+  }
+  // HU-26: un reclamo abierto se ve en la lista de reclamos de la parte.
+  if (campo === 'reclamos') {
+    return { ruta: '/reclamos', texto: ENLACE_VER_RECLAMOS }
   }
   return { ruta: '/panel/liquidaciones', texto: ENLACE_VER_LIQUIDACIONES }
 }

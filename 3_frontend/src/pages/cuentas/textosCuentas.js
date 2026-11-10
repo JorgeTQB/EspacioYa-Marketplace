@@ -68,6 +68,14 @@ export const FOTO_NO_DISPONIBLE = 'No pudimos mostrar tu foto.'
 export const BOTON_SUBIR_FOTO = 'Subir foto'
 export const BOTON_QUITAR_FOTO = 'Quitar foto'
 export const FOTO_GUARDADA = 'Tu foto se guardó.'
+
+// Recordatorios (HU-25). CA3: el texto de ayuda deja claro que solo se apaga el recordatorio.
+export const TITULO_RECORDATORIOS = 'Recordatorios'
+export const ETIQUETA_RECORDATORIOS = 'Recibir un recordatorio por correo 24 h antes de cada reserva'
+export const AYUDA_RECORDATORIOS = 'Los correos de pago y de cancelación se envían siempre.'
+export const BOTON_GUARDAR_RECORDATORIOS = 'Guardar'
+export const RECORDATORIOS_GUARDADOS = 'Guardamos tu preferencia de recordatorios.'
+export const CARGANDO_RECORDATORIOS = 'Cargando…'
 export const FOTO_QUITADA = 'Quitaste tu foto.'
 export const TITULO_CORREO = 'Correo'
 export const ETIQUETA_CORREO_NUEVO = 'Correo nuevo'
@@ -129,6 +137,7 @@ export const TITULO_IMPEDIMENTOS = 'Antes de eliminar tu cuenta, resuelve esto:'
 export const ENLACE_VER_RESERVAS = 'Ver mis reservas'
 export const ENLACE_VER_RESERVAS_ESPACIOS = 'Ver las reservas de mis espacios'
 export const ENLACE_VER_LIQUIDACIONES = 'Ver mis liquidaciones'
+export const ENLACE_VER_RECLAMOS = 'Ver mis reclamos'
 
 export function nombreArchivoDatos(fecha) {
   return `espacioya-mis-datos-${fecha}.json`

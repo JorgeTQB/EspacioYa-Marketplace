@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom'
 import { obtenerSesionActual } from '../../api/cuentas.js'
 import Alerta from '../../components/ui/Alerta.jsx'
 import useSesion from '../../sesion/useSesion.js'
+import {
+  ENLACE_MIS_RECLAMOS,
+  ENLACE_RECLAMOS_ADMIN,
+  ENLACE_RECLAMOS_ARRENDADOR,
+} from '../administracion/textosAdministracion.js'
 import { ENLACE_CUENTA_BANCARIA, ENLACE_LIQUIDACIONES, ENLACE_MIS_LIQUIDACIONES } from '../pagos/textosPagos.js'
 import { ENLACE_PERFIL, ENLACE_SEGURIDAD } from './textosCuentas.js'
 import estilos from './Panel.module.css'
@@ -41,9 +46,14 @@ function Panel() {
       {sesion.aviso && <Alerta tipo="atencion">{sesion.aviso}</Alerta>}
       {/* HU-14: para USUARIO la descripción pasa a ser el enlace a "Mis reservas". */}
       {sesion.rol === 'USUARIO' ? (
-        <p>
-          <Link to="/mis-reservas">Mis reservas</Link>
-        </p>
+        <>
+          <p>
+            <Link to="/mis-reservas">Mis reservas</Link>
+          </p>
+          <p>
+            <Link to="/reclamos">{ENLACE_MIS_RECLAMOS}</Link>
+          </p>
+        </>
       ) : (
         <p className={estilos.descripcion}>{textos.descripcion}</p>
       )}
@@ -54,6 +64,9 @@ function Panel() {
           </p>
           <p>
             <Link to="/panel/reservas">Reservas de mis espacios</Link>
+          </p>
+          <p>
+            <Link to="/reclamos">{ENLACE_RECLAMOS_ARRENDADOR}</Link>
           </p>
           <p>
             <Link to="/panel/identidad">Verificar mi identidad</Link>
@@ -79,6 +92,9 @@ function Panel() {
           </p>
           <p>
             <Link to="/admin/liquidaciones">{ENLACE_LIQUIDACIONES}</Link>
+          </p>
+          <p>
+            <Link to="/admin/reclamos">{ENLACE_RECLAMOS_ADMIN}</Link>
           </p>
         </>
       )}

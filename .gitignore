@@ -131,3 +131,6 @@ $RECYCLE.BIN/
 # Claude Code: configuración personal de cada integrante
 # ============================================================
 .claude/settings.local.json
+
+# Candado de init.sh mientras corre
+.init.lock

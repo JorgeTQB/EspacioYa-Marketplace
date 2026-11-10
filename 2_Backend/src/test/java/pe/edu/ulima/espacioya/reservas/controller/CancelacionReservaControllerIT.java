@@ -704,6 +704,19 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
     }
 
     @Test
+    @DisplayName("HU-25 R28: con los recordatorios desactivados, el usuario y el arrendador reciben igual los avisos "
+            + "de cancelación")
+    void cancelacionSinRecordatorios() throws Exception {
+        jdbc.update("UPDATE usuario SET recordatorios_activos = false WHERE id IN (?, ?)", usuarioId, arrendadorId);
+        var reserva = pagadaLejos();
+
+        cancelar(token(CORREO_USUARIO), reserva, "161.00").andExpect(status().isOk());
+
+        assertThat(notificador.alUsuario).extracting(AvisoAlUsuario::correo).containsExactly(CORREO_USUARIO);
+        assertThat(notificador.alArrendador).extracting(AvisoAlArrendador::correo).containsExactly(CORREO_ARRENDADOR);
+    }
+
+    @Test
     @DisplayName("HU-15 R28: si falla el correo al usuario, la cancelación se mantiene, sale el del arrendador y "
             + "es 200")
     void unCorreoFallaYLaCancelacionSigue() throws Exception {

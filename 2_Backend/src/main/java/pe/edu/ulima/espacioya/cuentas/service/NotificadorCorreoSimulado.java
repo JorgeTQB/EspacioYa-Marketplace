@@ -3,9 +3,15 @@ package pe.edu.ulima.espacioya.cuentas.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+/**
+ * {@link NotificadorCorreo} sin proveedor ({@code espacioya.correo.proveedor=simulado}, el de UAT, HU-25 D12): solo
+ * escribe en el log que no se envió nada. Con {@code smtp} lo reemplaza {@code NotificadorCorreoImpl} (D10).
+ */
 @Component
+@ConditionalOnProperty(name = "espacioya.correo.proveedor", havingValue = "simulado")
 public class NotificadorCorreoSimulado implements NotificadorCorreo {
 
     private static final Logger log = LoggerFactory.getLogger(NotificadorCorreoSimulado.class);

@@ -3,6 +3,7 @@ package pe.edu.ulima.espacioya.cuentas.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -114,7 +115,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                 .andExpect(jsonPath("$.perfil.correo").value(CORREO_USUARIO));
         var exportacion = mapa(texto(respuesta));
 
-        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas", "reclamos");
         assertThat(ids(lista(exportacion, "reservas"), "id"))
                 .containsExactly(escenario.reservaPasada(), escenario.reservaCancelada());
         assertThat(ids(lista(exportacion, "pagos"), "reservaId"))
@@ -136,7 +137,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
         assertThat(fila.get("ip")).isEqualTo(ip);
         assertThat(fila.get("entidad")).isEqualTo("usuario");
         assertThat(((Number) fila.get("entidad_id")).longValue()).isEqualTo(escenario.usuario());
-        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos,resenas");
+        assertThat(fila.get("detalle")).isEqualTo("secciones=reservas,pagos,resenas,reclamos");
     }
 
     // ── Reseñas (HU-24) ──────────────────────────────────────────────────
@@ -154,7 +155,7 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
 
         var exportacion = mapa(texto(exportar(sesion, CONTRASENA).andExpect(status().isOk())));
 
-        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas");
+        assertThat(secciones(exportacion).keySet()).containsExactly("reservas", "pagos", "resenas", "reclamos");
         var resenas = lista(exportacion, "resenas");
         assertThat(ids(resenas, "reservaId")).containsExactly(escenario.reservaPasada(), segunda);
         assertThat(resenas).extracting(r -> r.get("comentario")).containsExactly("Excelente", "Regular");
@@ -255,11 +256,11 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                 .andExpect(jsonPath("$.secciones.cuentaBancaria.estado").value("DISPONIBLE"))));
 
         assertThat(secciones(exportacion).keySet())
-                .containsExactly("reservas", "liquidaciones", "cuentaBancaria");
+                .containsExactly("reservas", "liquidaciones", "cuentaBancaria", "reclamos");
         assertThat(ids(lista(exportacion, "reservas"), "id")).containsExactly(escenario.reserva());
         assertThat(ids(lista(exportacion, "liquidaciones"), "id")).containsExactly(escenario.liquidacion());
         assertThat(auditorias("DATOS_EXPORTADOS").getFirst().get("detalle"))
-                .isEqualTo("secciones=reservas,liquidaciones,cuentaBancaria");
+                .isEqualTo("secciones=reservas,liquidaciones,cuentaBancaria,reclamos");
     }
 
     @Test
@@ -320,6 +321,23 @@ class DatosPersonalesControllerIT extends DatosPersonalesSoporte {
                         "usuarioId", "usuarioNombre", ULTIMOS4)
                 .doesNotContain(transacciones);
         assertThat(cuerpo).contains("\"mfaActivo\":true");
+    }
+
+    @Test
+    @DisplayName("HU-25 R37: tras desactivar los recordatorios, la exportación trae perfil.recordatoriosActivos false")
+    void exportaLaPreferenciaDeRecordatorios() throws Exception {
+        crearUsuario(CORREO_USUARIO);
+        var sesion = token(CORREO_USUARIO);
+        exportar(sesion, CONTRASENA).andExpect(status().isOk())
+                .andExpect(jsonPath("$.perfil.recordatoriosActivos").value(true));
+
+        mvc.perform(con(sesion, put("/api/usuarios/actual/preferencias-correo"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"recordatoriosActivos\":false}"))
+                .andExpect(status().isOk());
+
+        exportar(sesion, CONTRASENA).andExpect(status().isOk())
+                .andExpect(jsonPath("$.perfil.recordatoriosActivos").value(false))
+                .andExpect(jsonPath("$.perfil.mfaActivo").value(false));
     }
 
     // ── Reautenticación ──────────────────────────────────────────────────
