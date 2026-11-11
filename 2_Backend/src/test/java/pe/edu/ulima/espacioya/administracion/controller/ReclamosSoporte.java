@@ -175,6 +175,7 @@ public abstract class ReclamosSoporte {
 
     @AfterEach
     void limpiar() {
+        jdbc.update("DELETE FROM reporte");
         jdbc.update("DELETE FROM mensaje_reclamo");
         jdbc.update("DELETE FROM reclamo");
         jdbc.update("DELETE FROM liquidacion_detalle");

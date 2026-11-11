@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.cuentas.service.impl;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -300,13 +302,6 @@ public class CuentaServiceImpl implements CuentaService {
     // El texto se compara literal (R4). La barra se escapa primero para no duplicar los escapes de % y _.
     static String escaparComodines(String texto) {
         return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    // Defensa en profundidad (HU-06, R41): administracion ya validó el rol, pero ningún otro llamador lo salta.
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !Rol.ADMIN.name().equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 
     private Usuario arrendadorActivo(Long arrendadorId) {

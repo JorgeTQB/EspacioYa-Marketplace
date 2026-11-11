@@ -281,6 +281,19 @@ class ReservaTest {
     }
 
     @Test
+    @DisplayName("HU-27 R64, R68: cancelar como ADMIN deja CANCELADA por ADMIN y nunca admite liquidación")
+    void canceladaPorAdminNoAdmiteLiquidacion() {
+        var reserva = cancelada(QuienCancela.ADMIN, "241.50");
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(reserva.getCanceladaPor()).isEqualTo(QuienCancela.ADMIN);
+        assertThat(reserva.getCanceladaEn()).isEqualTo(INICIO);
+        assertThat(reserva.getMontoReembolso()).isEqualTo(new BigDecimal("241.50"));
+        assertThat(reserva.admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.ADMIN, "0").admiteLiquidacion()).isFalse();
+    }
+
+    @Test
     @DisplayName("HU-25 R14, R17: solo una CONFIRMADA sin recordatorio admite recordatorio")
     void admiteRecordatorio() {
         assertThat(conEstado(EstadoReserva.CONFIRMADA).admiteRecordatorio()).isTrue();

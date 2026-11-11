@@ -78,3 +78,27 @@ export function resolverReclamo(id, { aFavorDe, reembolso, montoReembolso, resol
     cuerpo: { aFavorDe, reembolso, montoReembolso, resolucion },
   })
 }
+
+// Reportes y moderación (HU-27). Usuarios y arrendadores reportan en /api/reportes; el admin decide en
+// /api/admin/reportes.
+const REPORTES = '/api/reportes'
+const REPORTES_ADMIN = '/api/admin/reportes'
+
+export function reportarContenido({ tipoObjetivo, objetivoId, motivo }) {
+  return peticion(REPORTES, { metodo: 'POST', cuerpo: { tipoObjetivo, objetivoId, motivo } })
+}
+
+export function listarReportesAdmin({ grupo, pagina }) {
+  return peticion(`${REPORTES_ADMIN}?grupo=${encodeURIComponent(grupo)}&pagina=${encodeURIComponent(pagina)}`)
+}
+
+export function obtenerReporteAdmin(id) {
+  return peticion(`${REPORTES_ADMIN}/${encodeURIComponent(id)}`)
+}
+
+export function decidirReporte(id, { decision, motivoDecision }) {
+  return peticion(`${REPORTES_ADMIN}/${encodeURIComponent(id)}/decision`, {
+    metodo: 'POST',
+    cuerpo: { decision, motivoDecision },
+  })
+}

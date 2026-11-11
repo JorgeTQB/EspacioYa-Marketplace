@@ -16,7 +16,7 @@ class CalculoReembolsoTest {
     private static final Instant AHORA = Instant.parse("2026-10-28T15:00:00Z");
     private static final BigDecimal PAGADO = new BigDecimal("161.00");
     private static final List<PoliticaReembolso> ESTRATEGIAS = List.of(new ReembolsoUsuarioConAnticipacion(),
-            new ReembolsoUsuarioSinAnticipacion(), new ReembolsoCancelaArrendador());
+            new ReembolsoUsuarioSinAnticipacion(), new ReembolsoCancelaArrendador(), new ReembolsoPorModeracion());
 
     private final CalculoReembolso calculo = CalculoReembolso.politicaFija();
 
@@ -109,6 +109,28 @@ class CalculoReembolsoTest {
                 assertThat(ESTRATEGIAS.stream().filter(estrategia -> estrategia.aplicaA(solicitud)).count())
                         .as("%s con %s", quien, anticipacion)
                         .isEqualTo(1);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R67: con ADMIN aplica solo MODERACION al 100 % del monto pagado con 0 h, 47 h y 72 h")
+    void adminSiempreModeracionAlCien() {
+        for (var anticipacion : List.of(Duration.ofSeconds(1), Duration.ofHours(47), Duration.ofHours(72))) {
+            var reembolso = calculo.calcular(solicitud(QuienCancela.ADMIN, anticipacion, new BigDecimal("241.50")));
+
+            assertThat(reembolso).isEqualTo(new ReembolsoCalculado("MODERACION", 100, new BigDecimal("241.50")));
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R67: con USUARIO o ARRENDADOR la política MODERACION nunca aplica y sigue aplicando una sola")
+    void moderacionSoloParaAdmin() {
+        for (var quien : List.of(QuienCancela.USUARIO, QuienCancela.ARRENDADOR)) {
+            for (var anticipacion : List.of(Duration.ofHours(1), Duration.ofHours(47), Duration.ofHours(72))) {
+                var solicitud = solicitud(quien, anticipacion);
+                assertThat(new ReembolsoPorModeracion().aplicaA(solicitud)).isFalse();
+                assertThat(calculo.calcular(solicitud).politica()).isNotEqualTo(ReembolsoPorModeracion.CODIGO);
             }
         }
     }

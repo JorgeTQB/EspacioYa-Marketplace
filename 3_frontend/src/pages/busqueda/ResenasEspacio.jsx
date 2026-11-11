@@ -5,6 +5,7 @@ import Boton from '../../components/ui/Boton.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import { BOTON_VER_MAS, formatoFecha } from '../reservas/textosReservas.js'
 import { CARGANDO, SIN_RESENAS, TITULO_RESENAS, tituloResena } from './textosFicha.js'
+import ReportarContenido from './ReportarContenido.jsx'
 import estilos from './ResenasEspacio.module.css'
 
 const PRIMERA_PAGINA = 1
@@ -16,8 +17,8 @@ function sinRepetir(anteriores, nuevas) {
 }
 
 // HU-24 (CA1): reseñas de la ficha pública. El orden, las páginas y cuáles se ven los decide el servidor. React escapa
-// el comentario al mostrarlo.
-function ResenasEspacio({ espacioId }) {
+// el comentario al mostrarlo. HU-27: con puedeReportar, cada reseña lleva "Reportar reseña".
+function ResenasEspacio({ espacioId, puedeReportar = false }) {
   const [resenas, setResenas] = useState([])
   const [pagina, setPagina] = useState(0)
   const [hayMas, setHayMas] = useState(false)
@@ -70,7 +71,12 @@ function ResenasEspacio({ espacioId }) {
         <ul className={estilos.lista}>
           {resenas.map((resena) => (
             <li key={resena.id}>
-              <Tarjeta titulo={tituloResena(resena.calificacion)}>
+              <Tarjeta
+                titulo={tituloResena(resena.calificacion)}
+                acciones={
+                  puedeReportar ? <ReportarContenido tipoObjetivo="RESENA" objetivoId={resena.id} /> : undefined
+                }
+              >
                 <p className={estilos.comentario}>{resena.comentario}</p>
                 <p className={estilos.secundario}>{formatoFecha(resena.fecha)}</p>
               </Tarjeta>
