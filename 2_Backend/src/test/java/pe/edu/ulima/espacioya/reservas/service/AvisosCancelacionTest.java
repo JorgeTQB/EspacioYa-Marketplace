@@ -3,6 +3,7 @@ package pe.edu.ulima.espacioya.reservas.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,6 +43,8 @@ class AvisosCancelacionTest {
             18, 20);
     private static final ReembolsoCalculado REEMBOLSO =
             new ReembolsoCalculado("USUARIO_CON_ANTICIPACION", 100, new BigDecimal("161.00"));
+    private static final ReembolsoCalculado POR_MODERACION =
+            new ReembolsoCalculado("MODERACION", 100, new BigDecimal("161.00"));
     private static final AvisoCancelacionUsuario AL_USUARIO =
             new AvisoCancelacionUsuario(ESPACIO, FECHA, 18, 20, "USUARIO", 100, new BigDecimal("161.00"));
     private static final AvisoCancelacionArrendador AL_ARRENDADOR =
@@ -59,7 +62,8 @@ class AvisosCancelacionTest {
         avisos = new AvisosCancelacion(cuentas, notificador);
         TransactionSynchronizationManager.initSynchronization();
         when(cuentas.correoDe(7L)).thenReturn(CORREO_USUARIO);
-        when(cuentas.correoDe(3L)).thenReturn(CORREO_ARRENDADOR);
+        // programarAlUsuario (HU-27) no lee el correo del arrendador.
+        lenient().when(cuentas.correoDe(3L)).thenReturn(CORREO_ARRENDADOR);
     }
 
     @AfterEach
@@ -109,6 +113,30 @@ class AvisosCancelacionTest {
         assertThat(AvisoCancelacionArrendador.class.getRecordComponents())
                 .extracting(componente -> componente.getName())
                 .containsExactly("espacio", "fecha", "horaInicio", "horaFin", "canceladaPor");
+    }
+
+    @Test
+    @DisplayName("HU-27 R48, R70: programarAlUsuario no envía sin commit y nunca avisa al arrendador")
+    void alUsuarioSinCommitNoEnvia() {
+        avisos.programarAlUsuario(7L, ESPACIO, HORARIO, QuienCancela.ADMIN, POR_MODERACION);
+
+        verify(cuentas).correoDe(7L);
+        verify(cuentas, never()).correoDe(3L);
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+        verify(notificador, never()).notificarCancelacionAlUsuario(any(), any());
+        verify(notificador, never()).notificarCancelacionAlArrendador(any(), any());
+    }
+
+    @Test
+    @DisplayName("HU-27 R69, R70: tras el commit, programarAlUsuario avisa solo al usuario con ADMIN y el 100 %")
+    void alUsuarioTrasElCommit() {
+        avisos.programarAlUsuario(7L, ESPACIO, HORARIO, QuienCancela.ADMIN, POR_MODERACION);
+
+        confirmarTransaccion();
+
+        verify(notificador).notificarCancelacionAlUsuario(CORREO_USUARIO,
+                new AvisoCancelacionUsuario(ESPACIO, FECHA, 18, 20, "ADMIN", 100, new BigDecimal("161.00")));
+        verify(notificador, never()).notificarCancelacionAlArrendador(any(), any());
     }
 
     @Test

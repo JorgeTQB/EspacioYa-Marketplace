@@ -24,3 +24,24 @@ export function resumenResenas(promedio, total) {
 export function tituloResena(calificacion) {
   return `${calificacion} de 5`
 }
+
+// HU-27. Reportar contenido: el catálogo de motivos lo valida el servidor; aquí solo sus nombres.
+export const MOTIVOS_REPORTE = {
+  FRAUDE: 'Posible fraude o estafa',
+  INFORMACION_FALSA: 'Información falsa o engañosa',
+  CONTENIDO_INAPROPIADO: 'Contenido ofensivo o inapropiado',
+  SPAM: 'Spam o publicidad',
+}
+export const OPCIONES_MOTIVO_REPORTE = [
+  { valor: '', etiqueta: 'Elige un motivo' },
+  ...Object.entries(MOTIVOS_REPORTE).map(([valor, etiqueta]) => ({ valor, etiqueta })),
+]
+export const BOTON_REPORTAR_PUBLICACION = 'Reportar publicación'
+export const BOTON_REPORTAR_RESENA = 'Reportar reseña'
+export const BOTON_REPORTADO = 'Reportado'
+export const TITULO_REPORTAR_PUBLICACION = 'Reportar esta publicación'
+export const TITULO_REPORTAR_RESENA = 'Reportar esta reseña'
+export const ETIQUETA_MOTIVO_REPORTE = 'Motivo'
+export const AYUDA_REPORTE = 'El equipo de EspacioYa revisará tu reporte. No le diremos a nadie quién lo envió.'
+export const BOTON_ENVIAR_REPORTE = 'Enviar reporte'
+export const REPORTE_ENVIADO = 'Gracias. Enviamos tu reporte al equipo de EspacioYa.'

@@ -62,6 +62,18 @@ public class Resena {
         return resena;
     }
 
+    public boolean estaVisible() {
+        return estado == EstadoResena.VISIBLE;
+    }
+
+    /** HU-27: la oculta el admin por moderación. {@code OCULTA} es final. */
+    public void ocultar() {
+        if (!estaVisible()) {
+            throw new IllegalStateException("Solo se oculta una reseña visible, no en " + estado);
+        }
+        estado = EstadoResena.OCULTA;
+    }
+
     public Long getId() {
         return id;
     }

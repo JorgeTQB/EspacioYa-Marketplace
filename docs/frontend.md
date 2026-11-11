@@ -145,8 +145,9 @@ siempre muestra el **texto** del estado, no solo el color.
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
 | Liquidación (HU-19) | `PAGADA` ("Pagada") | `GENERADA` ("Por pagar"), `PENDIENTE_CUENTA` ("Pendiente de cuenta") | — | — |
-| Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
+| Reseña (HU-27 en `EtiquetaEstado`) | `VISIBLE` ("Visible") | — | `OCULTA` ("Oculta", moderación) | — |
 | Reclamo (HU-26) | — | `ABIERTO` ("Abierto") | — | `RESUELTO_USUARIO` ("Resuelto a favor del usuario"), `RESUELTO_ARRENDADOR` ("Resuelto a favor del arrendador") |
+| Reporte (HU-27) | — | `POR_REVISAR` ("Por revisar") | — | `MANTENIDO` ("Contenido mantenido"), `OCULTADO` ("Contenido ocultado") |
 | Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
 
 Cancelada y expirada van en neutro, no en error: no son fallos, son finales
@@ -418,6 +419,17 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   reembolsar (S/)" / "Motivo de la resolución" y el primario "Resolver" con `Modal primario` que repite la decisión con
   el monto de la API o el escrito. El impedimento `reclamos` de HU-22 enlaza a `/reclamos`. No agrega componentes al kit
   ni colores; agrega los estados de la fila Reclamo.
+- **Reportes y moderación (HU-27, `specs/HU-27/design.md` § 12).** En `/espacios/:id`, para `USUARIO` y `ARRENDADOR`
+  (un visitante o un `ADMIN` no lo ven), `pages/busqueda/ReportarContenido.jsx` (no es del kit) bajo la política de
+  cancelación ("Reportar publicación") y en `acciones` de cada reseña ("Reportar reseña"): `Boton secundario` y `Modal
+  primario` con `Campo select` "Motivo" (`reportarContenido`); con 201, `Alerta exito` y el botón queda "Reportado"; el
+  error de `motivo` se queda en el modal y cualquier otro rechazo va bajo el botón. `/admin/reportes` (`ReportesAdmin.jsx`)
+  reutiliza `SeccionLiquidaciones` para "Por revisar" y "Resueltos". `/admin/reportes/:id` (`RevisarReporte.jsx`) muestra
+  el reporte, el contenido en su estado actual (espacio con "Arrendador: <nombre>" o reseña) y, con `POR_REVISAR`, el
+  formulario "Decisión" (la opción "Ocultar por fraude y cancelar sus reservas" solo para espacios) / "Motivo de la
+  decisión" con el primario "Registrar decisión"; el `Modal` es `peligro-confirmar` al ocultar y `primario` al mantener.
+  Enlace "Reportes" en el `Panel` del `ADMIN`. No agrega componentes al kit ni colores; agrega los estados de las filas
+  Reseña y Reporte.
 
 ## Accesibilidad mínima
 

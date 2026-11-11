@@ -48,6 +48,12 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Query("select r from Reserva r where r.id = :id")
     Optional<Reserva> findParaActualizar(@Param("id") Long id);
 
+    // HU-27 DT-23: las confirmadas del espacio ya bloqueado, en orden de id, para cancelarlas al ocultarlo por fraude.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Reserva r where r.espacioId = :espacioId "
+            + "and r.estado = pe.edu.ulima.espacioya.reservas.domain.EstadoReserva.CONFIRMADA order by r.id")
+    List<Reserva> findConfirmadasParaActualizar(@Param("espacioId") Long espacioId);
+
     // Una proyección y no la entidad: si no, findParaActualizar devolvería la copia ya cargada, sin releer el estado.
     @Query("select r.espacioId from Reserva r where r.id = :id")
     Optional<Long> findEspacioIdById(@Param("id") Long id);

@@ -11,7 +11,9 @@ import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import DetalleReclamo from './pages/administracion/DetalleReclamo.jsx'
 import MisReclamos from './pages/administracion/MisReclamos.jsx'
 import ReclamosAdmin from './pages/administracion/ReclamosAdmin.jsx'
+import ReportesAdmin from './pages/administracion/ReportesAdmin.jsx'
 import ResolverReclamo from './pages/administracion/ResolverReclamo.jsx'
+import RevisarReporte from './pages/administracion/RevisarReporte.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
@@ -347,6 +349,23 @@ function App() {
             element={
               <RutaProtegida>
                 <ResolverReclamo />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-27: panel admin de moderación; la API valida IP, MFA y rol, y decide qué se oculta o cancela. */}
+          <Route
+            path="/admin/reportes"
+            element={
+              <RutaProtegida>
+                <ReportesAdmin />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/reportes/:id"
+            element={
+              <RutaProtegida>
+                <RevisarReporte />
               </RutaProtegida>
             }
           />

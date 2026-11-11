@@ -39,6 +39,13 @@ const ESTADOS = {
   ABIERTO: { texto: 'Abierto', tipo: 'atencion' },
   RESUELTO_USUARIO: { texto: 'Resuelto a favor del usuario', tipo: 'neutro' },
   RESUELTO_ARRENDADOR: { texto: 'Resuelto a favor del arrendador', tipo: 'neutro' },
+  // Reseña (HU-24, la oculta HU-27)
+  VISIBLE: { texto: 'Visible', tipo: 'exito' },
+  OCULTA: { texto: 'Oculta', tipo: 'error' },
+  // Reporte (HU-27): una decisión es un final normal, como un reclamo resuelto.
+  POR_REVISAR: { texto: 'Por revisar', tipo: 'atencion' },
+  MANTENIDO: { texto: 'Contenido mantenido', tipo: 'neutro' },
+  OCULTADO: { texto: 'Contenido ocultado', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

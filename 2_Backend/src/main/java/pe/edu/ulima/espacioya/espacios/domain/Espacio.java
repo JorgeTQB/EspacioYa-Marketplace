@@ -157,6 +157,15 @@ public class Espacio {
         actualizadoEn = ahora;
     }
 
+    /** HU-27: lo oculta el admin por moderación. {@code OCULTO} es final: no admite edición, pausa, reanudación ni baja. */
+    public void ocultar(Instant ahora) {
+        if (!esOcultable()) {
+            throw new IllegalStateException("Solo se oculta un espacio publicado o pausado, no en " + estado);
+        }
+        estado = EstadoEspacio.OCULTO;
+        actualizadoEn = ahora;
+    }
+
     public void tocar(Instant ahora) {
         actualizadoEn = ahora;
     }
@@ -179,6 +188,10 @@ public class Espacio {
     }
 
     public boolean admiteBaja() {
+        return estado == EstadoEspacio.PUBLICADO || estado == EstadoEspacio.PAUSADO;
+    }
+
+    public boolean esOcultable() {
         return estado == EstadoEspacio.PUBLICADO || estado == EstadoEspacio.PAUSADO;
     }
 

@@ -562,7 +562,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-27.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-28",

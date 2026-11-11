@@ -163,6 +163,19 @@ class CancelacionReservaServiceTest {
     }
 
     @Test
+    @DisplayName("HU-27 R77: vistaPrevia y confirmar con QuienCancela.ADMIN dan 403 sin leer, aun con sesión ADMIN")
+    void adminNoCancelaPorLasRutasDeHu15() {
+        for (var sesion : new UsuarioAutenticado[] {ADMIN, USUARIO, ARRENDADOR, null}) {
+            assertThatThrownBy(() -> servicio.vistaPrevia(sesion, ID, QuienCancela.ADMIN))
+                    .isInstanceOf(AccesoDenegadoException.class);
+            assertThatThrownBy(() -> servicio.confirmar(sesion, ID, QuienCancela.ADMIN, CIEN, IP))
+                    .isInstanceOf(AccesoDenegadoException.class);
+        }
+
+        verifyNoInteractions(reservas, bloques, disponibilidad, catalogo, pagos, avisos, auditoria);
+    }
+
+    @Test
     @DisplayName("HU-15 R4: un id mal escrito es 404 sin tocar repositorios, aunque el cuerpo esté mal")
     void idMalEscrito() {
         assertThatThrownBy(() -> servicio.vistaPrevia(USUARIO, "abc", QuienCancela.USUARIO))

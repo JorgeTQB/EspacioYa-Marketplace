@@ -1661,3 +1661,53 @@
 - **Veredicto del reviewer:** `APPROVED` (`progress/review_HU-28.md`).
 - **Resultado:** `./init.sh` completo salida 0 (233 unitarias, 1177 tests en `verify`, 0 fallos; lint y build OK). Status →
   `done`. Todo sin commitear.
+
+## 2026-11-10 — HU-27 Reportes y moderación de publicaciones y reseñas (done)
+
+- **Dueño:** Kevin Chan · rama `feature/HU-27-reportes-moderacion` (desde `develop` @ d5e0a80). A pedido de Kevin, la rama
+  incluye HU-28 traída por fast-forward (`git merge --ff-only origin/feature/HU-28-historial-pagos-comprobantes`,
+  d5e0a80..c3d6af6, sin commit nuevo; HU-28 aún sin PR a `develop`). Los 6 archivos compartidos (`App.jsx`,
+  `EtiquetaEstado.jsx`, `Panel.jsx`, `docs/architecture.md`, `docs/frontend.md`, `feature_list.json`) se combinaron sin
+  conflictos.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-27.md`) → spec-author (`specs/HU-27/`, R1–R62, T1–T31) →
+  respuestas de Kevin → spec-author con delta (`progress/spec_delta_HU-27.md`, R63–R78, T32–T38) → aprobación de Kevin Chan
+  el 2026-11-09 → implementer (`progress/impl_HU-27.md`) → reviewer `CHANGES_REQUESTED` → spec-author alinea `design.md`
+  (`progress/spec_fix_HU-27.md`) → reviewer `APPROVED` (`progress/review_HU-27.md`, re-revisión 2026-11-10).
+- **Decisiones aprobadas:** P1–P17. Reporta cualquier usuario o arrendador (no el admin, ni su propio espacio o reseña);
+  catálogo de motivos; un reporte por persona y contenido; cupo de 10 en 24 h móviles (429); la decisión resuelve los
+  reportes hermanos; motivo obligatorio también al mantener; estados `POR_REVISAR`/`MANTENIDO`/`OCULTADO`; ocultar es
+  **definitivo** (P8, confirmado por Kevin); `OCULTAR_POR_FRAUDE` (P17, solo espacios) cancela las reservas `CONFIRMADA`
+  por iniciar con reembolso 100 % (Strategy `MODERACION`, `QuienCancela.ADMIN`), fuera de liquidación, con correo a los
+  usuarios ("Cancelada por: EspacioYa") y un resumen al arrendador, todo en una transacción; `OCULTAR` simple no toca
+  reservas; sección `reportes` en HU-22 (`@Order(5)`); `exigirAdmin` extraído a `comun.seguridad.RolesSesion`; el admin no
+  ve al reportante; `espacio_id`/`resena_id` con FK en lugar de `objetivo_id` (P15). Preguntas no bloqueantes del delta
+  resueltas por Kevin: se acepta el riesgo del pago aprobado tras ocultar (≤ 15 min), basta el reclamo de HU-26 para
+  reservas ya iniciadas, y el admin puede ocultar por fraude aunque ningún reporte tenga motivo `FRAUDE`.
+- **Cambios (backend):** migración `V8_2__reportes.sql`; en `administracion`, dominio `Reporte` y enums, `ReglasReporte`,
+  `ReporteRepository`, DTO, `ReporteService`, `ReporteAdminService`, `VistaReportes`, `AvisosModeracion`, correo del
+  espacio ocultado (Factory Method), `DatosPersonalesReportesImpl`, `ReporteController` y `ReporteAdminController`; en
+  `espacios`, `Espacio.ocultar`, `EstadoEspacioService.ocultarComoAdmin` y `ModeracionEspacios(Impl)`; en `busqueda`,
+  `Resena.ocultar` y `ModeracionResenas(Impl)`; en `reservas`, `QuienCancela.ADMIN`, `ReembolsoPorModeracion`,
+  `CancelacionPorModeracion(Impl)` y rechazo de `ADMIN` en las rutas de HU-15; `QuienCancelo` ("EspacioYa");
+  `RolesSesion.exigirAdmin` en 7 servicios. Pruebas unitarias e IT nuevas (`ReporteRestriccionesIT`,
+  `ReporteControllerIT`, `ReporteAdminControllerIT`, `OcultarPorFraudeIT`, `DatosPersonalesReportesIT`, entre otras).
+- **Cambios (frontend):** `ReportarContenido`, `ReportesAdmin`, `RevisarReporte` (con sus `.module.css`); cambios en
+  `api/administracion.js`, `EtiquetaEstado.jsx`, `FichaEspacio.jsx`, `ResenasEspacio.jsx`, `textosFicha.js`,
+  `textosAdministracion.js`, `Panel.jsx` y `App.jsx`. Solo tokens y kit.
+- **Docs:** `docs/architecture.md` (sección "Moderación: qué deja HU-27", `@Order(5)`, Strategy `MODERACION`,
+  `RolesSesion`, estados), `docs/modelo-datos.md` (`reporte`, `cancelada_por`), `docs/frontend.md`.
+- **Incidencias:** (1) Docker Desktop no arrancaba: HU-27 pasó a `blocked` hasta que Kevin lo levantó. (2) Al correr las IT
+  fallaron 4: un defecto real en `ck_reporte_decision` de `V8_2` (un CHECK con NULL acepta la fila; corregido con
+  `IS NOT NULL` explícitos, igual que HU-26) y 3 errores de datos o de aserción en los tests. (3) El reviewer rechazó la
+  primera vez solo porque `design.md` § migración conservaba ese hueco de NULL y porque faltaba `./init.sh` completo con
+  Docker; ambos resueltos.
+- **Veredicto del reviewer:** `APPROVED`. R1–R78 trazados a tests, T1–T38 `[x]`, checkpoints C1–C4 y C6 OK; C5 completado en
+  este cierre.
+- **Pendientes (no bloqueantes):**
+  1. Confirmar antes del merge que `V8_2` sigue libre en `develop`. Una base local que haya aplicado la versión anterior
+     de `V8_2` dará error de checksum en Flyway: recrearla.
+  2. Observaciones del reviewer: `ReporteAdminController` usa `ConversionReclamos.idReclamo` para el id de un reporte
+     (conviene un nombre neutral); etiquetas literales en `RevisarReporte.jsx` y `ReportesAdmin.jsx` fuera de
+     `textosAdministracion.js`.
+- **Resultado:** `./init.sh` completo salida 0 (896 unitarias y 1231 tests en `verify`, IT de HU-27 y HU-28 incluidas,
+  0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.

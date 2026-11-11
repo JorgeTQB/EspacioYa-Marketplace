@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.administracion.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -23,7 +25,6 @@ import pe.edu.ulima.espacioya.administracion.service.correo.DatosResolucion;
 import pe.edu.ulima.espacioya.busqueda.service.BusquedaService;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.ErrorCampoDTO;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
@@ -53,7 +54,6 @@ public class ReclamoAdminService {
     public static final String GRUPO_ABIERTOS = "abiertos";
     public static final String GRUPO_RESUELTOS = "resueltos";
 
-    private static final String ROL_ADMIN = "ADMIN";
     private static final String CAMPO_GRUPO = "grupo";
     private static final String CAMPO_REEMBOLSO = "reembolso";
     private static final String CAMPO_MONTO = "montoReembolso";
@@ -174,12 +174,5 @@ public class ReclamoAdminService {
             throw new ReglaNegocioException(CAMPO_MONTO, MENSAJE_MONTO);
         }
         return monto.setScale(2, RoundingMode.UNNECESSARY);
-    }
-
-    // Copiado como en los otros servicios del admin (DT-19): extraerlo es de HU-27.
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 }

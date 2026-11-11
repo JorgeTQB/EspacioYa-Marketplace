@@ -7,6 +7,7 @@ import {
   ENLACE_MIS_RECLAMOS,
   ENLACE_RECLAMOS_ADMIN,
   ENLACE_RECLAMOS_ARRENDADOR,
+  ENLACE_REPORTES_ADMIN,
 } from '../administracion/textosAdministracion.js'
 import {
   ENLACE_CUENTA_BANCARIA,
@@ -103,6 +104,9 @@ function Panel() {
           </p>
           <p>
             <Link to="/admin/reclamos">{ENLACE_RECLAMOS_ADMIN}</Link>
+          </p>
+          <p>
+            <Link to="/admin/reportes">{ENLACE_REPORTES_ADMIN}</Link>
           </p>
         </>
       )}

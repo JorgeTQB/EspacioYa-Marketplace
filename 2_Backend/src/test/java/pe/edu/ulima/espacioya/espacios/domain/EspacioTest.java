@@ -222,6 +222,45 @@ class EspacioTest {
         }
     }
 
+    @Test
+    @DisplayName("HU-27 R32: ocultar un PUBLICADO o un PAUSADO lo deja OCULTO con actualizadoEn del reloj")
+    void ocultarPublicadoOPausado() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.PUBLICADO, EstadoEspacio.PAUSADO}) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esOcultable()).isTrue();
+
+            espacio.ocultar(DESPUES);
+
+            assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.OCULTO);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R39: ocultar un BORRADOR, BAJA u OCULTO lanza y no cambia estado ni actualizadoEn")
+    void ocultarNoOcultableLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esOcultable()).isFalse();
+            assertThatThrownBy(() -> espacio.ocultar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R38: un OCULTO es final: no es editable, pausable, reanudable ni admite baja")
+    void ocultoEsFinal() {
+        var espacio = enEstado(EstadoEspacio.PUBLICADO);
+        espacio.ocultar(DESPUES);
+
+        assertThat(espacio.esEditable()).isFalse();
+        assertThat(espacio.esPausable()).isFalse();
+        assertThat(espacio.esReanudable()).isFalse();
+        assertThat(espacio.admiteBaja()).isFalse();
+        assertThat(espacio.esOcultable()).isFalse();
+    }
+
     private static DatosEspacio conCaracteristicas(Caracteristica... caracteristicas) {
         return new DatosEspacio(DATOS.nombre(), DATOS.tipo(), DATOS.direccion(), DATOS.zona(), DATOS.capacidad(),
                 DATOS.precioHora(), DATOS.descripcion(), Set.of(caracteristicas));

@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.pagos.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -16,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.ErrorCampoDTO;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
@@ -62,7 +63,6 @@ public class LiquidacionAdminService {
     public static final String GRUPO_PAGADAS = "pagadas";
 
     static final String RESTRICCION_RESERVA_LIQUIDADA = "uq_liquidacion_detalle_reserva";
-    private static final String ROL_ADMIN = "ADMIN";
     private static final String ENTIDAD_LIQUIDACION = "liquidacion";
     private static final String ENTIDAD_CUENTA = "cuenta_bancaria";
     private static final Pattern SOLO_DIGITOS = Pattern.compile("[0-9]+");
@@ -212,11 +212,5 @@ public class LiquidacionAdminService {
     private static boolean nombra(DataIntegrityViolationException conflicto, String restriccion) {
         var mensaje = conflicto.getMostSpecificCause().getMessage();
         return mensaje != null && mensaje.contains(restriccion);
-    }
-
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 }

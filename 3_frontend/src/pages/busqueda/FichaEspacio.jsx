@@ -21,12 +21,14 @@ import {
   TITULO_POLITICA,
   resumenResenas,
 } from './textosFicha.js'
+import ReportarContenido from './ReportarContenido.jsx'
 import ResenasEspacio from './ResenasEspacio.jsx'
 import estilos from './FichaEspacio.module.css'
 
 const NO_ENCONTRADO = 404
 const CAMPO_FECHA = 'fecha'
 const ROL_QUE_RESERVA = 'USUARIO'
+const ROLES_QUE_REPORTAN = ['USUARIO', 'ARRENDADOR']
 
 function errorDeFecha(error) {
   return error?.errores?.find((e) => e.campo === CAMPO_FECHA)?.mensaje ?? null
@@ -94,6 +96,8 @@ function FichaEspacio() {
   const consecutivas = sonConsecutivas(horas)
   // El rol solo elige qué mostrar; el servidor lo revalida. Un visitante también puede pulsar Reservar (CA4).
   const puedeReservar = !sesion || sesion.rol === ROL_QUE_RESERVA
+  // HU-27: reportan usuarios y arrendadores; un visitante o un admin no ven el botón (la API igual responde 401/403).
+  const puedeReportar = Boolean(sesion) && ROLES_QUE_REPORTAN.includes(sesion.rol)
 
   function cambiarFecha(valor) {
     setParametros({ fecha: valor }, { replace: true })
@@ -176,6 +180,7 @@ function FichaEspacio() {
               <li key={regla}>{regla}</li>
             ))}
           </ul>
+          {puedeReportar && <ReportarContenido tipoObjetivo="ESPACIO" objetivoId={espacio.id} />}
         </div>
       </div>
 
@@ -214,7 +219,7 @@ function FichaEspacio() {
         </div>
       )}
 
-      <ResenasEspacio key={espacio.id} espacioId={espacio.id} />
+      <ResenasEspacio key={espacio.id} espacioId={espacio.id} puedeReportar={puedeReportar} />
     </section>
   )
 }
