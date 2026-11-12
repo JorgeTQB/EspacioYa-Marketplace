@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -472,6 +473,62 @@ class EstadoEspacioServiceTest {
                     .isInstanceOf(AccesoDenegadoException.class);
         }
         verifyNoInteractions(espacios, puerto, auditoria);
+    }
+
+    // ── Ocultar (HU-27) ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-27 R32, R52: ocultar un PUBLICADO o PAUSADO lo deja OCULTO y audita OCULTACION_ESPACIO")
+    void adminOculta() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.PUBLICADO, EstadoEspacio.PAUSADO}) {
+            var espacio = deCualquiera(estado);
+
+            var ocultado = servicio.ocultarComoAdmin(ADMIN, ESPACIO_ID, IP);
+
+            assertThat(ocultado).isEqualTo(new EspacioOcultado(ESPACIO_ID, ARRENDADOR_ID, "Cancha Los Olivos",
+                    estado.name()));
+            assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.OCULTO);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+            var evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+            verify(auditoria, atLeastOnce()).registrar(evento.capture());
+            assertThat(evento.getValue()).isEqualTo(new EventoAuditoria(ADMIN_ID, "OCULTACION_ESPACIO", "espacio",
+                    ESPACIO_ID, IP, "estado=" + estado + "->OCULTO;actor=ADMIN;arrendadorId=" + ARRENDADOR_ID));
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R39, R54: ocultar un BORRADOR, BAJA u OCULTO da 400 no ocultable sin cambiarlo ni auditar")
+    void adminOcultarNoOcultableRechaza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = deCualquiera(estado);
+
+            assertThatThrownBy(() -> servicio.ocultarComoAdmin(ADMIN, ESPACIO_ID, IP))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessage(EstadoEspacioService.MENSAJE_NO_OCULTABLE);
+            sinCambio(espacio, estado);
+        }
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("HU-27 R62: ocultar con una sesión que no es ADMIN da 403 sin leer ni bloquear el espacio")
+    void ocultarSinRolAdminRecibe403() {
+        for (var sesion : new UsuarioAutenticado[] {ARRENDADOR, USUARIO, null}) {
+            assertThatThrownBy(() -> servicio.ocultarComoAdmin(sesion, ESPACIO_ID, IP))
+                    .isInstanceOf(AccesoDenegadoException.class);
+        }
+        verifyNoInteractions(espacios, puerto, auditoria);
+    }
+
+    @Test
+    @DisplayName("HU-27 R46: ocultar no consulta las reservas del espacio")
+    void ocultarNoConsultaReservas() {
+        deCualquiera(EstadoEspacio.PUBLICADO);
+
+        servicio.ocultarComoAdmin(ADMIN, ESPACIO_ID, IP);
+
+        verifyNoInteractions(puerto);
+        verify(proveedor, never()).getIfAvailable();
     }
 
     // ── Auditoría ────────────────────────────────────────────────────────

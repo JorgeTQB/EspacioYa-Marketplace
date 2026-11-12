@@ -37,7 +37,8 @@ import pe.edu.ulima.espacioya.reservas.service.ReservaParaResena;
 import pe.edu.ulima.espacioya.reservas.service.ReservasParaResena;
 
 /**
- * Reseñas de reservas usadas (HU-24, RN-13). Clase concreta: {@code administracion} aún no la usa (DT-18). Sin
+ * Reseñas de reservas usadas (HU-24, RN-13). Clase concreta: la interfaz pública para {@code administracion} es
+ * {@link ModeracionResenas} (HU-27). Sin
  * bloqueos: una {@code CONFIRMADA} terminada ya no cambia de estado y la doble reseña la frena el índice único (DT-7).
  */
 @Service

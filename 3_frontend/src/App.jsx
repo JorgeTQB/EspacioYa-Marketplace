@@ -11,7 +11,9 @@ import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
 import DetalleReclamo from './pages/administracion/DetalleReclamo.jsx'
 import MisReclamos from './pages/administracion/MisReclamos.jsx'
 import ReclamosAdmin from './pages/administracion/ReclamosAdmin.jsx'
+import ReportesAdmin from './pages/administracion/ReportesAdmin.jsx'
 import ResolverReclamo from './pages/administracion/ResolverReclamo.jsx'
+import RevisarReporte from './pages/administracion/RevisarReporte.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
@@ -34,6 +36,7 @@ import CuentaBancaria from './pages/pagos/CuentaBancaria.jsx'
 import DetalleLiquidacion from './pages/pagos/DetalleLiquidacion.jsx'
 import Liquidaciones from './pages/pagos/Liquidaciones.jsx'
 import MisLiquidaciones from './pages/pagos/MisLiquidaciones.jsx'
+import MisPagos from './pages/pagos/MisPagos.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
@@ -349,12 +352,38 @@ function App() {
               </RutaProtegida>
             }
           />
+          {/* HU-27: panel admin de moderación; la API valida IP, MFA y rol, y decide qué se oculta o cancela. */}
+          <Route
+            path="/admin/reportes"
+            element={
+              <RutaProtegida>
+                <ReportesAdmin />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/reportes/:id"
+            element={
+              <RutaProtegida>
+                <RevisarReporte />
+              </RutaProtegida>
+            }
+          />
           {/* HU-19 CA2 y CA3: la API solo responde al rol ARRENDADOR y con sus propias liquidaciones. */}
           <Route
             path="/panel/liquidaciones"
             element={
               <RutaProtegida>
                 <MisLiquidaciones />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-28 CA1 y CA2: la API solo responde al rol USUARIO y con sus propios pagos. */}
+          <Route
+            path="/mis-pagos"
+            element={
+              <RutaProtegida>
+                <MisPagos />
               </RutaProtegida>
             }
           />

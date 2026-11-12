@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.administracion.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -12,7 +14,6 @@ import pe.edu.ulima.espacioya.administracion.dto.RevisionIdentidadDTO;
 import pe.edu.ulima.espacioya.administracion.repository.RevisionIdentidadRepository;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.cuentas.dto.ArrendadorEnRevisionDTO;
 import pe.edu.ulima.espacioya.cuentas.dto.ExpedienteIdentidadDTO;
@@ -29,8 +30,6 @@ public class RevisionIdentidadService {
     public static final String ACCION_APROBADA = "IDENTIDAD_APROBADA";
     public static final String ACCION_RECHAZADA = "IDENTIDAD_RECHAZADA";
     public static final String ENTIDAD_PERFIL = "perfil_arrendador";
-
-    private static final String ROL_ADMIN = "ADMIN";
 
     private final CuentaService cuentas;
     private final RevisionIdentidadRepository revisiones;
@@ -75,13 +74,6 @@ public class RevisionIdentidadService {
         var revision = revisiones.save(RevisionIdentidad.rechazar(id, admin.usuarioId(), motivo, ahora));
         auditar(ACCION_RECHAZADA, admin, revision, ip);
         return new RevisionIdentidadDTO(revision.getDecision().name(), estado, ahora);
-    }
-
-    // El rol se relee del backend en cada solicitud (RNF-SEG-18); CuentaService lo vuelve a comprobar (R41).
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 
     // El motivo vive solo en revision_identidad y en el perfil: la auditoría no lo duplica (S16, R43).

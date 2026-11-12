@@ -1,4 +1,4 @@
-import { peticion } from './cliente.js'
+import { peticion, peticionArchivo } from './cliente.js'
 
 // HU-13. Sin cuerpo: el monto lo calcula el servidor y la tarjeta se escribe en la página de la pasarela.
 export function iniciarPago(reservaId) {
@@ -71,4 +71,15 @@ export function marcarLiquidacionPagada(id, numeroOperacion) {
 export function listarMisLiquidaciones(pagina) {
   const parametros = new URLSearchParams({ pagina: String(pagina) })
   return peticion(`/api/arrendadores/actual/liquidaciones?${parametros}`)
+}
+
+// HU-28. El usuario sale de la sesión: ninguna ruta lleva su id.
+export function listarMisTransacciones(pagina) {
+  const parametros = new URLSearchParams({ pagina: String(pagina) })
+  return peticion(`/api/transacciones?${parametros}`)
+}
+
+// Devuelve un Blob con el PDF: un enlace <a href> no puede enviar el encabezado Authorization.
+export function descargarComprobante(id) {
+  return peticionArchivo(`/api/transacciones/${encodeURIComponent(id)}/comprobante`)
 }

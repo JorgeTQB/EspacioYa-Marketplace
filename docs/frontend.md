@@ -145,8 +145,9 @@ siempre muestra el **texto** del estado, no solo el color.
 | Identidad del arrendador | `VERIFICADA` | `EN_REVISION` | `RECHAZADA` | `NO_INICIADA` |
 | Cuenta | `ACTIVA`, correo verificado | — | `SUSPENDIDA` | correo pendiente, `ELIMINADA` |
 | Liquidación (HU-19) | `PAGADA` ("Pagada") | `GENERADA` ("Por pagar"), `PENDIENTE_CUENTA` ("Pendiente de cuenta") | — | — |
-| Reseña | `VISIBLE` | — | `OCULTA` (moderación) | — |
+| Reseña (HU-27 en `EtiquetaEstado`) | `VISIBLE` ("Visible") | — | `OCULTA` ("Oculta", moderación) | — |
 | Reclamo (HU-26) | — | `ABIERTO` ("Abierto") | — | `RESUELTO_USUARIO` ("Resuelto a favor del usuario"), `RESUELTO_ARRENDADOR` ("Resuelto a favor del arrendador") |
+| Reporte (HU-27) | — | `POR_REVISAR` ("Por revisar") | — | `MANTENIDO` ("Contenido mantenido"), `OCULTADO` ("Contenido ocultado") |
 | Cuenta bancaria (HU-18) | `DISPONIBLE` ("Disponible para liquidaciones") | `RETENIDA` ("Retenida 72 h") | — | — |
 
 Cancelada y expirada van en neutro, no en error: no son fallos, son finales
@@ -316,7 +317,7 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   `/reservas/:id?pago=exito|fallo`: ese parámetro **solo elige el mensaje** y nunca confirma nada. Con `?pago=exito` y la
   reserva sin confirmar, relee cada 3 s, hasta 10 veces, sin "Se acabó el tiempo" ni "Pagar": quien pagó no debe pagar otra
   vez.
-  HU-13 no muestra el estado del pago con `EtiquetaEstado`: HU-28 agregará al mapa los valores de la fila Pago.
+  HU-13 no muestra el estado del pago con `EtiquetaEstado`; HU-28 agregó al mapa `PAGADO` y `REEMBOLSADO` (los dos que ve el usuario).
 - **`/reservas/:id/pago-simulado` (HU-13 D9, `pages/pagos/PagoSimulado.jsx`, con `RutaProtegida`):** con la pasarela simulada,
   "Pagar" lleva aquí en lugar de a un checkout. Hace de página de la pasarela: no tiene ningún campo, y sobre todo lo demás va
   siempre la `Alerta atencion` que dice que es una simulación, que no se cobra nada ni se usa ninguna tarjeta. Tiene
@@ -398,6 +399,13 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   neto, sus reservas y: `PAGADA` → "Pagada el … · Operación N.º … · <banco> <cuenta enmascarada>"; `PENDIENTE_CUENTA` →
   `Alerta atencion` con enlace a `/panel/cuenta-bancaria`; `GENERADA` → "En proceso de pago.". Sin totales acumulados (el
   panel de ingresos está fuera del alcance).
+- **`/mis-pagos` (HU-28, `pages/pagos/MisPagos.jsx`, con `RutaProtegida`):** "Mis pagos" (enlace desde `Panel` para `USUARIO`);
+  otro rol vuelve a `/panel`. Reutiliza `SeccionLiquidaciones` con un `cargar` que renombra `transacciones` a `liquidaciones`.
+  Cada pago es una `Tarjeta` "Pago #id" con `EtiquetaEstado` (`PAGADO` "Pagado" éxito, `REEMBOLSADO` "Reembolsado" neutro),
+  fecha, espacio, monto, "Reembolsado: S/ X" si la API trae `montoReembolsado` y "Pago simulado" si `simulada`. `Boton
+  secundario` "Descargar comprobante": `descargarComprobante(id)` (`peticionArchivo`, Blob con el token) y un `<a download>`
+  temporal; el error se muestra en `Alerta error` bajo la tarjeta. Lista vacía: "Aún no tienes pagos.". Sin reglas en el
+  cliente. No agrega componentes al kit ni colores.
 - **Reclamos (HU-26, `specs/HU-26/design.md` § 12).** En `/mis-reservas`, las reservas de `listarReclamables()` llevan
   `pages/reservas/ReportarProblema.jsx` (no es del kit): `Boton secundario` "Reportar un problema" y `Modal primario` con
   `Campo select` "Motivo" y `Campo textarea` "Descripción" (`abrirReclamo`); con 201, `Alerta exito` con enlace "Ver
@@ -411,6 +419,17 @@ Es justo lo que piden los criterios de aceptación ("veo un mensaje genérico",
   reembolsar (S/)" / "Motivo de la resolución" y el primario "Resolver" con `Modal primario` que repite la decisión con
   el monto de la API o el escrito. El impedimento `reclamos` de HU-22 enlaza a `/reclamos`. No agrega componentes al kit
   ni colores; agrega los estados de la fila Reclamo.
+- **Reportes y moderación (HU-27, `specs/HU-27/design.md` § 12).** En `/espacios/:id`, para `USUARIO` y `ARRENDADOR`
+  (un visitante o un `ADMIN` no lo ven), `pages/busqueda/ReportarContenido.jsx` (no es del kit) bajo la política de
+  cancelación ("Reportar publicación") y en `acciones` de cada reseña ("Reportar reseña"): `Boton secundario` y `Modal
+  primario` con `Campo select` "Motivo" (`reportarContenido`); con 201, `Alerta exito` y el botón queda "Reportado"; el
+  error de `motivo` se queda en el modal y cualquier otro rechazo va bajo el botón. `/admin/reportes` (`ReportesAdmin.jsx`)
+  reutiliza `SeccionLiquidaciones` para "Por revisar" y "Resueltos". `/admin/reportes/:id` (`RevisarReporte.jsx`) muestra
+  el reporte, el contenido en su estado actual (espacio con "Arrendador: <nombre>" o reseña) y, con `POR_REVISAR`, el
+  formulario "Decisión" (la opción "Ocultar por fraude y cancelar sus reservas" solo para espacios) / "Motivo de la
+  decisión" con el primario "Registrar decisión"; el `Modal` es `peligro-confirmar` al ocultar y `primario` al mantener.
+  Enlace "Reportes" en el `Panel` del `ADMIN`. No agrega componentes al kit ni colores; agrega los estados de las filas
+  Reseña y Reporte.
 
 ## Accesibilidad mínima
 

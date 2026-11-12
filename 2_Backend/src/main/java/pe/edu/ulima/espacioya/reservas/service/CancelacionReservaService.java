@@ -48,7 +48,7 @@ public class CancelacionReservaService {
     public static final String MENSAJE_MONTO_CAMBIO = "El monto a reembolsar cambió. Revísalo antes de confirmar.";
     public static final String CAMPO_MONTO_VISTO = "montoReembolsoVisto";
 
-    private static final String ENTIDAD_RESERVA = "reserva";
+    public static final String ENTIDAD_RESERVA = "reserva";
     private static final int DECIMALES_MONTO = 2;
 
     private final ReservaRepository reservas;
@@ -89,6 +89,7 @@ public class CancelacionReservaService {
         var propia = switch (quien) {
             case USUARIO -> deUsuario(usuario, reservaId);
             case ARRENDADOR -> deArrendador(usuario, reservaId);
+            case ADMIN -> throw new AccesoDenegadoException();
         };
         var reserva = propia.reserva();
         var horario = horario(reserva);
@@ -167,6 +168,7 @@ public class CancelacionReservaService {
         return switch (quien) {
             case USUARIO -> usuario.usuarioId().equals(reserva.getUsuarioId());
             case ARRENDADOR -> usuario.usuarioId().equals(espacio.arrendadorId());
+            case ADMIN -> throw new AccesoDenegadoException();
         };
     }
 
@@ -199,8 +201,9 @@ public class CancelacionReservaService {
                 reserva.getId(), ip, detalle));
     }
 
+    // HU-27 R77: el admin solo cancela al ocultar un espacio por fraude, nunca por las rutas de HU-15.
     private static void exigirRol(UsuarioAutenticado usuario, QuienCancela quien) {
-        if (usuario == null || !quien.rolRequerido().equals(usuario.rol())) {
+        if (quien == QuienCancela.ADMIN || usuario == null || !quien.rolRequerido().equals(usuario.rol())) {
             throw new AccesoDenegadoException();
         }
     }

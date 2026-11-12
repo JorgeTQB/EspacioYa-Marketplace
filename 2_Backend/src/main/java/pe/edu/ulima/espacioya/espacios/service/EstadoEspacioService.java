@@ -1,16 +1,18 @@
 package pe.edu.ulima.espacioya.espacios.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.time.Clock;
 import java.time.Instant;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
@@ -44,8 +46,8 @@ public class EstadoEspacioService {
             + "pago, espera a que termine o venza.";
     public static final String MENSAJE_RESERVAS_POR_TERMINAR_ADMIN = "Este espacio tiene reservas por terminar: el "
             + "arrendador debe cancelarlas antes de darlo de baja.";
-
-    private static final String ROL_ADMIN = "ADMIN";
+    public static final String ACCION_OCULTACION = "OCULTACION_ESPACIO";
+    public static final String MENSAJE_NO_OCULTABLE = "Solo puedes ocultar un espacio publicado o pausado.";
 
     private final EspacioService espacioService;
     private final EspacioRepository espacios;
@@ -117,6 +119,24 @@ public class EstadoEspacioService {
         return new EstadoEspacioDTO(espacio.getId(), espacio.getEstado().name());
     }
 
+    /**
+     * HU-27: se une a la decisión del admin sobre un reporte (DT-3). No mira las reservas: ocultar sin fraude las
+     * mantiene y, por fraude, las cancela {@code administracion} con {@code reservas} (DT-11).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public EspacioOcultado ocultarComoAdmin(UsuarioAutenticado admin, Long id, String ip) {
+        exigirAdmin(admin);
+        var espacio = cualquiera(id);
+        if (!espacio.esOcultable()) {
+            throw new ReglaNegocioException(MENSAJE_NO_OCULTABLE);
+        }
+        var anterior = espacio.getEstado();
+        espacio.ocultar(Instant.now(reloj));
+        auditar(admin.usuarioId(), ACCION_OCULTACION, espacio, ip,
+                transicion(anterior, espacio) + actorAdmin(espacio));
+        return new EspacioOcultado(espacio.getId(), espacio.getArrendadorId(), espacio.getNombre(), anterior.name());
+    }
+
     private void pausar(Espacio espacio, Long usuarioId, String ip, String sufijo) {
         if (!espacio.esPausable()) {
             throw new ReglaNegocioException(MENSAJE_SOLO_PUBLICADO);
@@ -161,12 +181,6 @@ public class EstadoEspacioService {
 
     private Espacio cualquiera(Long id) {
         return espacios.findParaReservar(id).orElseThrow(RecursoNoEncontradoException::new);
-    }
-
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 
     private static String actorAdmin(Espacio espacio) {

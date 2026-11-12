@@ -101,3 +101,91 @@ export function confirmaParcial(monto) {
 export const ENLACE_MIS_RECLAMOS = 'Mis reclamos'
 export const ENLACE_RECLAMOS_ARRENDADOR = 'Reclamos de mis reservas'
 export const ENLACE_RECLAMOS_ADMIN = 'Reclamos'
+
+// ── Reportes y moderación (HU-27) ────────────────────────────────────
+// La decisión, sus efectos y las cantidades los fija el servidor; aquí solo textos.
+export const ENLACE_REPORTES_ADMIN = 'Reportes'
+export const TITULO_REPORTES_ADMIN = 'Reportes'
+export const TITULO_POR_REVISAR = 'Por revisar'
+export const SIN_POR_REVISAR = 'No hay reportes por revisar.'
+export const SIN_REPORTES_RESUELTOS = 'Aún no hay reportes resueltos.'
+export const ENLACE_REVISAR = 'Revisar'
+export const TITULO_REPORTE = 'Reporte'
+export const TITULO_CONTENIDO_REPORTADO = 'Contenido reportado'
+export const ENLACE_FICHA_PUBLICA = 'Ver ficha pública'
+
+export function tituloFilaReporte(tipoObjetivo, espacioNombre) {
+  return tipoObjetivo === 'ESPACIO' ? `Espacio: ${espacioNombre}` : `Reseña en ${espacioNombre}`
+}
+
+export function reportesPendientes(n) {
+  return `${n} reportes por revisar sobre este contenido`
+}
+
+export function calificacionDeCinco(n) {
+  return `${n} de 5`
+}
+
+export const DECISIONES_REPORTE = {
+  MANTENER: 'Decisión: se mantuvo el contenido',
+  OCULTAR: 'Decisión: se ocultó el contenido',
+  OCULTAR_POR_FRAUDE: 'Decisión: se ocultó por fraude y se cancelaron sus reservas por empezar',
+}
+
+export const TITULO_DECIDIR = 'Decidir'
+export const ETIQUETA_DECISION = 'Decisión'
+export const OPCION_MANTENER = { valor: 'MANTENER', etiqueta: 'Mantener el contenido' }
+export const OPCION_OCULTAR = { valor: 'OCULTAR', etiqueta: 'Ocultar el contenido' }
+export const OPCION_OCULTAR_POR_FRAUDE = {
+  valor: 'OCULTAR_POR_FRAUDE',
+  etiqueta: 'Ocultar por fraude y cancelar sus reservas',
+}
+export const OPCION_ELIGE_DECISION = { valor: '', etiqueta: 'Elige una opción' }
+export const ETIQUETA_MOTIVO_DECISION = 'Motivo de la decisión'
+export const AYUDA_MOTIVO_DECISION = 'Hasta 500 caracteres.'
+export const AYUDA_MOTIVO_ESPACIO = 'Si lo ocultas, se lo enviaremos al arrendador por correo.'
+export const BOTON_REGISTRAR_DECISION = 'Registrar decisión'
+
+export const TITULO_MODAL_OCULTAR = '¿Ocultar este contenido?'
+export const TITULO_MODAL_FRAUDE = '¿Ocultar este espacio por fraude?'
+export const TITULO_MODAL_MANTENER = '¿Mantener este contenido?'
+export const TITULO_MODAL_DECISION = '¿Registrar esta decisión?'
+export const TEXTO_FRAUDE = 'Dejará de verse en el catálogo. Cancelaremos todas sus reservas confirmadas que aún no '
+  + 'empiezan, devolveremos el 100 % a quienes reservaron y les avisaremos por correo. No se puede deshacer.'
+export const TEXTO_OCULTAR_ESPACIO = 'Avisaremos al arrendador por correo con el motivo. Sus reservas confirmadas se '
+  + 'mantienen.'
+
+export function textoOcultar(pendientes) {
+  return `Dejará de verse en el catálogo. Se resolverán los ${pendientes} reportes por revisar.`
+}
+
+export const DECISION_REGISTRADA = 'Decisión registrada.'
+export const DECISION_ESPACIO_OCULTO = 'Decisión registrada. Avisamos al arrendador por correo.'
+
+export function decisionPorFraude(n) {
+  return `Decisión registrada. Cancelamos ${n} reservas con reembolso total y avisamos por correo.`
+}
+
+export function arrendadorDelEspacio(nombre) {
+  return `Arrendador: ${nombre ?? SIN_NOMBRE}`
+}
+
+export function direccionDelEspacio(direccion) {
+  return `Dirección: ${direccion ?? ''}`
+}
+
+export function capacidadEnPersonas(capacidad) {
+  return `Capacidad: ${capacidad ?? ''} personas`
+}
+
+export function motivoDe(texto) {
+  return `Motivo: ${texto ?? ''}`
+}
+
+export function reportadoEl(instante) {
+  return `Reportado el ${fechaHora(instante)}`
+}
+
+export function resueltoEl(instante) {
+  return `Resuelto el ${fechaHora(instante)}`
+}

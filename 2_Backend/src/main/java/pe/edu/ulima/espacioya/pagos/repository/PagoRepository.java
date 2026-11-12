@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,6 +37,17 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
             + "and not exists (select d.id from LiquidacionDetalle d where d.reservaId = p.reservaId) "
             + "and (:incluirSimulados = true or p.idTransaccionPasarela not like 'sim-%') order by p.reservaId")
     List<Pago> pagadosSinLiquidar(@Param("incluirSimulados") boolean incluirSimulados);
+
+    /**
+     * Historial de pagos de unas reservas (HU-28 R2, R5, R20): solo los {@code estados} pedidos, del más reciente al más
+     * antiguo y, si {@code incluirSimulados} es falso, sin los de la pasarela simulada.
+     */
+    @Query("select p from Pago p where p.reservaId in :reservaIds and p.estado in :estados "
+            + "and (:incluirSimulados = true or p.idTransaccionPasarela not like 'sim-%') "
+            + "order by p.creadoEn desc, p.id desc")
+    Slice<Pago> deReservas(@Param("reservaIds") Collection<Long> reservaIds,
+                           @Param("estados") Collection<EstadoPago> estados,
+                           @Param("incluirSimulados") boolean incluirSimulados, Pageable pagina);
 
     // HU-22 R6: los pagos de las reservas del titular, para su exportación.
     List<Pago> findByReservaIdInOrderByCreadoEnAscIdAsc(Collection<Long> reservaIds);

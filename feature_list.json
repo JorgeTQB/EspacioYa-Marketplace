@@ -562,7 +562,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-27.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-28",
@@ -577,12 +577,12 @@
         "HU-13",
         "HU-16"
       ],
-      "owner": "Eduardo Saldaña",
-      "tester": "Ariel Enriquez",
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
       "patterns": [],
       "historia": "docs/historias/HU-28.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

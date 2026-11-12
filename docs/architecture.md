@@ -133,16 +133,19 @@ comun ← cuentas ← espacios ← reservas → pagos → cuentas
 | Interfaz (la define)                  | La implementa              | Para |
 |---------------------------------------|----------------------------|------|
 | `comun.ValidadorSesion`               | cuentas                    | Que el filtro de seguridad revise si la sesión está revocada |
-| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda (HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2, `DatosPersonalesResenasImpl` 3, `DatosPersonalesReclamosImpl` 4 —HU-26—): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
+| `cuentas.ParticipanteDatosPersonales` | reservas, pagos, busqueda (HU-24) | HU-22: `exportar(TitularDatos) → List<SeccionDatos>` (se une a la transacción, solo lee; nombre de sección único en todo el JSON), `impedimentos(TitularDatos, ahora) → List<Impedimento>` (`MANDATORY`; toma sus bloqueos **antes** de leer, no escribe) y `anonimizar(TitularDatos)` (`MANDATORY`; borra o anonimiza lo suyo, nunca registros contables; archivos con `DespuesDelCommit`). Sin sesión ni rol. Se inyecta en `DatosPersonalesService` como `List<>` ordenada con `@Order` (`DatosPersonalesReservasImpl` 1, `DatosPersonalesPagosImpl` 2, `DatosPersonalesResenasImpl` 3, `DatosPersonalesReclamosImpl` 4 —HU-26—, `DatosPersonalesReportesImpl` 5 —HU-27—): agregar un módulo es agregar un bean (OCP). Ver [Datos personales](#datos-personales-qué-deja-hu-22-hu-24-hu-26-hu-27) |
 | `espacios.ReservasDelEspacio`         | reservas                   | HU-08 y HU-21: `bloquesReservados(espacioId, desde, hasta)` → `BloqueReservado(fecha, horaInicio, pagado)` de las reservas activas (`PENDIENTE_PAGO` vigente o `CONFIRMADA`; `pagado` = `CONFIRMADA`). HU-10: método **default** `bloquesReservadosDelDia(espacioIds, fecha)` → `Map<Long, List<BloqueReservado>>` para la búsqueda en lote (por defecto llama a `bloquesReservados` por id; ver nota de HU-12 más abajo). Llega por `ObjectProvider`: sin implementación, ninguna fecha tiene reservas. **Contrato (HU-08 DT-10):** al crear o confirmar una reserva, `reservas` toma el mismo bloqueo del espacio (`EspacioRepository.findParaActualizar` o `SELECT … FOR UPDATE` sobre `espacio`) o relee `bloqueo_fecha` y el horario dentro de su transacción, para no reservar en un día que se acaba de bloquear |
 | `pagos.ReservasPorCobrar`             | reservas                   | HU-13: `deUsuario(reservaId, usuarioId)` → `ReservaPorCobrar` (monto, `expiraEn`, vigencia y si el espacio se ve); `bloquear(reservaId)` → `ReservaBloqueada` (`MANDATORY`: toma espacio y reserva y evalúa la vigencia después; lleva los datos de los correos); `confirmar(reservaId, evaluadaEn)` (`MANDATORY`; `IllegalStateException` si no es vigente) |
 | `pagos.ReservasLiquidables`           | reservas                   | HU-19: `describir(Collection<Long> reservaIds)` → `List<ReservaLiquidable>` (reserva, arrendador, espacio y su nombre, fecha, horas, `finEn` = fin del último bloque en Lima, `admitida` = `CONFIRMADA` o `CANCELADA` por el usuario con `monto_reembolso = 0`, `cancelada`). `readOnly`, una consulta por lote, sin sesión ni rol; colección vacía → `List.of()` sin consultar; una reserva sin bloques no aparece. Lo implementa `ReservasLiquidablesImpl` (no usa `ReservaDAO`: es una consulta del sistema con ids que salen de `pagos`). Se inyecta directo, como `ReservasPorCobrar` |
+| `pagos.ReservasDelUsuario`            | reservas                   | HU-28: `todas(usuarioId)` → `List<ReservaDelUsuario>` y `una(usuarioId, reservaId)` → `Optional<ReservaDelUsuario>` (reserva, espacio y su nombre, fecha, `horaInicio`, `horaFin`). El dueño va en la firma: usa `ReservaDAO.delUsuario` y `CatalogoEspaciosService.nombres`, así que una reserva ajena o inexistente da vacío. `readOnly`, sin sesión ni rol. Lo implementa `ReservasDelUsuarioImpl`; `pagos` no lee la tabla `reserva` |
 | `pagos.ReclamosAbiertos`              | administracion (HU-26)     | RN-12: `conReclamoAbierto(Collection<Long> reservaIds) → Set<Long>`, de esos ids los que tienen un reclamo `ABIERTO`; colección vacía → `Set.of()` sin consultar; se une a la transacción y no bloquea. `GeneradorLiquidaciones` lo consulta una vez por generación, después del bloqueo consultivo, como un filtro más de `liquidablesPorArrendador`. Lo implementa `ReclamosAbiertosImpl`. Ver [Reclamos](#reclamos-qué-deja-hu-26) |
 
 Solo los servicios que usan otros módulos llevan interfaz pública
 (`CuentaService`, `ReservaService`, `ReservasParaReclamo` — HU-26 —, `ReservasParaResena` — HU-24, ver
 [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27) —, `PagoService` — creada por HU-15 con `reembolsarCancelacion`, ver
-[Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28)); los internos son clases
+[Pagos](#pagos-qué-deja-hu-13-hu-14-hu-15-hu-16-hu-19-hu-28) —, y, para la moderación de HU-27,
+`espacios.service.ModeracionEspacios`, `busqueda.service.ModeracionResenas` y `reservas.service.CancelacionPorModeracion`,
+ver [Moderación](#moderación-qué-deja-hu-27)); los internos son clases
 concretas (YAGNI). `CuentaService` la creó HU-07 con
 `habilitacionArrendador` (correo e identidad verificados del arrendador de la
 sesión), que `espacios` usa en lugar de los repositorios de `cuentas`. HU-06 le agregó, para `administracion`,
@@ -360,7 +363,12 @@ fecha queda en `actualizado_en` y en la auditoría.
 - **Visibilidad.** No cambió nada en `busqueda`: toda la visibilidad pública exige `estado == PUBLICADO` (HU-09 D1), así que
   un `PAUSADO` o `BAJA` no aparece en la búsqueda, su ficha da 404 y no recibe reservas. Un `PAUSADO` sigue editable; un
   `BAJA` no (`esEditable`), sigue en "Mis espacios" y sus reservas pasadas se siguen liquidando (HU-19 no filtra estado).
-- **HU-27** puede llamar a las rutas del admin desde su cola de moderación; `OCULTO` no admite pausa, reanudación ni baja.
+- **HU-27** agregó `Espacio.esOcultable()` (`PUBLICADO` o `PAUSADO`) y `ocultar(Instant)`, y
+  `EstadoEspacioService.ocultarComoAdmin` (`MANDATORY`: rol → `findParaReservar` → estado, 400
+  `MENSAJE_NO_OCULTABLE` → `OCULTO` → auditoría `OCULTACION_ESPACIO` con `;actor=ADMIN;arrendadorId=…`), que solo llama
+  `ModeracionEspacios.ocultar` desde la decisión del admin. `OCULTO` es **final**: no admite edición, pausa, reanudación
+  ni baja (400) y no se restaura. Ocultar no mira reservas; por fraude las cancela `reservas` (ver
+  [Moderación](#moderación-qué-deja-hu-27)).
 
 ### Reservas: qué deja HU-12 (HU-13, HU-14, HU-15)
 
@@ -509,8 +517,13 @@ spec); `liquidacion` no tiene cascada. **HU-26, hecho** (ver [Reclamos](#reclamo
 (`ReservaConHorario.instanteDeFin`) y la misma `ReglasLiquidacion.ESPERA`, para que no haya hueco ni solape; agrega el puerto
 `pagos.ReclamosAbiertos` como un filtro más en `GeneradorLiquidaciones` (paso de selección); como cada generación liquida todo
 lo pendiente, una reserva que vuelve a ser liquidable entra sola en la siguiente; un reembolso por reclamo deja la reserva
-fuera entera (si se quiere liquidar el remanente, cambia `pagadosSinLiquidar`). **HU-28:** puede reutilizar
-`ReglasPago.PREFIJO_SIMULADO`. Las IT que crean liquidaciones borran `liquidacion_detalle` y `liquidacion` antes que `pago`,
+fuera entera (si se quiere liquidar el remanente, cambia `pagadosSinLiquidar`). **HU-28, hecho:** `GET /api/transacciones?pagina=n`
+y `GET /api/transacciones/{id}/comprobante` (`TransaccionController`, `HistorialPagosService`, solo rol `USUARIO`, `no-store`).
+Lista los pagos `EstadoPago.EN_HISTORIAL` (`PAGADO` y `REEMBOLSADO`; `REEMBOLSO_FALLIDO` no) de las reservas que devuelve el
+puerto `pagos.ReservasDelUsuario`, con `PagoRepository.deReservas` (`Slice`, de 10 en 10); `montoReembolsado` es la suma de
+los reembolsos `REEMBOLSADO` del pago. Los `sim-` salen solo con la pasarela simulada. El comprobante es un PDF 1.4 escrito a
+mano por `GeneradorComprobantePdf` (sin librería) con solo los últimos 4 dígitos; cualquier id ajeno, inexistente o no
+elegible da el mismo 404. Sin migración ni auditoría. Las IT que crean liquidaciones que crean liquidaciones borran `liquidacion_detalle` y `liquidacion` antes que `pago`,
 `reserva`, `perfil_arrendador` y `usuario` (`PagosSoporte.limpiar` ya lo hace).
 
 ### Mis reservas: qué deja HU-14 (HU-15, HU-21, HU-22, HU-24, HU-26)
@@ -560,7 +573,7 @@ Solo se cancela una reserva cuyo estado leído es `CONFIRMADA` y que aún no emp
 | Pieza | Patrón ★ | Qué hace |
 |-------|----------|----------|
 | `reservas.domain.PoliticaReembolso` | **Strategy** | Una regla fija de RN-06: `codigo()`, `aplicaA(SolicitudCancelacion)`, `porcentaje()` y `monto(montoPagado)` por defecto (escala 2, `HALF_UP`). `ANTICIPACION_MINIMA` = 48 h |
-| `ReembolsoUsuarioConAnticipacion`, `ReembolsoUsuarioSinAnticipacion`, `ReembolsoCancelaArrendador` | Strategy (ConcreteStrategy) | Usuario con ≥ 48 h → 100 %; usuario con < 48 h → 0 %; arrendador → 100 %. Excluyentes y exhaustivas |
+| `ReembolsoUsuarioConAnticipacion`, `ReembolsoUsuarioSinAnticipacion`, `ReembolsoCancelaArrendador`, `ReembolsoPorModeracion` (HU-27) | Strategy (ConcreteStrategy) | Usuario con ≥ 48 h → 100 %; usuario con < 48 h → 0 %; arrendador → 100 %; `QuienCancela.ADMIN` (ocultar por fraude, código `MODERACION`) → 100 % con cualquier anticipación. Excluyentes y exhaustivas |
 | `reservas.domain.CalculoReembolso` | Strategy (Context) | `politicaFija()` arma la lista de RN-06 (sin Spring ni configuración); `calcular` elige **la única** que aplica (`IllegalStateException` si no hay exactamente una). Agregar una regla es agregar una clase a la lista |
 | `CancelacionReservaService` | Strategy (Client) | Arma `SolicitudCancelacion(quien, inicio, ahora, montoTotal)` con datos del servidor (inicio en `America/Lima`, `ReservaConHorario.instanteDeInicio`) y no tiene ningún `if` sobre la regla |
 
@@ -576,6 +589,10 @@ parsear la auditoría); el porcentaje y la política quedan en el detalle de `RE
 cae en Pasadas; para el arrendador desaparece de su lista (HU-14 R15, sin cambios). La regla "id bien escrito" de las rutas
 `/{id}` de reservas vive en `ConversionReservas.idReserva`. HU-21 la reutiliza sin cambios: el arrendador cancela una a una
 las reservas que impiden la baja con la ruta `ARRENDADOR` (100 %).
+
+**`QuienCancela.ADMIN` (HU-27).** Solo lo usa `CancelacionPorModeracionImpl` al ocultar un espacio por fraude;
+`CancelacionReservaService` lo rechaza con 403 antes de leer (las rutas de HU-15 nunca cancelan como admin).
+`ck_reserva_cancelada_por` admite `ADMIN` (`V8_2`); `Reserva.admiteLiquidacion` ya la excluye de toda liquidación.
 
 ### Datos personales: qué deja HU-22 (HU-24, HU-26, HU-27)
 
@@ -613,7 +630,8 @@ no se revelan los impedimentos.
   liquidaciones, auditoría (sin fecha de fin: el plazo legal sigue abierto, §9 punto 6), `revision_identidad`,
   `suspension_cuenta` y los espacios con su estado, ocultos por HU-09 D1. No hay correo de aviso (D8).
 - **Para las que siguen.** **HU-24** implementó el puerto en `busqueda` (ver [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27));
-  **HU-26** y **HU-27** igual con reclamos y reportes si guardan datos personales.
+  **HU-26** y **HU-27** igual con reclamos y reportes (`DatosPersonalesReportesImpl`, `@Order(5)`: exporta la sección
+  `reportes` sin la decisión del admin, no impide ni anonimiza nada).
 
 ### Reseñas: qué deja HU-24 (HU-26, HU-27)
 
@@ -645,9 +663,10 @@ reseñable no hay forma de crear una.
   `>` restante, y recorta. Puede devolver vacío. No escapa a entidades. Reutilizable por HU-26.
 - **Datos personales.** `DatosPersonalesResenasImpl` exporta la sección `resenas` solo para el rol `USUARIO`, no genera
   impedimentos y al anonimizar reemplaza el `comentario` por `Resena.COMENTARIO_ELIMINADO`, conservando calificación, estado y autor.
-- **Para las que siguen.** **HU-27** agrega `Resena.ocultar` y la interfaz pública de `busqueda`, y lee el `id` de la reseña
-  de la ficha para `reporte.objetivo_id`; las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
-  Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada).
+- **HU-27** agregó `Resena.estaVisible()`/`ocultar()`, `ResenaRepository.findParaActualizar` y la interfaz pública
+  `busqueda.service.ModeracionResenas` (`ModeracionResenasImpl`); el reporte guarda el `id` de la reseña en
+  `reporte.resena_id`. Las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
+  Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada), y antes borra `reporte`.
 
 ### Reclamos: qué deja HU-26
 
@@ -688,6 +707,46 @@ Todas las `GET` son `no-store`; no hay `PUT`, `PATCH` ni `DELETE`. Un `id` mal e
   eliminado.".
 - **Pruebas:** toda IT que cree reclamos borra `mensaje_reclamo` y `reclamo` antes que `reserva` y `usuario`
   (`PagosSoporte`, `DatosPersonalesSoporte` y `ReclamosSoporte` ya lo hacen).
+
+### Moderación: qué deja HU-27
+
+Tabla `reporte` (`V8_2`) en `administracion`: `espacio_id` **o** `resena_id` (una sola, con FK y `ck_reporte_objetivo`),
+motivo de catálogo (`FRAUDE`, `INFORMACION_FALSA`, `CONTENIDO_INAPROPIADO`, `SPAM`, sin texto libre) y la decisión en
+`estado` (`POR_REVISAR` → `MANTENIDO` / `OCULTADO`, finales), `admin_id`, `motivo_decision`, `resuelto_en` y
+`por_fraude`. Un reporte por reportante y contenido (`uq_reporte_espacio`, `uq_reporte_resena`).
+
+| Ruta | Sesión | Qué hace |
+|------|--------|----------|
+| `POST /api/reportes` | `USUARIO` o `ARRENDADOR` (`ADMIN` 403) | Reporta un espacio visible o una reseña `VISIBLE` de un espacio visible (lo demás, 404 genérico); contenido propio o ya reportado, 400; 11.º reporte en 24 h, 429 |
+| `GET /api/admin/reportes?grupo=pendientes\|resueltos&pagina=n` · `/{id}` | `ADMIN` | Cola de a 10 (por revisar del más antiguo; resueltos del más reciente) y detalle con el contenido en su estado actual, sin datos del reportante ni contacto del arrendador |
+| `POST /api/admin/reportes/{id}/decision` | `ADMIN` | `MANTENER`, `OCULTAR` u `OCULTAR_POR_FRAUDE` (solo espacios) con `motivoDecision` 1–500 sanitizado; resuelve todos los reportes `POR_REVISAR` del mismo contenido |
+
+Todas `no-store`; no hay `PUT`, `PATCH` ni `DELETE`. IPs permitidas y MFA por el prefijo `/api/admin/`.
+
+- **Cupo (RNF-SEG-17).** 10 reportes por reportante en una ventana móvil de 24 h, contados en la base
+  (`countByReportanteIdAndCreadoEnAfter`) **después** de `CuentaService.bloquearCuenta`; no usa `LimitadorIntentos`. Se
+  comprueba antes de mirar el contenido.
+- **Interfaces públicas** (no son puertos: `administracion → (todos)`). `espacios.service.ModeracionEspacios`
+  (`reportable`, `describir`, `ocultar` → `EstadoEspacioService.ocultarComoAdmin`), `busqueda.service.ModeracionResenas`
+  (`reportable`, `describir`, `ocultar`) y `reservas.service.CancelacionPorModeracion.cancelarPorFraude`. Los `ocultar` y
+  `cancelarPorFraude` son `MANDATORY` y vuelven a exigir `ADMIN` antes de leer.
+- **Ocultar por fraude.** Además de ocultar el espacio, en la misma transacción cancela sus reservas `CONFIRMADA` que aún
+  no empiezan (`QuienCancela.ADMIN`, política `MODERACION` al 100 %), desactiva sus bloques, pide su reembolso con
+  `PagoService.reembolsarCancelacion` (pasarela tras el commit), audita `RESERVA_CANCELADA` y avisa a cada usuario con el
+  correo de HU-15 ("Cancelada por: EspacioYa", `AvisosCancelacion.programarAlUsuario`); al arrendador, un solo correo de
+  moderación con la cantidad. Las iniciadas, terminadas y pendientes no cambian. Cualquier fallo revierte toda la decisión.
+  `OCULTAR` sin fraude no toca reservas.
+- **Orden de bloqueos.** Reportar: `usuario` → `INSERT reporte`. Decidir: `reporte` (hermanos, `FOR UPDATE` por id) →
+  `espacio` o `resena` → (por fraude) `reserva` (confirmadas del espacio por id) → `pago`. Es el `espacio → reserva → pago`
+  de HU-13/HU-15 precedido por `reporte`, que nadie más toma.
+- **Correo** (Factory Method de HU-25): `CorreoEspacioOcultado` al arrendador con el motivo de la decisión (nunca el del
+  reporte ni el reportante), solo al ocultar un espacio; Client `AvisosModeracion` con `DespuesDelCommit`.
+- **Auditoría:** `REPORTE_CREADO` (`tipo;objetivoId;motivo`), `REPORTE_RESUELTO`
+  (`tipo;objetivoId;decision;reportes;reservasCanceladas`, sin el motivo), `OCULTACION_ESPACIO` y `OCULTACION_RESENA`.
+- **Datos personales:** `DatosPersonalesReportesImpl` (`@Order(5)`) exporta la sección `reportes`; sin impedimentos ni
+  anonimización (no hay texto libre).
+- **Pruebas:** toda IT que cree reportes borra `reporte` antes que `resena`, `espacio` y `usuario` (`ReclamosSoporte` y
+  `DatosPersonalesSoporte` ya lo hacen).
 
 ### Correo: qué deja HU-25 (★ Factory Method, Adapter)
 
@@ -773,7 +832,8 @@ Además, en todo el sistema:
 - **(E) Elevación de privilegios:** roles asignados y validados en el backend en
   cada solicitud; la propiedad del recurso se valida antes de cada edición o
   consulta. Las cuentas de administrador solo se crean por script interno
-  (`cuentas/service/CreadorAdmin`, activado con `ADMIN_CREAR=true`; HU-06).
+  (`cuentas/service/CreadorAdmin`, activado con `ADMIN_CREAR=true`; HU-06). Los servicios del admin comprueban el rol
+  con `comun.seguridad.RolesSesion.exigirAdmin` antes de leer (HU-27 DT-13: reemplazó las copias privadas).
 - **PCI DSS:** la plataforma nunca recibe ni guarda datos de tarjeta. El estado
   del pago cambia solo por un webhook con firma verificada e idempotente. Mientras
   UAT use la pasarela simulada, este control no se demuestra ahí: ver C1 y C2 en
@@ -804,7 +864,8 @@ arrendador cambia su documento o su razón social en el perfil (HU-20, RN-02); e
 - **Espacio:** `BORRADOR` → `PUBLICADO` (requiere identidad verificada) ⇄
   `PAUSADO` (pausa el arrendador o el admin; reanuda solo el arrendador, con identidad verificada y al menos una foto);
   `PUBLICADO` o `PAUSADO` → `BAJA` (el arrendador o el admin, sin reservas por terminar); `BAJA` es final: no se
-  reactiva ni se edita (HU-21); `OCULTO` por moderación (HU-27). Si el
+  reactiva ni se edita (HU-21); `PUBLICADO` o `PAUSADO` → `OCULTO` por moderación del admin (HU-27), final: no se
+  edita, pausa, reanuda, da de baja ni restaura. Si el
   arrendador está suspendido, sus espacios no se muestran pero conservan su estado.
 - **Reserva:** `PENDIENTE_PAGO` (retiene los bloques 15 minutos) → `CONFIRMADA`
   (pago aprobado) o `EXPIRADA` (sin pago a tiempo); `CONFIRMADA` → `CANCELADA`.

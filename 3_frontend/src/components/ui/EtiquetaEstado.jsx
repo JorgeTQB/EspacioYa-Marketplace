@@ -32,10 +32,20 @@ const ESTADOS = {
   GENERADA: { texto: 'Por pagar', tipo: 'atencion' },
   PENDIENTE_CUENTA: { texto: 'Pendiente de cuenta', tipo: 'atencion' },
   PAGADA: { texto: 'Pagada', tipo: 'exito' },
+  // Pago (HU-28): solo los dos estados que ve el usuario en "Mis pagos".
+  PAGADO: { texto: 'Pagado', tipo: 'exito' },
+  REEMBOLSADO: { texto: 'Reembolsado', tipo: 'neutro' },
   // Reclamo (HU-26): una resolución es un final normal, como CANCELADA.
   ABIERTO: { texto: 'Abierto', tipo: 'atencion' },
   RESUELTO_USUARIO: { texto: 'Resuelto a favor del usuario', tipo: 'neutro' },
   RESUELTO_ARRENDADOR: { texto: 'Resuelto a favor del arrendador', tipo: 'neutro' },
+  // Reseña (HU-24, la oculta HU-27)
+  VISIBLE: { texto: 'Visible', tipo: 'exito' },
+  OCULTA: { texto: 'Oculta', tipo: 'error' },
+  // Reporte (HU-27): una decisión es un final normal, como un reclamo resuelto.
+  POR_REVISAR: { texto: 'Por revisar', tipo: 'atencion' },
+  MANTENIDO: { texto: 'Contenido mantenido', tipo: 'neutro' },
+  OCULTADO: { texto: 'Contenido ocultado', tipo: 'neutro' },
 }
 
 function EtiquetaEstado({ estado }) {

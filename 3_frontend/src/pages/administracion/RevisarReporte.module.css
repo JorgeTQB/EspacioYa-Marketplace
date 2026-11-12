@@ -1,0 +1,44 @@
+.pantalla {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+  max-width: var(--ancho-contenido);
+  margin: var(--espacio-8) auto;
+}
+
+.pantalla h2,
+.subtitulo {
+  margin: 0;
+}
+
+.secundario,
+.dato {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.nombre {
+  margin: 0;
+  font-weight: var(--peso-negrita);
+}
+
+.descripcion {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.resultado {
+  margin: 0;
+  font-weight: var(--peso-negrita);
+}
+
+.monto {
+  color: var(--color-texto);
+  font-weight: var(--peso-negrita);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+}
