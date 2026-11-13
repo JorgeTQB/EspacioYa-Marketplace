@@ -31,10 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.SliceImpl;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -46,8 +42,8 @@ import pe.edu.ulima.espacioya.busqueda.dto.CrearResenaDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.PaginaResenasDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.ResenaCreadaDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.ResenaPublicaDTO;
-import pe.edu.ulima.espacioya.busqueda.repository.ResenaRepository;
-import pe.edu.ulima.espacioya.busqueda.repository.TotalesResena;
+import pe.edu.ulima.espacioya.busqueda.repository.ResenaDAO;
+import pe.edu.ulima.espacioya.busqueda.repository.TrozoResenas;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
 import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
@@ -77,7 +73,7 @@ class ResenaServiceTest {
     private static final CrearResenaDTO SOLICITUD = new CrearResenaDTO(RESERVA_ID, 4, "Buena cancha");
 
     @Mock
-    private ResenaRepository resenas;
+    private ResenaDAO resenas;
     @Mock
     private ReservasParaResena reservas;
     @Mock
@@ -89,8 +85,14 @@ class ResenaServiceTest {
 
     @BeforeEach
     void preparar() {
-        servicio = new ResenaService(resenas, reservas, catalogo, auditoria,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)), Clock.fixed(AHORA, ZoneOffset.UTC));
+        servicio = conReloj(Clock.fixed(AHORA, ZoneOffset.UTC));
+    }
+
+    // La cadena real de decoradores (★ reapertura): los tests de R1–R24 la recorren de punta a punta.
+    private ResenaService conReloj(Clock reloj) {
+        var publicacion = ConfiguracionPublicacionResena.cadena(resenas, reservas, auditoria,
+                new TransactionTemplate(mock(PlatformTransactionManager.class)), reloj);
+        return new ResenaService(publicacion, resenas, reservas, catalogo, reloj);
     }
 
     private static ReservaParaResena reserva(boolean confirmada, Instant fin) {
@@ -102,7 +104,7 @@ class ResenaServiceTest {
     }
 
     private void seGuarda() {
-        when(resenas.saveAndFlush(any(Resena.class))).thenAnswer(llamada -> {
+        when(resenas.guardar(any(Resena.class))).thenAnswer(llamada -> {
             Resena resena = llamada.getArgument(0);
             ReflectionTestUtils.setField(resena, "id", RESENA_ID);
             return resena;
@@ -110,7 +112,7 @@ class ResenaServiceTest {
     }
 
     private void sinCrear() {
-        verify(resenas, never()).saveAndFlush(any());
+        verify(resenas, never()).guardar(any());
         verifyNoInteractions(auditoria);
     }
 
@@ -118,20 +120,6 @@ class ResenaServiceTest {
         var resena = Resena.nueva(RESERVA_ID + id, USUARIO_ID, ESPACIO_ID, calificacion, comentario, creadoEn);
         ReflectionTestUtils.setField(resena, "id", id);
         return resena;
-    }
-
-    private static TotalesResena totales(long cantidad, long suma) {
-        return new TotalesResena() {
-            @Override
-            public long getCantidad() {
-                return cantidad;
-            }
-
-            @Override
-            public long getSuma() {
-                return suma;
-            }
-        };
     }
 
     // ── Crear ────────────────────────────────────────────────────────────
@@ -146,7 +134,7 @@ class ResenaServiceTest {
 
         assertThat(creada).isEqualTo(new ResenaCreadaDTO(RESENA_ID, RESERVA_ID, 4, "Buena cancha", HOY));
         var fila = ArgumentCaptor.forClass(Resena.class);
-        verify(resenas).saveAndFlush(fila.capture());
+        verify(resenas).guardar(fila.capture());
         assertThat(fila.getValue().getEstado()).isEqualTo(EstadoResena.VISIBLE);
         assertThat(fila.getValue().getCreadoEn()).isEqualTo(AHORA);
     }
@@ -156,9 +144,7 @@ class ResenaServiceTest {
     void fechaEnLima() {
         // 01:00 UTC del 29 son las 20:00 del 28 en Lima.
         var deNoche = Instant.parse("2026-10-29T01:00:00Z");
-        var nocturno = new ResenaService(resenas, reservas, catalogo, auditoria,
-                new TransactionTemplate(mock(PlatformTransactionManager.class)),
-                Clock.fixed(deNoche, ZoneOffset.UTC));
+        var nocturno = conReloj(Clock.fixed(deNoche, ZoneOffset.UTC));
         conReserva(true, FIN_RECIENTE);
         seGuarda();
 
@@ -185,7 +171,7 @@ class ResenaServiceTest {
         servicio.crear(USUARIO, SOLICITUD, IP);
 
         var fila = ArgumentCaptor.forClass(Resena.class);
-        verify(resenas).saveAndFlush(fila.capture());
+        verify(resenas).guardar(fila.capture());
         assertThat(fila.getValue().getUsuarioId()).isEqualTo(USUARIO_ID);
         assertThat(fila.getValue().getEspacioId()).isEqualTo(ESPACIO_ID);
         assertThat(fila.getValue().getReservaId()).isEqualTo(RESERVA_ID);
@@ -259,7 +245,7 @@ class ResenaServiceTest {
     @DisplayName("HU-24 R12: una reserva ya reseñada responde ya reseñada sin crear otra")
     void yaResenada() {
         conReserva(true, FIN_RECIENTE);
-        when(resenas.existsByReservaId(RESERVA_ID)).thenReturn(true);
+        when(resenas.existeParaReserva(RESERVA_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> servicio.crear(USUARIO, SOLICITUD, IP)).isInstanceOf(ReglaNegocioException.class)
                 .hasMessage(ResenaService.MENSAJE_YA_RESENADA);
@@ -271,7 +257,7 @@ class ResenaServiceTest {
     @DisplayName("HU-24 R12: con el plazo vencido y ya reseñada, la causa es que ya la reseñó")
     void yaResenadaConPlazoVencido() {
         conReserva(true, AHORA.minus(Duration.ofDays(30)));
-        when(resenas.existsByReservaId(RESERVA_ID)).thenReturn(true);
+        when(resenas.existeParaReserva(RESERVA_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> servicio.crear(USUARIO, SOLICITUD, IP)).isInstanceOf(ReglaNegocioException.class)
                 .hasMessage(ResenaService.MENSAJE_YA_RESENADA);
@@ -283,7 +269,7 @@ class ResenaServiceTest {
     @DisplayName("HU-24 R14: si el INSERT choca con uq_resena_reserva, responde ya reseñada")
     void carreraContraElIndice() {
         conReserva(true, FIN_RECIENTE);
-        when(resenas.saveAndFlush(any(Resena.class)))
+        when(resenas.guardar(any(Resena.class)))
                 .thenThrow(new DataIntegrityViolationException("x", new SQLException(CONFLICTO)));
 
         assertThatThrownBy(() -> servicio.crear(USUARIO, SOLICITUD, IP)).isInstanceOf(ReglaNegocioException.class)
@@ -297,7 +283,7 @@ class ResenaServiceTest {
     void otraViolacionSeRelanza() {
         conReserva(true, FIN_RECIENTE);
         var otra = new DataIntegrityViolationException("x", new SQLException("viola fk_resena_espacio"));
-        when(resenas.saveAndFlush(any(Resena.class))).thenThrow(otra);
+        when(resenas.guardar(any(Resena.class))).thenThrow(otra);
 
         assertThatThrownBy(() -> servicio.crear(USUARIO, SOLICITUD, IP)).isSameAs(otra);
     }
@@ -312,7 +298,7 @@ class ResenaServiceTest {
 
         assertThat(creada.comentario()).isEqualTo("Buena cancha");
         var fila = ArgumentCaptor.forClass(Resena.class);
-        verify(resenas).saveAndFlush(fila.capture());
+        verify(resenas).guardar(fila.capture());
         assertThat(fila.getValue().getComentario()).isEqualTo("Buena cancha").doesNotContain("<", ">");
     }
 
@@ -363,7 +349,7 @@ class ResenaServiceTest {
                 new ReservaParaResena(5L, ESPACIO_ID, true, FIN_RECIENTE),
                 new ReservaParaResena(6L, ESPACIO_ID, true, AHORA.plusSeconds(1)),
                 new ReservaParaResena(7L, ESPACIO_ID, true, AHORA.minus(Duration.ofDays(14)))));
-        when(resenas.reservasResenadas(USUARIO_ID)).thenReturn(Set.of(5L));
+        when(resenas.reservasResenadasPor(USUARIO_ID)).thenReturn(Set.of(5L));
 
         assertThat(servicio.pendientes(USUARIO).reservaIds()).containsExactly(4L, 9L);
     }
@@ -372,7 +358,7 @@ class ResenaServiceTest {
     @DisplayName("HU-24 R25: sin reservas confirmadas la lista queda vacía")
     void sinPendientes() {
         when(reservas.confirmadasDe(USUARIO_ID)).thenReturn(List.of());
-        when(resenas.reservasResenadas(USUARIO_ID)).thenReturn(Set.of());
+        when(resenas.reservasResenadasPor(USUARIO_ID)).thenReturn(Set.of());
 
         assertThat(servicio.pendientes(USUARIO).reservaIds()).isEmpty();
     }
@@ -393,7 +379,8 @@ class ResenaServiceTest {
     @Test
     @DisplayName("HU-24 R27, R35: el resumen se calcula solo con las reseñas VISIBLE")
     void resumenDeVisibles() {
-        when(resenas.totales(ESPACIO_ID, EstadoResena.VISIBLE)).thenReturn(totales(4, 17));
+        // El filtro VISIBLE lo fija el DAO (R56, ResenaDAOJpaTest); el servicio solo le pide el resumen visible.
+        when(resenas.resumenVisibles(ESPACIO_ID)).thenReturn(ResumenCalificaciones.de(4, 17));
 
         assertThat(servicio.resumen(ESPACIO_ID)).isEqualTo(new ResumenCalificaciones(new BigDecimal("4.3"), 4));
     }
@@ -401,7 +388,7 @@ class ResenaServiceTest {
     @Test
     @DisplayName("HU-24 R29: sin reseñas visibles, promedio nulo y total 0")
     void resumenVacio() {
-        when(resenas.totales(ESPACIO_ID, EstadoResena.VISIBLE)).thenReturn(totales(0, 0));
+        when(resenas.resumenVisibles(ESPACIO_ID)).thenReturn(ResumenCalificaciones.de(0, 0));
 
         assertThat(servicio.resumen(ESPACIO_ID)).isEqualTo(new ResumenCalificaciones(null, 0));
     }
@@ -409,34 +396,26 @@ class ResenaServiceTest {
     @Test
     @DisplayName("HU-24 R30, R31: la primera página pide 10 por creado_en e id descendentes y solo expone 4 campos")
     void primeraPagina() {
+        // El orden y el PageRequest los fija el DAO (R54, ResenaDAOJpaTest); aquí, la página 1 y el tamaño 10.
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(true);
-        var pedida = ArgumentCaptor.forClass(Pageable.class);
         var deNoche = Instant.parse("2026-10-29T01:00:00Z");
         var resena = guardada(3L, 5, "Excelente", deNoche);
-        when(resenas.findByEspacioIdAndEstado(any(), any(), pedida.capture()))
-                .thenReturn(new SliceImpl<>(List.of(resena), PageRequest.of(0, 10), true));
+        when(resenas.visiblesDeEspacio(ESPACIO_ID, 1, 10)).thenReturn(new TrozoResenas(List.of(resena), true));
 
         var pagina = servicio.deEspacio("40", null);
 
         assertThat(pagina).isEqualTo(new PaginaResenasDTO(1,
                 List.of(new ResenaPublicaDTO(3L, 5, "Excelente", HOY)), true));
-        verify(resenas).findByEspacioIdAndEstado(ESPACIO_ID, EstadoResena.VISIBLE, pedida.getValue());
-        assertThat(pedida.getValue().getPageNumber()).isZero();
-        assertThat(pedida.getValue().getPageSize()).isEqualTo(10);
-        assertThat(pedida.getValue().getSort())
-                .isEqualTo(Sort.by(Sort.Direction.DESC, "creadoEn", "id"));
     }
 
     @Test
     @DisplayName("HU-24 R30: la página pedida se respeta y sin más filas hayMas es false")
     void paginaPedida() {
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(true);
-        var pedida = ArgumentCaptor.forClass(Pageable.class);
-        when(resenas.findByEspacioIdAndEstado(any(), any(), pedida.capture()))
-                .thenReturn(new SliceImpl<>(List.of(), PageRequest.of(2, 10), false));
+        when(resenas.visiblesDeEspacio(ESPACIO_ID, 3, 10)).thenReturn(new TrozoResenas(List.of(), false));
 
         assertThat(servicio.deEspacio("40", "3")).isEqualTo(new PaginaResenasDTO(3, List.of(), false));
-        assertThat(pedida.getValue().getOffset()).isEqualTo(20);
+        verify(resenas).visiblesDeEspacio(ESPACIO_ID, 3, ResenaService.TAMANO_PAGINA);
     }
 
     @ParameterizedTest
@@ -476,23 +455,22 @@ class ResenaServiceTest {
     @ValueSource(strings = {"214748366", "2147483647"})
     @DisplayName("HU-24 R34: una página válida cuyo offset no cabe en un int responde vacía, sin llegar a Spring Data")
     void paginaEnorme(String pagina) {
+        // El tope de offset vive en ResenaDAOJpa (R55, ResenaDAOJpaTest): el servicio solo pasa n y 10 al DAO.
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(true);
+        var numero = Integer.parseInt(pagina);
+        when(resenas.visiblesDeEspacio(ESPACIO_ID, numero, 10)).thenReturn(TrozoResenas.VACIO);
 
-        assertThat(servicio.deEspacio("40", pagina))
-                .isEqualTo(new PaginaResenasDTO(Integer.parseInt(pagina), List.of(), false));
-
-        verifyNoInteractions(resenas);
+        assertThat(servicio.deEspacio("40", pagina)).isEqualTo(new PaginaResenasDTO(numero, List.of(), false));
     }
 
     @Test
     @DisplayName("HU-24 R34: la última página cuyo offset cabe en un int todavía consulta")
     void ultimaPaginaConsultable() {
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(true);
-        when(resenas.findByEspacioIdAndEstado(any(), any(), any()))
-                .thenReturn(new SliceImpl<>(List.of(), PageRequest.of(214748364, 10), false));
+        when(resenas.visiblesDeEspacio(ESPACIO_ID, 214748365, 10)).thenReturn(TrozoResenas.VACIO);
 
         assertThat(servicio.deEspacio("40", "214748365").resenas()).isEmpty();
 
-        verify(resenas).findByEspacioIdAndEstado(any(), any(), any());
+        verify(resenas).visiblesDeEspacio(ESPACIO_ID, 214748365, 10);
     }
 }

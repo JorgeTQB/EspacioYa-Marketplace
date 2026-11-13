@@ -22,7 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import pe.edu.ulima.espacioya.busqueda.domain.EstadoResena;
 import pe.edu.ulima.espacioya.busqueda.domain.Resena;
 import pe.edu.ulima.espacioya.busqueda.dto.ResenaExportadaDTO;
-import pe.edu.ulima.espacioya.busqueda.repository.ResenaRepository;
+import pe.edu.ulima.espacioya.busqueda.repository.ResenaDAO;
 import pe.edu.ulima.espacioya.cuentas.service.puertos.SeccionDatos;
 import pe.edu.ulima.espacioya.cuentas.service.puertos.TitularDatos;
 import pe.edu.ulima.espacioya.espacios.service.CatalogoEspaciosService;
@@ -37,7 +37,7 @@ class DatosPersonalesResenasImplTest {
     private static final TitularDatos ARRENDADOR = new TitularDatos(USUARIO_ID, TitularDatos.ROL_ARRENDADOR);
 
     @Mock
-    private ResenaRepository resenas;
+    private ResenaDAO resenas;
     @Mock
     private CatalogoEspaciosService catalogo;
 
@@ -57,7 +57,7 @@ class DatosPersonalesResenasImplTest {
     void exportaLasResenas() {
         var oculta = resena(91L, 2, "Regular");
         ReflectionTestUtils.setField(oculta, "estado", EstadoResena.OCULTA);
-        when(resenas.findByUsuarioIdOrderByCreadoEnAscIdAsc(USUARIO_ID))
+        when(resenas.delUsuario(USUARIO_ID))
                 .thenReturn(List.of(resena(90L, 5, "Excelente"), oculta));
         when(catalogo.nombres(List.of(ESPACIO_ID))).thenReturn(Map.of(ESPACIO_ID, "Cancha Norte"));
 
@@ -70,7 +70,7 @@ class DatosPersonalesResenasImplTest {
     @Test
     @DisplayName("HU-24 R39: sin reseñas, la sección resenas igual aparece, vacía")
     void seccionVacia() {
-        when(resenas.findByUsuarioIdOrderByCreadoEnAscIdAsc(USUARIO_ID)).thenReturn(List.of());
+        when(resenas.delUsuario(USUARIO_ID)).thenReturn(List.of());
         when(catalogo.nombres(List.of())).thenReturn(Map.of());
 
         assertThat(participante.exportar(USUARIO)).containsExactly(new SeccionDatos("resenas", List.of()));
@@ -98,7 +98,7 @@ class DatosPersonalesResenasImplTest {
     void anonimiza() {
         participante.anonimizar(USUARIO);
 
-        verify(resenas).reemplazarComentarios(USUARIO_ID, "Comentario eliminado.");
+        verify(resenas).anonimizarComentarios(USUARIO_ID);
     }
 
     @Test

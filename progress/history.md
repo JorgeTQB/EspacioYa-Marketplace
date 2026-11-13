@@ -1711,3 +1711,45 @@
      `textosAdministracion.js`.
 - **Resultado:** `./init.sh` completo salida 0 (896 unitarias y 1231 tests en `verify`, IT de HU-27 y HU-28 incluidas,
   0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-13 — HU-24 Reseñas y calificaciones, reapertura ★ Decorator, DAO (done)
+
+- **Dueño:** Ariel Enriquez · rama `feature/HU-24-resenas-calificaciones` (avanzada por fast-forward hasta `develop`
+  415f9a9).
+- **Motivo:** el plan del informe y el tablero asignan Decorator y DAO a HU-24, pero `feature_list.json` tenía
+  `patterns: []` y el spec original no aplicó patrones. La historia se reabrió (`done` → `pending`) con
+  `patterns: ["Decorator", "DAO"]`.
+- **Agentes:** orquestador → spec-author (`specs/HU-24/` editado: R44–R58, DT-20–DT-27, T30–T40) → aprobación de Ariel
+  Enriquez el 2026-11-13 (P21 = sí, `DatosPersonalesResenasImpl` y `ModeracionResenasImpl` de HU-27 migran al DAO; P22 =
+  `ESC-24`) → implementer (`progress/impl_HU-24.md`, sección "Reapertura 2026-11-13") → reviewer `CHANGES_REQUESTED` (R58
+  sin `@DisplayName`) → implementer agrega `ContratoResenasTest` → reviewer `APPROVED` (`progress/review_HU-24.md`,
+  "Re-revisión 2026-11-13").
+- **★ Decorator (`busqueda.service`):** Component `PublicacionResena`, ConcreteComponent `PublicacionResenaBase` (reserva
+  propia, *ya reseñada*, plazo, `ResenaDAO.guardar`), Decorator `PublicacionResenaDecorador`, ConcreteDecorators
+  `PublicacionSanitizada` (antes) → `PublicacionTransaccional` (`TransactionTemplate` + traducción de `uq_resena_reserva`)
+  → `PublicacionAuditada` (después, dentro de la transacción); ensamblador `ConfiguracionPublicacionResena.cadena` (único
+  `@Bean`); Client `ResenaService.crear`. Entrada `SolicitudResena`.
+- **★ DAO (`busqueda.repository`):** `ResenaDAO` + `ResenaDAOJpa` (`@Repository` de paquete) + TransferObject
+  `TrozoResenas`. Orden, filtro `VISIBLE`, tope de offset, `saveAndFlush` y bloqueo viven en el DAO. `ResenaRepository`
+  quedó igual (solo Javadoc) y solo lo usa `ResenaDAOJpa`. BusinessObjects: `ResenaService`, `PublicacionResenaBase`,
+  `DatosPersonalesResenasImpl` y `ModeracionResenasImpl`.
+- **Archivos:** 11 clases nuevas en `busqueda` (8 de la cadena y 3 del DAO); modificados `ResenaService`,
+  `ResenaRepository` (Javadoc), `DatosPersonalesResenasImpl` y `ModeracionResenasImpl`. Pruebas nuevas:
+  `ResenaDAOJpaTest`, `ResenaDAOJpaIT`, `PublicacionResenaBaseTest`, `PublicacionSanitizadaTest`,
+  `PublicacionTransaccionalTest`, `PublicacionAuditadaTest`, `ConfiguracionPublicacionResenaTest`,
+  `PublicacionResenaIT`, `AccesoResenasTest` y `ContratoResenasTest` (R58). Adaptadas sin cambiar ningún `@DisplayName`:
+  `ResenaServiceTest`, `DatosPersonalesResenasImplTest` y `ModeracionResenasImplTest`.
+- **Sin cambios (R58):** contrato HTTP, DTO, mensajes, migraciones, `comun/` ni frontend (`git diff develop --stat` vacío
+  en esas rutas). Tampoco se tocaron las pruebas marcadas "Sin cambios" en `design.md` § 14.
+- **Docs:** `docs/informe/HU-24.md` (nuevo: § 7.7 con los diagramas de clases y las tablas de roles, § 8.1 con la fila
+  `ESC-24`, § 8.1.1 con la secuencia "Reseñar una reserva pasada" y sus alternos, § 8.1.2 con código real y la tabla
+  mensaje → clase.método); `docs/historias/HU-24.md` (línea ★); `docs/architecture.md` (fila HU-24 ★ y párrafo en
+  "Reseñas"); `docs/requerimientos.md` § 7 (★, `Decorator, DAO`).
+- **Pruebas:** `mvnw verify` dio 2152 unitarias en verde y 1238 IT con 1 error ajeno a HU-24
+  (`MfaInicioSesionIT.auditoriaSinSecretos`: conexión JDBC cerrada tras una pausa del host de ~1,5 min). No se tocó, y pasó
+  en las corridas siguientes. Después del review, `./init.sh` completo: 138 unitarias de las clases tocadas + 1238 IT,
+  0 fallos, 0 errores. Todas las suites de HU-22, HU-26 y HU-27 en verde.
+- **Desvíos menores:** T31 y T36 se hicieron juntas, sin el constructor intermedio con dos accesos; además hay algunas
+  pruebas extra (ver `impl_HU-24.md`).
+- **Resultado:** status → `done`. `./init.sh` final, ya en `done`: salida 0, 138 unitarias de las clases tocadas
+  + 1238 IT, 0 fallos y 0 errores. `feature_list.json` válido (27 `done`, 1 `in_progress`). Todo sin commitear.

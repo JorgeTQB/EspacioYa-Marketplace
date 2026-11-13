@@ -11,7 +11,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import pe.edu.ulima.espacioya.busqueda.domain.EstadoResena;
 import pe.edu.ulima.espacioya.busqueda.domain.Resena;
-import pe.edu.ulima.espacioya.busqueda.repository.ResenaRepository;
+import pe.edu.ulima.espacioya.busqueda.repository.ResenaDAO;
 import pe.edu.ulima.espacioya.busqueda.service.ResenaModerada;
 import pe.edu.ulima.espacioya.busqueda.service.ResenaReportable;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
@@ -46,7 +45,7 @@ class ModeracionResenasImplTest {
     private static final Instant CREADA = Instant.parse("2026-11-02T05:30:00Z");
 
     @Mock
-    private ResenaRepository resenas;
+    private ResenaDAO resenas;
     @Mock
     private CatalogoEspaciosService catalogo;
     @Mock
@@ -69,7 +68,7 @@ class ModeracionResenasImplTest {
     @Test
     @DisplayName("HU-27 R7: una reseña VISIBLE de un espacio visible es reportable con su autor")
     void visibleEsReportable() {
-        when(resenas.findById(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.VISIBLE)));
+        when(resenas.buscar(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.VISIBLE)));
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(true);
 
         assertThat(moderacion.reportable(RESENA_ID)).contains(new ResenaReportable(RESENA_ID, AUTOR_ID, ESPACIO_ID));
@@ -78,15 +77,15 @@ class ModeracionResenasImplTest {
     @Test
     @DisplayName("HU-27 R7: una reseña OCULTA, inexistente, null o de un espacio no visible no es reportable")
     void noReportable() {
-        when(resenas.findById(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.OCULTA)));
+        when(resenas.buscar(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.OCULTA)));
         assertThat(moderacion.reportable(RESENA_ID)).isEmpty();
 
-        when(resenas.findById(RESENA_ID)).thenReturn(Optional.empty());
+        when(resenas.buscar(RESENA_ID)).thenReturn(Optional.empty());
         assertThat(moderacion.reportable(RESENA_ID)).isEmpty();
 
         assertThat(moderacion.reportable(null)).isEmpty();
 
-        when(resenas.findById(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.VISIBLE)));
+        when(resenas.buscar(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.VISIBLE)));
         when(catalogo.esVisible(ESPACIO_ID)).thenReturn(false);
         assertThat(moderacion.reportable(RESENA_ID)).isEmpty();
     }
@@ -94,7 +93,7 @@ class ModeracionResenasImplTest {
     @Test
     @DisplayName("HU-27 R25: describir devuelve la reseña en cualquier estado con su fecha de Lima, sin su autor")
     void describe() {
-        when(resenas.findAllById(Set.of(RESENA_ID))).thenReturn(List.of(resena(EstadoResena.OCULTA)));
+        when(resenas.buscarVarias(List.of(RESENA_ID))).thenReturn(List.of(resena(EstadoResena.OCULTA)));
 
         assertThat(moderacion.describir(List.of(RESENA_ID))).containsExactlyEntriesOf(Map.of(RESENA_ID,
                 new ResenaModerada(RESENA_ID, ESPACIO_ID, 2, "Sucio y caro", LocalDate.of(2026, 11, 2), "OCULTA")));
@@ -105,7 +104,7 @@ class ModeracionResenasImplTest {
     @DisplayName("HU-27 R34, R53: ocultar una VISIBLE la deja OCULTA y audita OCULTACION_RESENA")
     void oculta() {
         var resena = resena(EstadoResena.VISIBLE);
-        when(resenas.findParaActualizar(RESENA_ID)).thenReturn(Optional.of(resena));
+        when(resenas.buscarParaActualizar(RESENA_ID)).thenReturn(Optional.of(resena));
 
         moderacion.ocultar(ADMIN, RESENA_ID, IP);
 
@@ -117,7 +116,7 @@ class ModeracionResenasImplTest {
     @Test
     @DisplayName("HU-27 R40, R54: ocultar una reseña ya OCULTA da 400 no ocultable sin auditar")
     void yaOculta() {
-        when(resenas.findParaActualizar(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.OCULTA)));
+        when(resenas.buscarParaActualizar(RESENA_ID)).thenReturn(Optional.of(resena(EstadoResena.OCULTA)));
 
         assertThatThrownBy(() -> moderacion.ocultar(ADMIN, RESENA_ID, IP))
                 .isInstanceOf(ReglaNegocioException.class)
@@ -128,7 +127,7 @@ class ModeracionResenasImplTest {
     @Test
     @DisplayName("HU-27 R27: ocultar una reseña inexistente da 404")
     void inexistente() {
-        when(resenas.findParaActualizar(RESENA_ID)).thenReturn(Optional.empty());
+        when(resenas.buscarParaActualizar(RESENA_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> moderacion.ocultar(ADMIN, RESENA_ID, IP))
                 .isInstanceOf(RecursoNoEncontradoException.class);

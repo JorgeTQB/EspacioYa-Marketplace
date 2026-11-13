@@ -259,7 +259,7 @@ Las columnas **Pruebas unitarias**, **Capturas** y **Estado** las llena la parej
 | [HU-21](historias/HU-21.md) | B | R2 · S6 (10) | RF-B-09, 10 | SEG-12, 19 | RN-15, RN-16 | HU-07, HU-15 | Sebastian Garate | Adriana Callupe | — | | | |
 | [HU-22](historias/HU-22.md) | A | R2 · S6 (10) | RF-A-23…25 | SEG-03, 12; CUM-04 | RN-17 | HU-01, HU-19, HU-20 | Kevin Chan | Jorge Quispe | — | | | |
 | [HU-23](historias/HU-23.md) ★ | C | R2 · S7 (11) | RF-B-08, RF-C-06, 07 | SEG-10, 17 | RN-15 | HU-07, HU-10 | Sebastian Garate | Adriana Callupe | Decorator | | | |
-| [HU-24](historias/HU-24.md) | C | R2 · S7 (11) | RF-C-08…10 | SEG-10, 12 | RN-13 | HU-14 | Ariel Enriquez | Sebastian Garate | — | | | |
+| [HU-24](historias/HU-24.md) ★ | C | R2 · S7 (11) | RF-C-08…10 | SEG-10, 12 | RN-13 | HU-14 | Ariel Enriquez | Sebastian Garate | Decorator, DAO | | | |
 | [HU-25](historias/HU-25.md) ★ | D | R2 · S7 (11) | RF-D-10, 11, RF-A-26 | SEG-01, 16; ARQ-08 | RN-14 | HU-13 | Jorge Quispe | Kevin Chan | Factory Method, Adapter | | | |
 | [HU-26](historias/HU-26.md) | F | R2 · S8 (11) | RF-F-07…09 | SEG-12, 17, 19 | RN-12 | HU-14, HU-16, HU-19 | Ariel Enriquez | Eduardo Saldaña | — | | | |
 | [HU-27](historias/HU-27.md) | F | R2 · S8 (11) | RF-F-10…12 | SEG-04, 12, 17 | RN-15 | HU-09, HU-17, HU-24 | Kevin Chan | Jorge Quispe | — | | | |

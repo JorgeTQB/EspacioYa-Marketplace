@@ -17,6 +17,10 @@ import org.springframework.data.repository.query.Param;
 import pe.edu.ulima.espacioya.busqueda.domain.EstadoResena;
 import pe.edu.ulima.espacioya.busqueda.domain.Resena;
 
+/**
+ * Consultas de Spring Data sobre {@code resena}. Solo lo usa {@link ResenaDAOJpa} (★ HU-24, R53): el resto de
+ * {@code busqueda} accede a las reseñas por {@link ResenaDAO}.
+ */
 public interface ResenaRepository extends JpaRepository<Resena, Long> {
 
     boolean existsByReservaId(Long reservaId);
