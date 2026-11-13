@@ -495,7 +495,10 @@
       ],
       "owner": "Ariel Enriquez",
       "tester": "Sebastian Garate",
-      "patterns": [],
+      "patterns": [
+        "Decorator",
+        "DAO"
+      ],
       "historia": "docs/historias/HU-24.md",
       "sdd": true,
       "status": "done"

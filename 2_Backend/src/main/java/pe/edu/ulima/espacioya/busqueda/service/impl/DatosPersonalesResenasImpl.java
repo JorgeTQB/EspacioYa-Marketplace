@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.busqueda.domain.Resena;
 import pe.edu.ulima.espacioya.busqueda.dto.ResenaExportadaDTO;
-import pe.edu.ulima.espacioya.busqueda.repository.ResenaRepository;
+import pe.edu.ulima.espacioya.busqueda.repository.ResenaDAO;
 import pe.edu.ulima.espacioya.comun.configuracion.ZonaHoraria;
 import pe.edu.ulima.espacioya.cuentas.service.puertos.Impedimento;
 import pe.edu.ulima.espacioya.cuentas.service.puertos.ParticipanteDatosPersonales;
@@ -31,10 +31,11 @@ public class DatosPersonalesResenasImpl implements ParticipanteDatosPersonales {
 
     public static final String SECCION_RESENAS = "resenas";
 
-    private final ResenaRepository resenas;
+    // ★ DAO (HU-24 reapertura, DT-27): BusinessObject de ResenaDAO, sin ResenaRepository (R53).
+    private final ResenaDAO resenas;
     private final CatalogoEspaciosService catalogo;
 
-    public DatosPersonalesResenasImpl(ResenaRepository resenas, CatalogoEspaciosService catalogo) {
+    public DatosPersonalesResenasImpl(ResenaDAO resenas, CatalogoEspaciosService catalogo) {
         this.resenas = resenas;
         this.catalogo = catalogo;
     }
@@ -45,7 +46,7 @@ public class DatosPersonalesResenasImpl implements ParticipanteDatosPersonales {
         if (!titular.esUsuario()) {
             return List.of();
         }
-        var suyas = resenas.findByUsuarioIdOrderByCreadoEnAscIdAsc(titular.usuarioId());
+        var suyas = resenas.delUsuario(titular.usuarioId());
         var nombres = catalogo.nombres(suyas.stream().map(Resena::getEspacioId).distinct().toList());
         var exportadas = suyas.stream().map(resena -> exportada(resena, nombres)).toList();
         return List.of(new SeccionDatos(SECCION_RESENAS, exportadas));
@@ -61,7 +62,7 @@ public class DatosPersonalesResenasImpl implements ParticipanteDatosPersonales {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void anonimizar(TitularDatos titular) {
-        resenas.reemplazarComentarios(titular.usuarioId(), Resena.COMENTARIO_ELIMINADO);
+        resenas.anonimizarComentarios(titular.usuarioId());
     }
 
     private static ResenaExportadaDTO exportada(Resena resena, Map<Long, String> nombres) {

@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -15,7 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.busqueda.domain.Resena;
-import pe.edu.ulima.espacioya.busqueda.repository.ResenaRepository;
+import pe.edu.ulima.espacioya.busqueda.repository.ResenaDAO;
 import pe.edu.ulima.espacioya.busqueda.service.ModeracionResenas;
 import pe.edu.ulima.espacioya.busqueda.service.ResenaModerada;
 import pe.edu.ulima.espacioya.busqueda.service.ResenaReportable;
@@ -39,11 +38,12 @@ public class ModeracionResenasImpl implements ModeracionResenas {
 
     private static final String ENTIDAD_RESENA = "resena";
 
-    private final ResenaRepository resenas;
+    // ★ DAO (HU-24 reapertura, DT-27): BusinessObject de ResenaDAO, sin ResenaRepository (R53).
+    private final ResenaDAO resenas;
     private final CatalogoEspaciosService catalogo;
     private final AuditoriaService auditoria;
 
-    public ModeracionResenasImpl(ResenaRepository resenas, CatalogoEspaciosService catalogo,
+    public ModeracionResenasImpl(ResenaDAO resenas, CatalogoEspaciosService catalogo,
                                  AuditoriaService auditoria) {
         this.resenas = resenas;
         this.catalogo = catalogo;
@@ -56,7 +56,7 @@ public class ModeracionResenasImpl implements ModeracionResenas {
         if (resenaId == null) {
             return Optional.empty();
         }
-        return resenas.findById(resenaId)
+        return resenas.buscar(resenaId)
                 .filter(Resena::estaVisible)
                 .filter(resena -> catalogo.esVisible(resena.getEspacioId()))
                 .map(resena -> new ResenaReportable(resena.getId(), resena.getUsuarioId(), resena.getEspacioId()));
@@ -68,7 +68,7 @@ public class ModeracionResenasImpl implements ModeracionResenas {
         if (resenaIds.isEmpty()) {
             return Map.of();
         }
-        return resenas.findAllById(Set.copyOf(resenaIds)).stream()
+        return resenas.buscarVarias(resenaIds).stream()
                 .map(ModeracionResenasImpl::moderada)
                 .collect(Collectors.toMap(ResenaModerada::id, Function.identity()));
     }
@@ -77,7 +77,7 @@ public class ModeracionResenasImpl implements ModeracionResenas {
     @Transactional(propagation = Propagation.MANDATORY)
     public void ocultar(UsuarioAutenticado admin, Long resenaId, String ip) {
         exigirAdmin(admin);
-        var resena = resenas.findParaActualizar(resenaId).orElseThrow(RecursoNoEncontradoException::new);
+        var resena = resenas.buscarParaActualizar(resenaId).orElseThrow(RecursoNoEncontradoException::new);
         if (!resena.estaVisible()) {
             throw new ReglaNegocioException(MENSAJE_NO_OCULTABLE);
         }

@@ -657,8 +657,8 @@ reseñable no hay forma de crear una.
   la carrera. Sin `@Transactional`, con `TransactionTemplate`, para traducir esa violación por su nombre (como HU-12).
 - **Ficha.** `FichaPublicaDTO` agrega `calificacionPromedio` (1 decimal, `HALF_UP`, con enteros en `ResumenCalificaciones`; nulo sin
   reseñas) y `totalResenas`, solo de las `VISIBLE`. `ResultadoEspacioDTO` no cambia: la búsqueda no muestra ni ordena por promedio.
-- **Paginación.** Spring Data rechaza un offset mayor que `Integer.MAX_VALUE`: `deEspacio` responde esa página (válida) vacía
-  sin consultar. Quien pagine con `PageRequest` y números enormes debe hacer lo mismo.
+- **Paginación.** Spring Data rechaza un offset mayor que `Integer.MAX_VALUE`: `ResenaDAOJpa.visiblesDeEspacio` responde esa
+  página (válida) vacía sin consultar. Quien pagine con `PageRequest` y números enormes debe hacer lo mismo.
 - **`comun.texto.SanitizadorTexto.limpiar(String)`.** Normaliza saltos de línea, quita caracteres de control, etiquetas y todo `<` o
   `>` restante, y recorta. Puede devolver vacío. No escapa a entidades. Reutilizable por HU-26.
 - **Datos personales.** `DatosPersonalesResenasImpl` exporta la sección `resenas` solo para el rol `USUARIO`, no genera
@@ -667,6 +667,16 @@ reseñable no hay forma de crear una.
   `busqueda.service.ModeracionResenas` (`ModeracionResenasImpl`); el reporte guarda el `id` de la reseña en
   `reporte.resena_id`. Las consultas ya filtran `VISIBLE` y una reseña oculta sigue contando como *ya reseñada*.
   Toda IT que cree reseñas las borra antes que `reserva`, `espacio` y `usuario` (sin cascada), y antes borra `reporte`.
+- **★ Decorator y DAO (reapertura de HU-24).** `ResenaService.crear` es el Client: comprueba el rol y llama al único bean
+  `PublicacionResena`, que `ConfiguracionPublicacionResena.cadena` arma una vez como `PublicacionSanitizada(
+  PublicacionTransaccional(PublicacionAuditada(PublicacionResenaBase)))`. El orden importa: la sanitización va fuera de la
+  transacción (un comentario vacío no abre nada) y la auditoría dentro (si falla, no queda la reseña). Un comportamiento nuevo
+  es otra subclase de `PublicacionResenaDecorador` y una línea en `cadena`. La tabla `resena` solo se lee y escribe por
+  `busqueda.repository.ResenaDAO` (`ResenaDAOJpa`, `@Repository` de paquete, como `ReservaDAO`): `existeParaReserva`,
+  `guardar` (`saveAndFlush`), `reservasResenadasPor`, `visiblesDeEspacio` (orden, filtro `VISIBLE` y tope de offset),
+  `resumenVisibles`, `delUsuario`, `anonimizarComentarios`, `buscar`, `buscarVarias` y `buscarParaActualizar`.
+  `ResenaRepository` solo lo usa `ResenaDAOJpa`: HU-26, HU-27 y las que sigan **no** deben inyectarlo (HU-27 ya pasa por el
+  DAO; `AccesoResenasTest` lo comprueba).
 
 ### Reclamos: qué deja HU-26
 
@@ -899,6 +909,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 | HU-15 ★      | Strategy                        | `reservas`: interfaz `PoliticaReembolso` con una estrategia por caso; el servicio la elige sin `if` por tipo (`CalculoReembolso` es el Context). Ver [Cancelación](#cancelación-qué-deja-hu-15-hu-16-hu-21-hu-28) |
 | HU-16 ★      | Command, Adapter                | `pagos`: `SolicitudReembolso` con `ejecutar()`, idempotente y reintentable; reutiliza el adaptador de HU-13 |
 | HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente. Component `BusquedaEspacios`, ConcreteComponent `BusquedaBase`, Decorator `FiltroBusqueda`, ConcreteDecorators `FiltroPrecioMaximo`, `FiltroCapacidadMinima`, `FiltroCaracteristicas`; `FiltrosBusqueda.envolver` arma la cadena por petición y `BusquedaService` es el Client. Ver [Filtros](#filtros-qué-deja-hu-23--decorator) |
+| HU-24 ★      | Decorator, DAO                  | `busqueda`: publicar una reseña es una cadena de decoradores armada una vez en `ConfiguracionPublicacionResena.cadena` (Component `PublicacionResena`, ConcreteComponent `PublicacionResenaBase`, Decorator `PublicacionResenaDecorador`, ConcreteDecorators `PublicacionSanitizada` → `PublicacionTransaccional` → `PublicacionAuditada`; Client `ResenaService.crear`). La tabla `resena` solo se toca por `ResenaDAO` + `ResenaDAOJpa` (BusinessObjects `ResenaService`, `PublicacionResenaBase`, `DatosPersonalesResenasImpl`, `ModeracionResenasImpl`; DataSource `ResenaRepository`; TransferObjects `Resena`, `TrozoResenas`, `ResumenCalificaciones`). Ver [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27) |
 | HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento (Creator `FabricaCorreo<E>` con el método fábrica `crearCorreo`, Product `Correo`; ConcreteCreators y ConcreteProducts en el módulo del evento: `FabricaRecordatorio{Usuario,Arrendador}` en `reservas` y 13 `FabricaCorreo*` en `cuentas`; Clients `RecordatoriosReserva` y `NotificadorCorreoImpl`) y adaptador del proveedor de correo (Target `EnvioCorreo`, Adapter `EnvioCorreoSmtp` sobre el Adaptee `JavaMailSender`, `EnvioCorreoSimulado`; se elige con `espacioya.correo.proveedor`). Ver [Correo](#correo-qué-deja-hu-25--factory-method-adapter) |
 | Todas        | DAO / Repository                | Un repositorio por agregado |
 

@@ -100,3 +100,78 @@
 - [x] T29 — Ejecutar `./init.sh` completo en verde (backend `test` y `verify` con Testcontainers, ESLint y build del
   frontend, revisión de colores fuera de `tokens.css`) y dejar en `progress/impl_HU-24.md` el mapa R1–R43 → test. Cubre:
   R1–R43.
+
+## Reapertura ★: Decorator y DAO
+
+> Refactorización del backend ya implementado (`design.md` DT-20 a DT-27 y § 12). **No** se tocan migraciones, DTO,
+> controladores, `comun/`, `SanitizadorTexto` ni `3_frontend/` (R58). Antes de empezar, aplicar lo que Ariel Enriquez
+> haya decidido sobre P19–P22. Las pruebas nuevas llevan `@DisplayName("HU-24 R<n>: …")`; las adaptadas conservan el
+> suyo. Después de cada task, `./2_Backend/mvnw -f 2_Backend/pom.xml test` en verde.
+
+### DAO
+
+- [x] T30 — Crear `J/busqueda/repository/ResenaDAO`, `TrozoResenas` y `ResenaDAOJpa` (`@Repository`, de paquete, solo
+  con `ResenaRepository`) según `design.md` § 6 y § 12.2, con el tope de offset de DT-26. Añadir el Javadoc "solo lo usa
+  `ResenaDAOJpa`" a `ResenaRepository` sin cambiar sus métodos. Pruebas: `ResenaDAOJpaTest` (unitaria: `PageRequest`
+  con página `n − 1`, tamaño y orden `creadoEn`, `id` descendentes, filtro `VISIBLE`, offset enorme sin consultar y el
+  último que aún consulta) y `ResenaDAOJpaIT` (PostgreSQL: 11 visibles y una `OCULTA` en dos páginas con `hayMas`;
+  resumen solo `VISIBLE`; `guardar` duplicado lanza `DataIntegrityViolationException` desde `guardar` dentro de un
+  `TransactionTemplate`; `delUsuario` en orden ascendente y `anonimizarComentarios` solo del usuario). Cubre: R54, R55,
+  R56, R57.
+- [x] T31 — Pasar `ResenaService.pendientes`, `deEspacio` y `resumen` a `ResenaDAO` (`reservasResenadasPor`,
+  `visiblesDeEspacio(id, n, TAMANO_PAGINA)`, `resumenVisibles`) y adaptar esas partes de `ResenaServiceTest` según
+  `design.md` § 14 "Reapertura" (sin cambiar ningún `@DisplayName`). Hasta T36, `crear` sigue con `ResenaRepository`,
+  así que el constructor recibe los dos un momento; T36 quita el repositorio. Prueba: `ResenaServiceTest`. Cubre: R25, R26, R27,
+  R29, R30, R33, R34, R53.
+- [x] T32 — Pasar `DatosPersonalesResenasImpl` a `ResenaDAO` (`delUsuario`, `anonimizarComentarios`) y adaptar los
+  dobles de `DatosPersonalesResenasImplTest`. Prueba: `DatosPersonalesResenasImplTest`. Cubre: R39, R40, R41, R42, R53.
+- [x] T33 — Pasar `ModeracionResenasImpl` (HU-27) a `ResenaDAO` (`buscar`, `buscarVarias`, `buscarParaActualizar`) sin
+  cambiar `ModeracionResenas`, sus transacciones ni sus mensajes, y adaptar los dobles de `ModeracionResenasImplTest`.
+  Si el dueño no aceptó P21, saltar esta task, quitar esos tres métodos del DAO y excluir la clase de R53. Prueba:
+  `ModeracionResenasImplTest`. Cubre: R53.
+
+### Decorator
+
+- [x] T34 — Crear `J/busqueda/service/PublicacionResena` (Component), `SolicitudResena` con `conComentario`,
+  `PublicacionResenaDecorador` (Decorator abstracto, `envuelta()` de paquete) y `PublicacionResenaBase`
+  (ConcreteComponent: el actual `crearEnTransaccion` sin la auditoría, con `ResenaDAO`). Prueba:
+  `PublicacionResenaBaseTest` (con `InOrder`: `delUsuario` → `existeParaReserva` → `guardar`; 404 sin consultar el DAO;
+  *ya reseñada* antes que el plazo; comentario con `<b>` guardado tal cual). Cubre: R52.
+- [x] T35 — Crear los ConcreteDecorators `PublicacionSanitizada`, `PublicacionTransaccional` (con el `catch` de DT-6,
+  que sale de `ResenaService`) y `PublicacionAuditada` (detalle de R23). Pruebas, cada una con un doble de su envuelta:
+  `PublicacionSanitizadaTest` (comentario limpio y demás campos iguales; vacío sin invocar la envuelta, campo
+  `comentario`), `PublicacionTransaccionalTest` (`commit` si vuelve, `rollback` si lanza, `uq_resena_reserva` → *ya
+  reseñada*, otra violación y otra excepción se relanzan iguales) y `PublicacionAuditadaTest` (registra después y devuelve
+  la misma `Resena`; si la envuelta lanza, ningún `registrar` y la misma excepción). Cubre: R45, R46, R47, R48, R49, R50.
+- [x] T36 — Crear `ConfiguracionPublicacionResena` (`@Bean` + `cadena(...)` estático) y convertir `ResenaService.crear`
+  en Client: `exigirRol` → `publicacion.publicar(new SolicitudResena(...))` → `ResenaCreadaDTO`; el constructor queda
+  `(PublicacionResena, ResenaDAO, ReservasParaResena, CatalogoEspaciosService, Clock)`. Adaptar `preparar` y
+  `fechaEnLima` de `ResenaServiceTest` para usar `ConfiguracionPublicacionResena.cadena(...)` con los dobles y renombrar
+  `existsByReservaId`/`saveAndFlush` (todos los tests de R1–R24 deben pasar sin cambiar su `@DisplayName`). Pruebas:
+  `ConfiguracionPublicacionResenaTest` (tipos y orden de la cadena por `envuelta()`; `ResenaService` solo recibe
+  `PublicacionResena` para crear) y `ResenaServiceTest`. Cubre: R44, y vuelve a cubrir R1, R3, R6–R10, R12, R14, R21–R24.
+- [x] T37 — Añadir `PublicacionResenaIT` (contexto completo, `@MockitoSpyBean AuditoriaService` que lanza en
+  `registrar`, reserva reseñable sembrada: la llamada falla y no queda ninguna fila en `resena`) y `AccesoResenasTest`
+  (por reflexión, ningún campo `ResenaRepository` en `ResenaService`, las cuatro clases de la cadena,
+  `DatosPersonalesResenasImpl` y `ModeracionResenasImpl`). Cubre: R51, R53.
+
+### Documentación del informe y de `docs/`
+
+- [x] T38 — Crear `docs/informe/HU-24.md` según `design.md` § 12.4, en Mermaid editable y con código copiado de los
+  archivos ya refactorizados: § 7.7 (diagrama de clases de Decorator y de DAO con roles GoF y tabla "rol → clase" de
+  cada uno), § 8.1 (fila del escenario: ID de P22, HU-24, "Reseñar una reserva pasada", Usuario, Release 2 / Sprint 7,
+  justificación), § 8.1.1 (diagrama de secuencia UML del escenario con el flujo principal y los alternos *ya reseñada*,
+  *fuera de plazo* y carrera por `uq_resena_reserva`, y su explicación breve) y § 8.1.2 (tabla de identificación del
+  escenario, fragmentos de código real por clase y método, tabla "mensaje del diagrama → clase.método", explicación y
+  referencia a archivos). Cubre: documentación ★ de R44–R57.
+- [x] T39 — Actualizar `docs/historias/HU-24.md` (línea `- **Se documenta a fondo (capítulo 8).** Patrones: Decorator,
+  DAO.`, como en HU-23), `docs/architecture.md` (fila ★ de HU-24 en "Patrones por historia" y párrafo en "Reseñas: qué
+  deja HU-24") y `docs/requerimientos.md` § 7 (`★` y columna "Patrón" `Decorator, DAO` en la fila de HU-24), según
+  `design.md` § 16 "Reapertura". Cubre: documentación ★ de R44–R57.
+
+### Verificación
+
+- [x] T40 — Ejecutar `./init.sh` completo en verde. Confirmar R58: `git diff develop --stat` no muestra cambios en
+  `2_Backend/src/main/resources/db/`, `busqueda/dto/`, `busqueda/controller/`, `comun/` ni `3_frontend/`, y las pruebas
+  listadas como "Sin cambios" en `design.md` § 14 no se tocaron. Agregar a `progress/impl_HU-24.md` el mapa
+  R44–R58 → test y la lista de pruebas adaptadas. Cubre: R1–R58.

@@ -152,3 +152,96 @@ Raíces: `J/` = `2_Backend/src/main/java/pe/edu/ulima/espacioya/`, `T/` = `2_Bac
   `F/pages/reservas/MisReservas.jsx`, `F/pages/reservas/textosReservas.js`
 - `docs/architecture.md`, `docs/frontend.md`, `docs/modelo-datos.md`, `docs/requerimientos.md`
 - `specs/HU-24/tasks.md`, `progress/HU-24.md`
+
+---
+
+## Reapertura 2026-11-13 (★ Decorator, DAO)
+
+- **Spec:** `specs/HU-24/` (R1–R58, DT-1–DT-27), aprobado por Ariel Enriquez el 2026-11-13. P21 = sí
+  (`DatosPersonalesResenasImpl` y `ModeracionResenasImpl` migran al DAO); P22 = `ESC-24`.
+- **Tasks:** T30–T40 `[x]`. Sin tasks pendientes.
+- **Sin commit, push ni PR. Status sigue `in_progress`** (no se marca `done` hasta el reviewer).
+
+### Verificación
+
+| Comprobación | Resultado | Detalle |
+|--------------|-----------|---------|
+| `./2_Backend/mvnw -f 2_Backend/pom.xml test` | **Salida 0** | Tras T30–T36 |
+| `./2_Backend/mvnw -f 2_Backend/pom.xml verify` (1.ª corrida) | **Salida 1, ajena a HU-24** | Surefire: **2152** unitarias, 0 fallos, 0 errores. Failsafe: **1238** IT, 0 fallos, **1 error** en `cuentas.controller.MfaInicioSesionIT.auditoriaSinSecretos`: `CannotGetJdbcConnectionException` / `PSQLException: This connection has been closed`, justo después de que Hikari avisara de "Thread starvation or clock leap detected (housekeeper delta=1m25s)" (pausa del host). No es de HU-24 ni usa reseñas: **no se tocó** |
+| `./init.sh` completo (corrida final) | **Salida 0, `[OK] Entorno listo`** | 134 unitarias de las clases tocadas + **1238 IT, 0 fallos, 0 errores, 0 omitidas** (incluida `MfaInicioSesionIT`, que esta vez pasó); arquitectura, colores y secretos OK; ESLint y build OK |
+| `./init.sh` completo tras el review (R58, 2026-11-13) | **Salida 0, `[OK] Entorno listo`** | `ContratoResenasTest` nuevo (4 pruebas `HU-24 R58`, verdes). 138 unitarias de las 12 clases tocadas + **1238 IT**, 0 fallos, 0 errores. Ya **no** aparece el WARN de R58; solo queda el de las llaves de cifrado y firma (no afecta a las pruebas) |
+| Suites de HU-24 (en `verify`) | Verde | `ResenaControllerIT` 68, `ResenaRepositoryIT` 12, `ResenaDAOJpaIT` 5, `PublicacionResenaIT` 2, `FichaControllerIT` 23, `LimiteFichaIT` 9; unitarias `ResenaServiceTest` 44, `ResenaDAOJpaTest` 8, `PublicacionResenaBaseTest` 5, `PublicacionTransaccionalTest` 5, `PublicacionAuditadaTest` 2, `PublicacionSanitizadaTest` 2, `ConfiguracionPublicacionResenaTest` 3, `AccesoResenasTest` 12, `FichaServiceTest` 40 |
+| Suites de HU-22 | Verde | `DatosPersonalesControllerIT` 37, `DatosPersonalesConcurrenciaIT` 6, `DatosPersonalesReclamosIT` 5, `DatosPersonalesReportesIT` 3, `DatosPersonalesResenasImplTest` 6 |
+| Suites de HU-26 | Verde | `ReclamoControllerIT` 44, `ReclamoAdminControllerIT` 30, `ReclamoLiquidacionIT` 4, `ReclamoReembolsoFallidoIT` 1, `ReclamoRestriccionesIT` 4 |
+| Suites de HU-27 | Verde | `ReporteControllerIT` 18, `ReporteAdminControllerIT` 21, `ReporteRestriccionesIT` 6, `ModeracionResenasImplTest` 7 |
+| R58 | Cumplido | `git diff develop --stat` vacío en `2_Backend/src/main/resources/db/`, `busqueda/dto/`, `busqueda/controller/`, `comun/` y `3_frontend/`. Tampoco cambiaron las pruebas "Sin cambios" de `design.md` § 14 (`git diff develop --stat` vacío en `T/busqueda/controller/`, `T/cuentas/`, `T/administracion/`, `T/comun/` y `ResenaRepositoryIT`) |
+
+### Trazabilidad R44–R58
+
+| R | Pruebas |
+|---|---------|
+| R44 | `ConfiguracionPublicacionResenaTest.ordenDeLaCadena`, `.beanUsaLaCadena`, `.clientSoloConoceElComponent`; `PublicacionResenaIT.cadenaRealGuardaYAudita` |
+| R45 | `PublicacionSanitizadaTest.pasaElComentarioLimpio` |
+| R46 | `PublicacionSanitizadaTest.vacioNoInvocaLaEnvuelta` |
+| R47 | `PublicacionTransaccionalTest.confirmaSiVuelve`, `.revierteSiLanza` |
+| R48 | `PublicacionTransaccionalTest.traduceLaCarrera`, `.otraViolacionIgual`, `.otraExcepcionIgual` |
+| R49 | `PublicacionAuditadaTest.registraDespues` |
+| R50 | `PublicacionAuditadaTest.noRegistraSiLanza` |
+| R51 | `PublicacionResenaIT.auditoriaFallaSinFila`, `.cadenaRealGuardaYAudita` |
+| R52 | `PublicacionResenaBaseTest.ordenDeLaRegla`, `.ajenaSinDao`, `.yaResenadaAntesQueElPlazo`, `.fueraDePlazo`, `.noSanitiza` |
+| R53 | `AccesoResenasTest.sinRepositorio` (8 clases), `.conDao` (4 clases); `ResenaDAOJpaTest.anonimizaConTextoFijo`; `ResenaDAOJpaIT.delUsuarioYAnonimizar`, `.busquedasDeModeracion` |
+| R54 | `ResenaDAOJpaTest.paginaConOrdenYFiltro`, `.sinMas`; `ResenaDAOJpaIT.dosPaginasSoloVisibles` |
+| R55 | `ResenaDAOJpaTest.offsetEnorme` (2 casos), `.ultimaQueConsulta` |
+| R56 | `ResenaDAOJpaTest.resumenSoloVisible`; `ResenaDAOJpaIT.resumenSoloVisibles` |
+| R57 | `ResenaDAOJpaTest.guardarConFlush`; `ResenaDAOJpaIT.guardarDuplicadoLanzaDesdeGuardar` |
+| R58 | `ContratoResenasTest.rutasDelControlador`, `.camposDeLosDto`, `.mensajes`, `.firmasPublicas` (etiquetadas `HU-24 R58`, agregadas tras el review). Además, las pruebas "Sin cambios" de `design.md` § 14 pasan sin tocarse (`ResenaControllerIT`, `FichaControllerIT`, `FichaServiceTest`, `LimiteFichaIT`, `DatosPersonalesControllerIT`, IT de HU-27, `SanitizadorTextoTest`, pruebas de HU-26) + el `git diff` de la tabla anterior |
+
+R1–R43 siguen cubiertos por el mapa de arriba. Los tests de R1–R24 de `ResenaServiceTest` ahora recorren la cadena real
+(`ConfiguracionPublicacionResena.cadena` con dobles), y los de R25–R34 pasan por `ResenaDAO`.
+
+### Pruebas adaptadas (sin cambiar ningún `@DisplayName`)
+
+- `T/busqueda/service/ResenaServiceTest`: `@Mock ResenaDAO`; `preparar` y `fechaEnLima` usan el helper `conReloj(...)`,
+  que arma `ConfiguracionPublicacionResena.cadena(...)`. `existsByReservaId` → `existeParaReserva`, `saveAndFlush` →
+  `guardar`, `reservasResenadas` → `reservasResenadasPor`, `totales` → `resumenVisibles` (se borró el helper `totales`),
+  `findByEspacioIdAndEstado` → `visiblesDeEspacio(ESPACIO_ID, n, 10)` con `TrozoResenas`. Las aserciones sobre
+  `Pageable`/orden pasaron a `ResenaDAOJpaTest`; `paginaEnorme` y `ultimaPaginaConsultable` quedaron como "pasa n y 10 al
+  DAO" (el tope de offset vive en `ResenaDAOJpaTest`).
+- `T/busqueda/service/impl/DatosPersonalesResenasImplTest`: `@Mock ResenaDAO`; `delUsuario`, `anonimizarComentarios`.
+- `T/busqueda/service/impl/ModeracionResenasImplTest` (HU-27): `@Mock ResenaDAO`; `buscar`, `buscarVarias(List.of(id))`,
+  `buscarParaActualizar`.
+
+### Desvíos del spec
+
+1. **T31 y T36 juntas.** `tasks.md` pedía un paso intermedio en el que `ResenaService` recibía `ResenaRepository` y
+   `ResenaDAO` a la vez. Se fue directo al constructor final `(PublicacionResena, ResenaDAO, ReservasParaResena,
+   CatalogoEspaciosService, Clock)`; el resultado es el mismo que fija T36.
+2. **Detalles menores no fijados por el diseño:** `TrozoResenas` copia la lista (`List.copyOf`) en su constructor
+   compacto; `ResenaDAOJpa.MAS_NUEVAS_PRIMERO` es constante de paquete; `PublicacionTransaccional.RESTRICCION_UNA_POR_RESERVA`
+   es de paquete; `PublicacionSanitizada` tiene su propia constante `CAMPO_COMENTARIO = "comentario"`.
+3. **Pruebas extra** no listadas en § 14: `ResenaDAOJpaTest.guardarConFlush` y `.anonimizaConTextoFijo`;
+   `ResenaDAOJpaIT.busquedasDeModeracion`; `PublicacionResenaIT.cadenaRealGuardaYAudita`;
+   `ConfiguracionPublicacionResenaTest.beanUsaLaCadena`; `AccesoResenasTest.conDao`.
+4. **`docs/informe/`** no existía; se creó con `HU-24.md` (T38).
+
+Ninguna decisión de diseño nueva; contrato HTTP, DTO, mensajes, migraciones y frontend sin cambios.
+
+### Archivos de la reapertura
+
+**Creados, backend:** `J/busqueda/repository/ResenaDAO`, `ResenaDAOJpa`, `TrozoResenas`;
+`J/busqueda/service/PublicacionResena`, `SolicitudResena`, `PublicacionResenaDecorador`, `PublicacionResenaBase`,
+`PublicacionSanitizada`, `PublicacionTransaccional`, `PublicacionAuditada`, `ConfiguracionPublicacionResena`.
+
+**Creados, pruebas:** `T/busqueda/AccesoResenasTest`, `T/busqueda/ContratoResenasTest` (R58, tras el review); `T/busqueda/repository/ResenaDAOJpaTest`, `ResenaDAOJpaIT`;
+`T/busqueda/service/ConfiguracionPublicacionResenaTest`, `PublicacionResenaBaseTest`, `PublicacionSanitizadaTest`,
+`PublicacionTransaccionalTest`, `PublicacionAuditadaTest`, `PublicacionResenaIT`.
+
+**Modificados, backend:** `J/busqueda/repository/ResenaRepository` (solo Javadoc), `J/busqueda/service/ResenaService`,
+`J/busqueda/service/impl/DatosPersonalesResenasImpl`, `J/busqueda/service/impl/ModeracionResenasImpl`.
+
+**Modificados, pruebas:** `T/busqueda/service/ResenaServiceTest`, `T/busqueda/service/impl/DatosPersonalesResenasImplTest`,
+`T/busqueda/service/impl/ModeracionResenasImplTest`.
+
+**Documentación:** `docs/informe/HU-24.md` (nuevo: § 7.7, § 8.1, § 8.1.1, § 8.1.2), `docs/historias/HU-24.md`,
+`docs/architecture.md` (fila ★ HU-24 en "Patrones por historia", viñeta de paginación y párrafo ★ en "Reseñas: qué deja
+HU-24"), `docs/requerimientos.md` § 7 (fila HU-24 con ★ y `Decorator, DAO`), `specs/HU-24/tasks.md`, `progress/HU-24.md`.

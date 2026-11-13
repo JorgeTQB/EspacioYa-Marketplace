@@ -5,7 +5,12 @@
 > HU-14", "Datos personales: qué deja HU-22"), `docs/modelo-datos.md` (`resena`), `specs/HU-11/design.md` (DT-16),
 > `specs/HU-14/`, `specs/HU-22/design.md` (DT-2) y `progress/explore_HU-24.md`.
 > Notación EARS estricta (`docs/specs.md`). Los requirements hablan de la **API**; la presentación está en
-> `design.md` § 11 Pantallas. HU-24 no es ★: no exige patrón.
+> `design.md` § 11 Pantallas.
+>
+> **Reapertura ★ (2026-11-13).** HU-24 se documenta a fondo en el capítulo 8 del informe con los patrones
+> **Decorator** y **DAO** (`feature_list.json`, backlog del cap. 5 y tablero). R1–R43 no cambian de número ni de
+> texto: el comportamiento observable por la API sigue igual. Los requisitos del patrón son **R44–R58** y las
+> decisiones de la reapertura son **P19–P22**. Diseño del patrón: `design.md` § 12.
 
 ## Decisiones por defecto que el dueño debe confirmar al aprobar
 
@@ -40,6 +45,15 @@
 | P16 | `specs/HU-14/design.md` nombra a Adriana Callupe como responsable de HU-24; la historia se reasignó a Ariel Enriquez. | Mandan `feature_list.json` y `docs/historias/HU-24.md`. Un spec cerrado no se edita. | C4 |
 | P17 | `docs/modelo-datos.md` no define `creado_en`, longitud de `comentario`, cascadas ni índices de `resena`. | `design.md` § 7 los fija y el implementer actualiza el documento en el mismo PR, como exige su encabezado. | C6 |
 | P18 | HU-11 dice que HU-23 agrega características a `FichaPublicaDTO`, pero HU-23 no lo hizo. | Sin efecto: el DTO sigue con 10 campos y HU-24 le suma 2. | C3 |
+
+### Decisiones de la reapertura ★ (Decorator y DAO)
+
+| # | Pregunta | Por defecto en este spec | Afecta |
+|---|----------|--------------------------|--------|
+| P19 | ¿Qué comportamientos combina el Decorator y quién abre la transacción? | La creación de la reseña es una cadena de `PublicacionResena`: **sanitización** (afuera, antes de abrir la transacción, para que un comentario vacío no lea la reserva: R22), **transacción** con traducción de `uq_resena_reserva` (DT-6), **auditoría** (adentro de la transacción: R23) y la **publicación base** (reserva, unicidad, plazo, guardar). La transacción es un decorador más porque la auditoría debe quedar adentro y la sanitización afuera; ningún otro lugar cumple las dos cosas (`design.md` A9, A10). | R44–R52 |
+| P20 | ¿La cadena se arma por petición (como HU-23) o una vez? | **Una vez, al arrancar**, en `ConfiguracionPublicacionResena`: ninguna pieza depende de datos de la petición y el orden es fijo (A11). | R44 |
+| P21 | ¿`DatosPersonalesResenasImpl` (HU-22, código de HU-24) y `ModeracionResenasImpl` (HU-27, dueño Kevin Chan) migran al DAO? | **Sí, los dos**: el DAO es la única puerta a la tabla `resena`. La interfaz `ModeracionResenas` de HU-27 y su comportamiento no cambian; solo su dependencia privada y los dobles de `ModeracionResenasImplTest`. Se avisa a Kevin Chan en el PR. Si el dueño prefiere no tocar HU-27, R53 excluye a `ModeracionResenasImpl` y el DAO pierde `buscar`, `buscarVarias` y `buscarParaActualizar` (A13). | R53 |
+| P22 | ¿Qué ID lleva el escenario en el § 8.1 del informe? | El siguiente libre de la tabla § 8.1; si el dueño no indica otro, **`ESC-24`**. | Documentación (`tasks.md` T38) |
 
 ## Definiciones
 
@@ -245,6 +259,73 @@ eliminado*, en la misma transacción.
 CUANDO se elimina una cuenta, el sistema DEBE conservar la `calificacion`, el `estado` y el `usuario_id` de sus reseñas,
 sin alterar `calificacionPromedio` ni `totalResenas` del espacio.
 
+## ★ Decorator: publicación de la reseña (reapertura, P19, P20)
+
+## R44
+El sistema DEBE crear cada reseña con una única cadena de `PublicacionResena` armada al arrancar, de afuera hacia
+adentro `PublicacionSanitizada → PublicacionTransaccional → PublicacionAuditada → PublicacionResenaBase`, y
+`ResenaService` DEBE depender solo de la interfaz `PublicacionResena` para crear.
+
+## R45
+CUANDO `PublicacionSanitizada` recibe una solicitud, el sistema DEBE pasar a su envuelta la misma solicitud con el
+comentario sanitizado y devolver sin cambios lo que la envuelta devuelve.
+
+## R46
+SI el comentario queda vacío después de sanitizarlo ENTONCES `PublicacionSanitizada` DEBE lanzar
+`ReglaNegocioException` en el campo `comentario` con el mensaje *comentario inválido*, sin invocar a su envuelta.
+
+## R47
+CUANDO `PublicacionTransaccional` recibe una solicitud, el sistema DEBE invocar a su envuelta dentro de una transacción
+que se confirma si la envuelta vuelve y se revierte si la envuelta lanza.
+
+## R48
+SI la envuelta de `PublicacionTransaccional` lanza `DataIntegrityViolationException` por `uq_resena_reserva` ENTONCES el
+sistema DEBE lanzar `ReglaNegocioException` con el mensaje *ya reseñada*, y DEBE relanzar sin cambios cualquier otra
+excepción.
+
+## R49
+CUANDO la envuelta de `PublicacionAuditada` devuelve una reseña, el sistema DEBE registrar `RESENA_CREADA` como pide R23
+y devolver esa misma reseña.
+
+## R50
+SI la envuelta de `PublicacionAuditada` lanza una excepción ENTONCES el sistema NO DEBE registrar auditoría y DEBE
+relanzar la misma excepción.
+
+## R51
+SI el registro de auditoría de una reseña falla ENTONCES el sistema NO DEBE dejar la fila de esa reseña en `resena`.
+
+## R52
+CUANDO `PublicacionResenaBase` recibe una solicitud, el sistema DEBE comprobar en este orden la reserva propia (R9), la
+reseña previa (R12) y el plazo (R6–R8), y guardar la reseña con `ResenaDAO`, sin sanitizar el comentario ni registrar
+auditoría.
+
+## ★ DAO: acceso a la tabla `resena` (reapertura, P21)
+
+## R53
+El sistema DEBE leer y escribir la tabla `resena` solo a través de `ResenaDAO`: `ResenaService`, las clases de la cadena
+de R44, `DatosPersonalesResenasImpl` y `ModeracionResenasImpl` NO DEBEN tener un campo de tipo `ResenaRepository`.
+
+## R54
+CUANDO se piden las reseñas visibles de un espacio en la página `n`, `ResenaDAO` DEBE devolver como máximo `tamano`
+reseñas `VISIBLE` de ese espacio, por `creado_en` e `id` descendentes, y `hayMas` verdadero solo si existe al menos una
+más después de ellas.
+
+## R55
+SI `(n − 1) × tamano` no cabe en un `int` ENTONCES `ResenaDAO` DEBE devolver una página vacía con `hayMas` falso, sin
+consultar la base de datos.
+
+## R56
+CUANDO se pide el resumen de un espacio, `ResenaDAO` DEBE devolver `ResumenCalificaciones` calculado solo con las
+reseñas `VISIBLE` de ese espacio.
+
+## R57
+CUANDO `ResenaDAO.guardar` inserta una reseña que choca con `uq_resena_reserva`, el sistema DEBE lanzar
+`DataIntegrityViolationException` desde la misma llamada a `guardar`, antes de confirmar la transacción.
+
+## R58
+El sistema NO DEBE cambiar, por R44–R57, las rutas, los DTO, los códigos HTTP, los mensajes ni el esquema de la base de
+datos de HU-24, HU-22 y HU-27.
+
 ## Trazabilidad con la historia
 
 | Origen (`docs/historias/HU-24.md`)                                  | Cubierto por |
@@ -252,9 +333,12 @@ sin alterar `calificacionPromedio` ni `totalResenas` del espacio.
 | CA1: reseña dentro de 14 días, aparece en la ficha y sube el promedio | R1, R2, R4, R5, R25, R27, R28, R29, R30, R36 |
 | CA2: sin reserva pasada en ese espacio no se permite                | R6, R7, R8, R9, R10, R11 |
 | CA3: no se reseña dos veces la misma reserva                        | R12, R13, R14, R25 |
-| (S/T) Una reseña por reserva, validada contra reservas reales       | R1, R3, R9, R12, R13, R14 |
-| (T) Texto sanitizado contra inyección de scripts                    | R17, R21, R22 |
-| (R) Registro de creación                                            | R23, R24 |
+| (S/T) Una reseña por reserva, validada contra reservas reales       | R1, R3, R9, R12, R13, R14, R48, R52, R57 |
+| (T) Texto sanitizado contra inyección de scripts                    | R17, R21, R22, R45, R46 |
+| (R) Registro de creación                                            | R23, R24, R49, R50, R51 |
+| ★ Patrones: Decorator (`feature_list.json`, informe cap. 5 y 8)     | R44, R45, R46, R47, R48, R49, R50, R51, R52 |
+| ★ Patrones: DAO (`feature_list.json`, informe cap. 5 y 8)           | R53, R54, R55, R56, R57 |
+| Reapertura sin cambiar el contrato (orquestador, `progress/HU-24.md`) | R58 |
 
 | Origen (`docs/requerimientos.md`)                                   | Cubierto por |
 |---------------------------------------------------------------------|--------------|
@@ -269,3 +353,7 @@ sin alterar `calificacionPromedio` ni `totalResenas` del espacio.
 | RNF-CUM-04 y puerto de HU-22 (por P11)                              | R39, R40, R41, R42, R43 |
 | Preparación para HU-27 (`modelo-datos.md`)                          | R19, R31, R35 |
 | Principio 7 de `architecture.md` (integridad en la base)            | R13, R18, R19, R20 |
+| "Patrones por historia" de `architecture.md` (fila ★ de HU-24)      | R44–R57 |
+| RNF-SEG-10 (sanitización como decorador)                            | R45, R46 |
+| RNF-SEG-12 (auditoría en la misma transacción)                      | R49, R50, R51 |
+| RNF-CUM-04 (HU-22 por el DAO)                                       | R42, R53 |
