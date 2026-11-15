@@ -1753,3 +1753,72 @@
   pruebas extra (ver `impl_HU-24.md`).
 - **Resultado:** status → `done`. `./init.sh` final, ya en `done`: salida 0, 138 unitarias de las clases tocadas
   + 1238 IT, 0 fallos y 0 errores. `feature_list.json` válido (27 `done`, 1 `in_progress`). Todo sin commitear.
+
+## 2026-11-15 — Diagrama AWS: frontend en contenedor nginx (sdd: false)
+
+- **Motivo:** el despliegue UAT irá a una cuenta AWS Academy Learner Lab, donde CloudFront está bloqueado
+  (`AccessDenied` en `cloudfront:ListDistributions`). El frontend ya no puede servirse con S3 + CloudFront.
+- **Cambio:** `4_Infraestructure/arquitectura-aws.html`. El usuario entra directo al ALB con WAF, que envía `/api/*` al
+  contenedor del backend y el resto (`/*`) a un contenedor nginx en ECS Fargate con el `dist/` del frontend. Con
+  `VITE_API_URL` vacía, el frontend llama a la API por ruta relativa (`3_frontend/src/api/cliente.js:3`): mismo
+  origen, sin CORS.
+- **Pendiente de decisión del equipo (no reflejado aún):** HTTPS sin dominio propio, EFS para los archivos de HU-05
+  (el backend guarda en disco, no en S3), Fargate en subred pública para evitar el NAT Gateway, y SES (no disponible
+  en el Learner Lab; UAT usa correo simulado).
+
+## 2026-11-15 — Diagrama AWS: backend con 2 tareas balanceadas (sdd: false)
+
+- **Motivo:** mejorar disponibilidad (RNF-067) y repartir la CPU de bcrypt en el login (RNF-009).
+- **Cambio:** `4_Infraestructure/arquitectura-aws.html`. El grupo del backend pasa a "BACKEND (.JAR) × 2 TAREAS" (una
+  segunda tarjeta apilada detrás) y la ruta del ALB queda como `/API/* · ROUND ROBIN`; `<desc>` actualizado.
+- **Revisado en el código:** sesiones y checkouts en BD; los programadores bloquean la fila (`findParaActualizar`) y
+  no duplican trabajo; el pago simulado se resuelve dentro de una petición.
+- **Consecuencias:** los archivos de HU-05 deben ir a almacenamiento compartido (EFS o S3), ya no es opcional;
+  `LimitadorIntentos` cuenta por instancia (login y catálogo permiten el doble), se documenta como limitación de UAT;
+  el contador de reembolsos fallidos de HU-16 es por instancia; costo ×2 (bajar a 0 tareas fuera de pruebas).
+
+## 2026-11-15 — HU-25 marcada `done` por su dueño (registro de estado)
+
+- Jorge Quispe cambió HU-25 de `in_progress` a `done` en `feature_list.json`: la historia ya estaba terminada
+  (`progress/review_HU-25.md` con APPROVED) y faltaba actualizar el estado. Lo hizo el dueño, no un agente.
+
+## 2026-11-15 — Historias técnicas HU-29, HU-30 y HU-31 (backend con 2 réplicas)
+
+- Creadas a pedido de Jorge Quispe (dueño de las tres) en `feature_list.json` y `docs/historias/`: HU-29 S3
+  seleccionable por `ALMACENAMIENTO_TIPO` (sin fallback silencioso), HU-30 limitador de intentos en PostgreSQL,
+  HU-31 fallo de reembolso simulado según `Reembolso.intentos`. Ids `HU-XX` porque `init.sh` solo acepta ese formato.
+
+## 2026-11-15 — HU-29 Almacenamiento de archivos en S3 seleccionable por configuración ★ Adapter (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-29-almacenamiento-s3`.
+- **Agentes:** orquestador → spec-author (`specs/HU-29/`, R1–R30, T1–T15) → aprobación de Jorge Quispe el 2026-11-15 →
+  implementer (`progress/impl_HU-29.md`) → reviewer `CHANGES_REQUESTED` (falta `./init.sh` completo por Docker apagado,
+  una línea de javadoc > 120, registro de HU-25) → implementer → reviewer `APPROVED` (`progress/review_HU-29.md`, ronda 2).
+- **Decisiones aprobadas:** selección explícita con `ALMACENAMIENTO_TIPO=local|s3` (por defecto `local`, mayúsculas
+  aceptadas, vacío inválido) y sin pasar en silencio al disco si el bucket falla; `SeleccionAlmacenamiento`
+  (`BeanFactoryPostProcessor`) valida el tipo antes de crear beans (D5); con `s3` la región es obligatoria (D6); cada
+  `PutObject` pide SSE-S3 y va sin ACL, timeouts de 10 s por intento y 30 s por operación (D7/D8); las fallas siguen
+  como `UncheckedIOException` para responder igual que con el disco (§ 10); sin `*IT` contra AWS (§ 13).
+- **Cambios (backend, `comun/almacenamiento`):** nuevos `SeleccionAlmacenamiento`, `FallaAlmacenamiento`, ★
+  `AlmacenamientoS3` (Adapter sobre `S3Client`, comprueba el bucket al arrancar) y `ConfiguracionAlmacenamientoS3`
+  (`DefaultCredentialsProvider`, sin claves de acceso); `AlmacenamientoLocal` con `@ConditionalOnProperty(local,
+  matchIfMissing = true)`; javadoc de `AlmacenamientoArchivos`. `pom.xml`: AWS SDK v2 2.59.1 (BOM + `s3` sin
+  `netty-nio-client`; cliente síncrono `apache5-client`). Propiedades `espacioya.almacenamiento.tipo`, `.s3.bucket`,
+  `.s3.region` en `application.properties`, `tipo=local` en las de prueba y bloque en `.env.example`. Sin migraciones,
+  endpoints ni frontend; `ArchivosPrivados`, `ArchivosPublicos` y `ArchivoController` sin cambios.
+- **Tests:** `SeleccionAlmacenamientoTest`, `AlmacenamientoS3Test`, `ConfiguracionAlmacenamientoS3Test`, contrato común
+  `ContratoAlmacenamientoArchivos` (`AlmacenamientoLocalContratoTest`, `AlmacenamientoS3ContratoTest`) y el doble
+  `S3EnMemoria`. Trazabilidad R1–R30 en `progress/impl_HU-29.md`.
+- **Docs:** `docs/architecture.md` (Stack "Archivos", fila HU-29 en "Patrones por historia", sección "Almacenamiento: qué
+  deja HU-29 (★ Adapter)"); sin puerto nuevo.
+- **Incidencias:** la primera corrida de `./init.sh` completo falló solo porque Docker Desktop estaba apagado; se repitió
+  con Docker encendido.
+- **Veredicto del reviewer:** `APPROVED`. R1–R30 trazados a tests, T1–T15 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. Verificación en UAT contra el bucket real (design § 11): bucket con Block Public Access y SSE-S3, `LabRole` en la
+     task definition y endpoint gateway de S3. Es infraestructura, no código.
+  2. Sugerencia del reviewer: que el cambio de HU-25 en `feature_list.json` y el de `4_Infraestructure/arquitectura-aws.html`
+     (sdd: false) vayan en commits separados de HU-29.
+- **Resultado:** `./init.sh` completo salida 0 (2195 unitarias y 1238 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.
