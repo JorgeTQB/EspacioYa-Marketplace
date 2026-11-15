@@ -867,6 +867,10 @@ Además, en todo el sistema:
   cifrados en reposo y documentos servidos con URL firmada de corta duración.
 - **(D) Denegación de servicio:** rate limiting donde la historia lo indica.
   Los límites están en RNF-SEG-17 de `docs/requerimientos.md`.
+  Desde HU-30, los límites de `comun.limite.LimitadorIntentos` se cuentan en PostgreSQL (`intento_limite`, una fila
+  por clave con su huella HMAC y un `INSERT … ON CONFLICT` atómico) y valen para el conjunto de réplicas; la limpieza
+  de vencidos (`ProgramacionLimpiezaIntentos`) corre en cada réplica con un bloqueo consultivo. En UAT, los límites
+  por IP se complementan con una regla *rate-based* del AWS WAF en el ALB: es de la guía de despliegue, no del código.
 - **(E) Elevación de privilegios:** roles asignados y validados en el backend en
   cada solicitud; la propiedad del recurso se valida antes de cada edición o
   consulta. Las cuentas de administrador solo se crean por script interno
