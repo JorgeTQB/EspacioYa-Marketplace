@@ -1,7 +1,6 @@
 package pe.edu.ulima.espacioya.comun.almacenamiento;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -9,13 +8,17 @@ import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Archivos en un directorio local, fuera del repositorio y de la base de datos. En UAT el directorio
- * debe estar en un volumen persistente.
+ * Archivos en un directorio local, fuera del repositorio y de la base de datos. Es el adaptador por defecto
+ * ({@code espacioya.almacenamiento.tipo} ausente o {@code local}, HU-29). En UAT el directorio debe estar en un volumen
+ * persistente.
  */
 @Component
+@ConditionalOnProperty(name = SeleccionAlmacenamiento.PROPIEDAD, havingValue = SeleccionAlmacenamiento.LOCAL,
+        matchIfMissing = true)
 public class AlmacenamientoLocal implements AlmacenamientoArchivos {
 
     private final Path directorio;
@@ -38,7 +41,7 @@ public class AlmacenamientoLocal implements AlmacenamientoArchivos {
                 Files.deleteIfExists(temporal);
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo guardar el archivo", e);
+            throw FallaAlmacenamiento.alGuardar(e);
         }
     }
 
@@ -49,7 +52,7 @@ public class AlmacenamientoLocal implements AlmacenamientoArchivos {
         } catch (NoSuchFileException e) {
             return Optional.empty();
         } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo leer el archivo", e);
+            throw FallaAlmacenamiento.alLeer(e);
         }
     }
 
@@ -58,7 +61,7 @@ public class AlmacenamientoLocal implements AlmacenamientoArchivos {
         try {
             Files.deleteIfExists(ruta(clave));
         } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo eliminar el archivo", e);
+            throw FallaAlmacenamiento.alEliminar(e);
         }
     }
 

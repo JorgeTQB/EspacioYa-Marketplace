@@ -523,7 +523,7 @@
       ],
       "historia": "docs/historias/HU-25.md",
       "sdd": true,
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "HU-26",
@@ -586,6 +586,65 @@
       "historia": "docs/historias/HU-28.md",
       "sdd": true,
       "status": "done"
+    },
+    {
+      "id": "HU-29",
+      "title": "[Técnica] Almacenamiento de archivos en S3 seleccionable por configuración",
+      "epic": "T",
+      "module": "comun",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-05"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [
+        "Adapter"
+      ],
+      "historia": "docs/historias/HU-29.md",
+      "sdd": true,
+      "status": "done"
+    },
+    {
+      "id": "HU-30",
+      "title": "[Técnica] Límite de intentos compartido entre réplicas",
+      "epic": "T",
+      "module": "comun",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-03"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [],
+      "historia": "docs/historias/HU-30.md",
+      "sdd": true,
+      "status": "pending"
+    },
+    {
+      "id": "HU-31",
+      "title": "[Técnica] Fallo de reembolso simulado sin estado en memoria",
+      "epic": "T",
+      "module": "pagos",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-16"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [],
+      "historia": "docs/historias/HU-31.md",
+      "sdd": true,
+      "status": "pending"
     }
   ]
 }

@@ -16,7 +16,7 @@
 | Comunicación   | API REST con JSON sobre HTTPS |
 | Base de datos  | **PostgreSQL 17**. El esquema lo crean solo las migraciones Flyway de `2_Backend/src/main/resources/db/migration/`; `1_Database/compose.yaml` solo levanta el servidor local vacío |
 | Pagos          | Pasarela certificada PCI DSS en modo de prueba: Mercado Pago Checkout Pro, en soles (checkout alojado + webhook con firma verificada). Se elige con `PAGOS_PASARELA`. **Mercado Pago no está conectado por ahora (HU-13 D8):** el adaptador está listo y UAT usa la pasarela simulada hasta conectarlo, sin pasarela certificada (D7 revisada; C1 de `specs/HU-13/design.md` § 14.13) |
-| Archivos       | Fuera de la base de datos. Documentos: almacenamiento privado cifrado, servido con URL firmada de corta duración. Fotos de espacios: sin cifrar y con URL estable `/api/fotos/<UUID>`, públicas solo si el espacio está publicado (decisión del dueño de HU-07) |
+| Archivos       | Fuera de la base de datos, en disco local o en un bucket S3 privado según `ALMACENAMIENTO_TIPO` (HU-29; ver [Almacenamiento](#almacenamiento-qué-deja-hu-29--adapter)). Documentos: almacenamiento privado cifrado, servido con URL firmada de corta duración. Fotos de espacios: sin cifrar y con URL estable `/api/fotos/<UUID>`, públicas solo si el espacio está publicado (decisión del dueño de HU-07) |
 | Notificaciones | Solo correo, mediante un componente reutilizable |
 
 Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
@@ -804,6 +804,34 @@ puerto y tener el remitente verificado. Para ensayar sin buzones reales sirve un
 MailHog) con las mismas variables. Riesgo aceptado: el envío corre tras el commit en el hilo que confirma (webhook,
 cancelación), así que una caída del proveedor alarga esas respuestas hasta 5 s por correo (no hay `@Async`).
 
+### Almacenamiento: qué deja HU-29 (★ Adapter)
+
+Paquete `comun/almacenamiento`. Ninguna clase fuera de `AlmacenamientoS3` y `ConfiguracionAlmacenamientoS3` importa
+`software.amazon.awssdk` (las pruebas sí pueden).
+
+| Pieza | Rol | Qué hace |
+|-------|-----|----------|
+| `AlmacenamientoArchivos` | Adapter · Target | `guardar`/`leer`/`eliminar`. Contrato común: guardar de nuevo reemplaza, `leer` vacío si la clave no existe, `eliminar` idempotente, falla del proveedor → `UncheckedIOException` con el mismo mensaje en ambos adaptadores (`FallaAlmacenamiento`), clave en blanco, absoluta o con `..` → `IllegalArgumentException`. Lo verifican `ContratoAlmacenamientoArchivos` y sus dos subclases |
+| `AlmacenamientoLocal` | Adapter (Adaptee `java.nio.file.Files`) | Disco; por defecto (tipo ausente o `local`) |
+| `AlmacenamientoS3` | Adapter (Adaptee `S3Client`) | Mismas claves que el disco, sin prefijo. `PutObject` con SSE-S3 (`AES256`) y sin ACL, `GetObject` (`NoSuchKey` → vacío), `DeleteObject`. La causa de la `UncheckedIOException` solo lleva el tipo de excepción y los códigos de S3: nunca la clave, el bucket ni el texto del proveedor. Al construirse comprueba el bucket con `HeadBucket`: inexistente, 403, otra región u otra falla → el backend no arranca |
+| `ConfiguracionAlmacenamientoS3` | Crea el Adaptee | `S3Client` síncrono (cliente HTTP Apache del SDK), credenciales de `DefaultCredentialsProvider` (rol de la tarea; nunca claves en la configuración), región obligatoria, timeouts de 10 s por intento y 30 s por operación |
+| `SeleccionAlmacenamiento` | `BeanFactoryPostProcessor` | Valida el tipo antes de crear beans: con otro valor (incluido vacío) el arranque falla nombrando `ALMACENAMIENTO_TIPO` y los valores `local` y `s3` |
+| `ArchivosPrivados`, `ArchivosPublicos` | Clients | Sin cambios: validan la clave, cifran (privados) y delegan en el Target |
+
+**Selección.** `espacioya.almacenamiento.tipo` con `@ConditionalOnProperty`, como `EnvioCorreo` y `PasarelaPago` (sin
+fábrica de adaptadores). Con `s3` no hay fallback al disco: si falta el bucket o la región, o el bucket no existe o no es
+accesible, el backend no arranca. Las IT fijan `local` (`src/test/resources/config/application.properties`).
+
+| Variable | Ejemplo | Obligatoria |
+|---|---|---|
+| `ALMACENAMIENTO_TIPO` | `s3` | No, por defecto `local` |
+| `ALMACENAMIENTO_S3_BUCKET` | nombre del bucket (ya creado, privado, SSE-S3; la app no lo crea) | Con `s3` |
+| `ALMACENAMIENTO_S3_REGION` | `us-east-1` | Con `s3` |
+
+Infraestructura que se supone en UAT (no es código): bucket con Block Public Access y cifrado SSE-S3 por defecto,
+`taskRoleArn` = `LabRole` y salida de red de las tareas a S3 (endpoint de VPC tipo gateway). Ver
+`specs/HU-29/design.md` § 11.
+
 ## Seguridad transversal (STRIDE)
 
 Cada historia trae sus propios controles STRIDE en `docs/historias/HU-XX.md`.
@@ -911,6 +939,7 @@ debe aplicar el patrón y mostrarlo en el diagrama de clases y de secuencia.
 | HU-23 ★      | Decorator                       | `busqueda`: cada filtro envuelve a la búsqueda base de HU-10 y se combinan libremente. Component `BusquedaEspacios`, ConcreteComponent `BusquedaBase`, Decorator `FiltroBusqueda`, ConcreteDecorators `FiltroPrecioMaximo`, `FiltroCapacidadMinima`, `FiltroCaracteristicas`; `FiltrosBusqueda.envolver` arma la cadena por petición y `BusquedaService` es el Client. Ver [Filtros](#filtros-qué-deja-hu-23--decorator) |
 | HU-24 ★      | Decorator, DAO                  | `busqueda`: publicar una reseña es una cadena de decoradores armada una vez en `ConfiguracionPublicacionResena.cadena` (Component `PublicacionResena`, ConcreteComponent `PublicacionResenaBase`, Decorator `PublicacionResenaDecorador`, ConcreteDecorators `PublicacionSanitizada` → `PublicacionTransaccional` → `PublicacionAuditada`; Client `ResenaService.crear`). La tabla `resena` solo se toca por `ResenaDAO` + `ResenaDAOJpa` (BusinessObjects `ResenaService`, `PublicacionResenaBase`, `DatosPersonalesResenasImpl`, `ModeracionResenasImpl`; DataSource `ResenaRepository`; TransferObjects `Resena`, `TrozoResenas`, `ResumenCalificaciones`). Ver [Reseñas](#reseñas-qué-deja-hu-24-hu-26-hu-27) |
 | HU-25 ★      | Factory Method, Adapter         | `comun/correo`: crear el correo según el evento (Creator `FabricaCorreo<E>` con el método fábrica `crearCorreo`, Product `Correo`; ConcreteCreators y ConcreteProducts en el módulo del evento: `FabricaRecordatorio{Usuario,Arrendador}` en `reservas` y 13 `FabricaCorreo*` en `cuentas`; Clients `RecordatoriosReserva` y `NotificadorCorreoImpl`) y adaptador del proveedor de correo (Target `EnvioCorreo`, Adapter `EnvioCorreoSmtp` sobre el Adaptee `JavaMailSender`, `EnvioCorreoSimulado`; se elige con `espacioya.correo.proveedor`). Ver [Correo](#correo-qué-deja-hu-25--factory-method-adapter) |
+| HU-29 ★      | Adapter                         | `comun/almacenamiento`: Target `AlmacenamientoArchivos`, Adapters `AlmacenamientoLocal` (disco) y `AlmacenamientoS3` (Adaptee `S3Client` del AWS SDK v2); se elige con `espacioya.almacenamiento.tipo`; Clients `ArchivosPrivados` y `ArchivosPublicos`. Ver [Almacenamiento](#almacenamiento-qué-deja-hu-29--adapter) |
 | Todas        | DAO / Repository                | Un repositorio por agregado |
 
 ## Qué NO hacer
