@@ -1822,3 +1822,49 @@
      (sdd: false) vayan en commits separados de HU-29.
 - **Resultado:** `./init.sh` completo salida 0 (2195 unitarias y 1238 IT, 0 fallos; arquitectura, ESLint y build OK).
   Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — HU-30 Límite de intentos compartido entre réplicas (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-30-limitador-compartido` (desde `develop` con HU-29
+  mergeada, PR #35).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-30.md`) → spec-author (`specs/HU-30/`, R1–R27, T1–T14) →
+  aprobación de Jorge Quispe el 2026-11-15 → implementer (`progress/impl_HU-30.md`) → reviewer `APPROVED`
+  (`progress/review_HU-30.md`, primera ronda, sin cambios requeridos).
+- **Decisiones aprobadas:** contador compartido en PostgreSQL, sin Redis/ElastiCache (decisión del dueño);
+  `LimitadorIntentos` sigue concreta con las mismas firmas y delega en `ConteoIntentos` (D2); una fila por clave con
+  arreglo de instantes y un único `INSERT … ON CONFLICT DO UPDATE … WHERE … RETURNING` para conservar la ventana
+  deslizante exacta y la atomicidad (D3/D5); clave guardada como HMAC (`HuellaCampos`), no SHA-256 simple, así que rotar
+  `CIFRADO_LLAVE_HUELLA` reinicia los contadores (D4); retención de `registrar` = 1 h y `superaLimite` con ventana > 1 h
+  lanza `IllegalArgumentException` (D7); limpieza cada 10 min con `pg_try_advisory_xact_lock(300030)` para que dos
+  réplicas no hagan la misma pasada (D8); fallo cerrado si la base falla (D9).
+- **Cambios (backend, `comun/limite`):** nuevos `ConteoIntentos` (interfaz interna), `ConteoIntentosMemoria` (cuerpo
+  anterior de `LimitadorIntentos` sin cambios de lógica), `ConteoIntentosPostgres` (upsert atómico, `REQUIRES_NEW` en
+  escrituras, huella HMAC, ahora del `Clock` truncado a µs), `ConfiguracionLimiteIntentos` (bean `LimitadorIntentos`
+  sobre PostgreSQL) y `ProgramacionLimpiezaIntentos` (`@EnableScheduling`, `@ConditionalOnProperty`, `fixedDelayString`).
+  `LimitadorIntentos` sin `@Component`, con constructores `(Clock)` (memoria, para las pruebas unitarias existentes) y
+  `(ConteoIntentos)`. Migración `V9_1__intento_limite.sql`. Propiedades `espacioya.limite.limpieza.activa` /
+  `.intervalo` en `application.properties`, apagada en las de prueba, y `LIMITE_LIMPIEZA_ACTIVA` /
+  `LIMITE_LIMPIEZA_INTERVALO` en `.env.example`. Sin endpoints ni frontend; los siete usuarios del limitador,
+  `FiltroLimiteIntentos`, `ReglaLimite`, `ReglasLimite*`, `LimiteCatalogo` y todas las pruebas existentes sin cambios.
+- **Tests:** contrato común `ContratoConteoIntentos` (corre en `ConteoIntentosMemoriaTest` y en
+  `ConteoIntentosPostgresIT`), `ConteoIntentosPostgresTest`, `ProgramacionLimpiezaIntentosTest` y
+  `ConteoIntentosPostgresIT` (35 pruebas: dos instancias, concurrencia `@RepeatedTest(5)`, limpieza, bloqueo y R16 por
+  MockMvc). Trazabilidad R1–R27 en `progress/impl_HU-30.md`.
+- **Docs:** `docs/modelo-datos.md` (tabla `intento_limite` en Transversal y sus restricciones) y `docs/architecture.md`
+  (párrafo en (D): conteo compartido en PostgreSQL y nota del WAF); sin puerto nuevo ni patrón.
+- **Nota de despliegue (STRIDE D, design § 12, sin código):** en UAT los límites por IP del catálogo (120/min) y de
+  registro (5/h) ahora valen para el conjunto de réplicas y se **complementan** con una regla *rate-based* del AWS WAF
+  asociada al ALB (bloqueo por IP de origen ante volúmenes muy superiores), que frena una inundación antes de que cada
+  petición cueste una escritura en PostgreSQL. Va en la guía de despliegue. La IP del backend sigue saliendo de
+  `X-Forwarded-For` solo si la conexión viene de `PROXIES_CONFIANZA` (el ALB).
+- **Veredicto del reviewer:** `APPROVED`. R1–R27 trazados a tests, T1–T14 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. `V9_1` puede chocar con HU-31 (mismo sprint): si HU-31 llega antes a `develop`, renombrar antes del merge.
+  2. Riesgo residual aceptado (design § 16.1): el patrón `superaLimite → validar → registrar` de los servicios no es
+     atómico (tampoco antes); CA5 impidió cerrarlo aquí. Candidato a deuda técnica. `intentar` sí es exacto.
+  3. `REQUIRES_NEW` toma una segunda conexión del pool en las llamadas de MFA hechas dentro de una transacción
+     (design § 16.2); aceptable para UAT.
+  4. Configurar la regla WAF por IP en el ALB de UAT (infraestructura).
+- **Resultado:** `./init.sh` completo salida 0 (2213 unitarias y 1273 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.

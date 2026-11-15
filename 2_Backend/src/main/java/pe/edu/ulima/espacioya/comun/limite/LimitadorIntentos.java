@@ -2,65 +2,37 @@ package pe.edu.ulima.espacioya.comun.limite;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-import org.springframework.stereotype.Component;
-
-@Component
+/**
+ * Límites de intentos por clave con ventana deslizante. El bean de la aplicación cuenta en PostgreSQL y vale para
+ * todas las réplicas ({@link ConfiguracionLimiteIntentos}, HU-30); {@code new LimitadorIntentos(reloj)} cuenta en
+ * memoria y es para las pruebas unitarias.
+ */
 public class LimitadorIntentos {
 
-    private final ConcurrentMap<String, Deque<Instant>> intentosPorClave = new ConcurrentHashMap<>();
-    private final Clock reloj;
+    private final ConteoIntentos conteo;
 
     public LimitadorIntentos(Clock reloj) {
-        this.reloj = reloj;
+        this(new ConteoIntentosMemoria(reloj));
+    }
+
+    public LimitadorIntentos(ConteoIntentos conteo) {
+        this.conteo = conteo;
     }
 
     public boolean intentar(String clave, int maximo, Duration ventana) {
-        var aceptado = new boolean[1];
-        intentosPorClave.compute(clave, (k, intentos) -> {
-            var ahora = Instant.now(reloj);
-            var vigentes = intentos == null ? new ArrayDeque<Instant>() : intentos;
-            purgar(vigentes, ahora.minus(ventana));
-            // Un intento rechazado no se registra: si contara, quien insiste nunca saldría del bloqueo.
-            aceptado[0] = vigentes.size() < maximo;
-            if (aceptado[0]) {
-                vigentes.addLast(ahora);
-            }
-            return vigentes.isEmpty() ? null : vigentes;
-        });
-        return aceptado[0];
+        return conteo.intentar(clave, maximo, ventana);
     }
 
     public boolean superaLimite(String clave, int maximo, Duration ventana) {
-        var supera = new boolean[1];
-        intentosPorClave.computeIfPresent(clave, (k, intentos) -> {
-            purgar(intentos, Instant.now(reloj).minus(ventana));
-            supera[0] = intentos.size() >= maximo;
-            return intentos.isEmpty() ? null : intentos;
-        });
-        return supera[0];
+        return conteo.superaLimite(clave, maximo, ventana);
     }
 
     public void registrar(String clave) {
-        intentosPorClave.compute(clave, (k, intentos) -> {
-            var vigentes = intentos == null ? new ArrayDeque<Instant>() : intentos;
-            vigentes.addLast(Instant.now(reloj));
-            return vigentes;
-        });
+        conteo.registrar(clave);
     }
 
     public void limpiar(String clave) {
-        intentosPorClave.remove(clave);
-    }
-
-    private static void purgar(Deque<Instant> intentos, Instant limite) {
-        while (!intentos.isEmpty() && !intentos.peekFirst().isAfter(limite)) {
-            intentos.pollFirst();
-        }
+        conteo.limpiar(clave);
     }
 }
