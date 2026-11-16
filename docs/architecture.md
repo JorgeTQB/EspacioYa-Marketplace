@@ -18,6 +18,7 @@
 | Pagos          | Pasarela certificada PCI DSS en modo de prueba: Mercado Pago Checkout Pro, en soles (checkout alojado + webhook con firma verificada). Se elige con `PAGOS_PASARELA`. **Mercado Pago no está conectado por ahora (HU-13 D8):** el adaptador está listo y UAT usa la pasarela simulada hasta conectarlo, sin pasarela certificada (D7 revisada; C1 de `specs/HU-13/design.md` § 14.13) |
 | Archivos       | Fuera de la base de datos, en disco local o en un bucket S3 privado según `ALMACENAMIENTO_TIPO` (HU-29; ver [Almacenamiento](#almacenamiento-qué-deja-hu-29--adapter)). Documentos: almacenamiento privado cifrado, servido con URL firmada de corta duración. Fotos de espacios: sin cifrar y con URL estable `/api/fotos/<UUID>`, públicas solo si el espacio está publicado (decisión del dueño de HU-07) |
 | Notificaciones | Solo correo, mediante un componente reutilizable |
+| Despliegue UAT | AWS (Learner Lab): ALB con WAF que envía `/api/*` a 2 tareas Fargate del backend y el resto a 1 tarea nginx con el `dist/`; RDS PostgreSQL, S3 privado, correo simulado. Detalle en [`4_Infraestructure/arquitectura-aws.md`](../4_Infraestructure/arquitectura-aws.md) |
 
 Estilo: **N-capas orientada al dominio**, cliente-servidor de 3 niveles,
 **monolito modular** (no microservicios), MVC en el backend y DDD ligero

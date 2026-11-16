@@ -67,7 +67,7 @@
     <div class="diagram-container">
       <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arquitectura-aws-title arquitectura-aws-desc">
         <title id="arquitectura-aws-title">Marketplace de alquiler de espacios en AWS</title>
-        <desc id="arquitectura-aws-desc">El usuario entra por el Load Balancer con WAF, que envía /api/* al backend y el resto a un contenedor nginx en ECS Fargate que sirve el frontend React; un servicio ECS Fargate con dos tareas idénticas de Spring Boot, entre las que el Load Balancer reparte la carga, contiene en cada tarea el módulo API y el módulo núcleo, que usa RDS PostgreSQL, S3 privado y SES, inicia el checkout en la pasarela PCI DSS y recibe su webhook firmado por el Load Balancer.</desc>
+        <desc id="arquitectura-aws-desc">El usuario entra por el Load Balancer con WAF, que envía /api/* al backend y el resto a un contenedor nginx en ECS Fargate que sirve el frontend React; un servicio ECS Fargate con dos tareas idénticas de Spring Boot, entre las que el Load Balancer reparte la carga, contiene en cada tarea el módulo API y el módulo núcleo, que usa RDS PostgreSQL y un bucket S3 privado (por el SDK con LabRole) y un correo SMTP externo opcional (simulado en UAT), inicia el checkout en la pasarela PCI DSS y recibe su webhook firmado por el Load Balancer.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#545b64"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a85400"/></marker>
@@ -81,8 +81,8 @@
         <rect x="216" y="264" width="72" height="12" rx="2" fill="#f5f5f5"/>
         <text x="252" y="273" fill="#5f6b7a" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">VPC · PÚBLICA</text>
         <rect x="352" y="188" width="660" height="368" rx="8" fill="rgba(35,47,62,0.02)" stroke="rgba(35,47,62,0.12)" stroke-width="0.8"/>
-        <rect x="368" y="192" width="72" height="12" rx="2" fill="#f5f5f5"/>
-        <text x="404" y="201" fill="#5f6b7a" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">VPC · PRIVADA</text>
+        <rect x="368" y="192" width="156" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="446" y="201" fill="#5f6b7a" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">VPC · ENTRADA SOLO DESDE ALB</text>
         <!-- Grupo: contenedor nginx del frontend en ECS Fargate (CloudFront no está disponible en el Learner Lab) -->
         <rect x="368" y="252" width="176" height="144" rx="8" fill="rgba(255,153,0,0.04)" stroke="rgba(168,84,0,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
         <rect x="380" y="256" width="132" height="12" rx="2" fill="#f5f5f5"/>
@@ -123,8 +123,8 @@
         <text x="460" y="437" fill="#0b5cad" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">/API/* · ROUND ROBIN</text>
         <rect x="732" y="302" width="60" height="12" rx="2" fill="#f5f5f5"/>
         <text x="762" y="311" fill="#545b64" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EN MEMORIA</text>
-        <rect x="870" y="196" width="68" height="12" rx="2" fill="#f5f5f5"/>
-        <text x="904" y="205" fill="#545b64" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">URL FIRMADA</text>
+        <rect x="870" y="196" width="76" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="908" y="205" fill="#545b64" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SDK · LABROLE</text>
         <rect x="1030" y="208" width="44" height="12" rx="2" fill="#f5f5f5"/>
         <text x="1052" y="217" fill="#545b64" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CORREO</text>
         <rect x="900" y="434" width="56" height="12" rx="2" fill="#f5f5f5"/>
@@ -199,14 +199,14 @@
         <g transform="translate(910,110) scale(0.583)" color="#545b64"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a8 4 0 1 0 16 0a8 4 0 1 0 -16 0" /> <path d="M4 7c0 .664 .088 1.324 .263 1.965l2.737 10.035c.5 1.5 2.239 2 5 2s4.5 -.5 5 -2c.333 -1 1.246 -4.345 2.737 -10.035a7.45 7.45 0 0 0 .263 -1.965" /></svg></g>
         <text x="862" y="144" fill="#232f3e" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">S3 privado</text>
         <text x="862" y="158" fill="#545b64" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">documentos · fotos</text>
-        <!-- Nodo: Amazon SES -->
+        <!-- Nodo: correo SMTP externo (SES no está en el Learner Lab; UAT usa correo simulado) -->
         <rect x="952" y="104" width="140" height="64" rx="6" fill="#f5f5f5"/>
-        <rect x="952" y="104" width="140" height="64" rx="6" fill="#ffffff" stroke="#232f3e" stroke-width="1"/>
-        <rect x="960" y="112" width="28" height="12" rx="2" fill="transparent" stroke="rgba(35,47,62,0.40)" stroke-width="0.8"/>
-        <text x="974" y="121" fill="#232f3e" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SES</text>
+        <rect x="952" y="104" width="140" height="64" rx="6" fill="rgba(35,47,62,0.03)" stroke="rgba(35,47,62,0.30)" stroke-width="1"/>
+        <rect x="960" y="112" width="28" height="12" rx="2" fill="transparent" stroke="rgba(35,47,62,0.22)" stroke-width="0.8"/>
+        <text x="974" y="121" fill="#5f6b7a" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
         <g transform="translate(1070,110) scale(0.583)" color="#545b64"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></svg></g>
-        <text x="1022" y="144" fill="#232f3e" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Amazon SES</text>
-        <text x="1022" y="158" fill="#545b64" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">verificación · avisos</text>
+        <text x="1022" y="144" fill="#232f3e" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Correo SMTP</text>
+        <text x="1022" y="158" fill="#545b64" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">simulado en UAT</text>
         <!-- Nodo: Pasarela -->
         <rect x="1148" y="348" width="116" height="64" rx="6" fill="#f5f5f5"/>
         <rect x="1148" y="348" width="116" height="64" rx="6" fill="rgba(35,47,62,0.03)" stroke="rgba(35,47,62,0.30)" stroke-width="1"/>

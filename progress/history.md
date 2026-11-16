@@ -1904,3 +1904,54 @@
      desde `/admin/reembolsos`).
 - **Resultado:** `./init.sh` completo salida 0 (2228 unitarias y 1275 IT, 0 fallos; arquitectura, ESLint y build OK).
   Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — Arquitectura AWS documentada en Markdown (sdd: false)
+
+- **Pedido de Jorge Quispe:** dejar la arquitectura de UAT en un `.md` para continuar el despliegue en otra sesión, y
+  saber qué cambiar en el informe.
+- **Nuevo:** `4_Infraestructure/arquitectura-aws.md` (entorno Learner Lab, componentes, red sin NAT, 2 réplicas,
+  seguridad y opciones de HTTPS, variables de la task definition, JMeter, costos, próximos pasos y alternativas
+  descartadas) y `progress/cambios_informe_aws.md` (cambios al `.docx` por sección).
+- **Actualizado:** `4_Infraestructure/arquitectura-aws.html` (SES → "Correo SMTP, simulado en UAT"; "URL FIRMADA" →
+  "SDK · LABROLE"; zona "VPC · ENTRADA SOLO DESDE ALB"), `docs/architecture.md` (fila "Despliegue UAT" en Stack) y
+  `README.md` (`PROXIES_CONFIANZA` sin CloudFront).
+- **Pendiente del equipo:** HTTPS sin dominio propio (recomendado: dominio barato + ACM). Los Dockerfiles del backend y
+  del frontend aún no existen.
+
+## 2026-11-15 — Terraform de UAT (sdd: false)
+
+- **Pedido de Jorge Quispe:** IaC en `4_Infraestructure/` para desplegar en el Learner Lab, probando antes en AWS
+  Emulator.
+- **Nuevo:** `4_Infraestructure/terraform/` (VPC sin NAT, ALB + WAF, ECS Fargate backend x2 y nginx x1, RDS PG 17,
+  S3 privado, ECR, un secreto JSON con llaves generadas, logs, tarea única para crear el admin), `entornos/*.tfvars.example`,
+  `probar-emulador.ps1` (workspace `emulador`, verifica la cuenta 000000000000) y `README.md`.
+- **Decisiones:** HTTPS autofirmado por defecto (`modo_https`); `SizeRestrictions_BODY` del WAF en *count* para no
+  bloquear subidas de HU-05; precondición que impide aplicar con la cuenta equivocada.
+- **Verificación:** `terraform validate` OK; `plan` en el emulador 1.0.382 con 64 recursos. `apply` creó 28 recursos de
+  AWS y falló por dos fallas del emulador (revoke de la salida por defecto de los SG con puertos 0-0, y S3 Control con
+  host `<cuenta>.127.0.0.1`). ALB, RDS y servicios ECS sin probar. Nada aplicado en el Learner Lab.
+- **Pendiente:** Dockerfiles; probar con el emulador 1.0.385; primer apply real.
+
+## 2026-11-15 — Dockerfiles y Terraform aplicado en AWS Emulator (sdd: false)
+
+- **Pedido de Jorge Quispe:** crear los Dockerfiles, actualizar el emulador y conseguir que el Terraform se despliegue.
+- **Nuevo:** `2_Backend/Dockerfile` (multi-stage, Maven Wrapper + temurin 25, corre como uid 10001) y `.dockerignore`;
+  `3_frontend/Dockerfile` (node 24 → nginx 1.29-alpine, `VITE_API_URL` vacía), `nginx.conf` (fallback de la SPA,
+  `assets/` con caché de 1 año e `index.html` sin caché) y `.dockerignore` (sin `.env`).
+  `4_Infraestructure/terraform/emulador/Dockerfile` (imagen del emulador, paquete latest) y `emulador/parche.mjs`
+  (proxy local que corrige dos fallas del emulador 1.0.385: revoke de la salida `-1` con puertos 0-0 y el host de
+  S3 Control con la cuenta delante). `probar-emulador.ps1` ahora usa el parche, `-a off` y la acción `detener`.
+- **Verificación:** emulador actualizado de 1.0.382 a 1.0.385. Imagen del backend contra un PostgreSQL desechable:
+  25 migraciones y `GET /api/politicas-privacidad/vigente` → 200 en ~10 s. Imagen del frontend: `/` y rutas de la SPA
+  → 200, el bundle no contiene `localhost:8080`. Terraform en el emulador: `apply` 64/64, segundo `plan` sin cambios,
+  `destroy` 64/64. Nada aplicado en el Learner Lab ni subido a ECR.
+
+## 2026-11-15 — Parche del emulador retirado y guía del Learner Lab (sdd: false)
+
+- **Pedido de Jorge Quispe:** quitar el proxy del emulador (va a probar en el Learner Lab), dejar los Dockerfiles en
+  `2_Backend/` y `3_frontend/`, y tener los pasos para el despliegue real.
+- **Cambios:** borrado `4_Infraestructure/terraform/emulador/parche.mjs`; `probar-emulador.ps1` vuelve a conectarse
+  directo al emulador (con firmas). `4_Infraestructure/terraform/README.md` reescrito: sección 1 con los pasos del
+  Learner Lab (credenciales, tfvars, apply con 0 tareas, push a ECR, encender, crear admin, nuevas versiones, apagar)
+  y sección 2 con el emulador y su límite conocido (falla en SG y S3 Control en 1.0.385).
+- **Verificación:** `terraform validate` y `fmt -check` OK. Nada aplicado todavía en el Learner Lab.

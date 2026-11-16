@@ -1,0 +1,27 @@
+# Despliegue real en el AWS Academy Learner Lab. Copia este archivo a learnerlab.tfvars
+# (está en .gitignore: lleva IPs y correos personales).
+
+emulador = false
+region   = "us-east-1"
+
+# HTTPS (arquitectura-aws.md § 6):
+#   "autofirmado": sin dominio, el navegador advierte.
+#   "acm": con dominio propio; pon el ARN del certificado validado y el dominio.
+modo_https      = "autofirmado"
+certificado_arn = ""
+dominio         = ""
+
+waf_activo        = true
+waf_limite_por_ip = 1000 # súbelo solo durante JMeter
+
+imagen_tag = "latest" # mejor: el hash corto del commit
+
+# Primer apply: 0 tareas hasta que las imágenes estén en ECR. Luego 2 y 1.
+backend_tareas  = 0
+frontend_tareas = 0
+
+# Tus IPs públicas (curl ifconfig.me), separadas por coma.
+admin_ips_permitidas = "203.0.113.10/32"
+admin_correo         = "tu-correo@ejemplo.com"
+
+limite_catalogo_maximo = 120 # súbelo solo durante JMeter

@@ -1,0 +1,12 @@
+# Prueba local contra AWS Emulator. No lleva datos personales, así que probar-emulador.ps1 lo usa tal cual.
+
+emulador   = true
+modo_https = "autofirmado"
+waf_activo = true
+
+# En el emulador no corren contenedores: las cantidades solo validan la configuración.
+backend_tareas  = 2
+frontend_tareas = 1
+
+admin_ips_permitidas = "127.0.0.1/32"
+admin_correo         = "admin@espacioya.test"

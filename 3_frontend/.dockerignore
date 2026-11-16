@@ -1,0 +1,12 @@
+# El .env local apunta a localhost: si entrara, el bundle llamaría a localhost:8080 en UAT.
+.env
+.env.*
+node_modules/
+dist/
+coverage/
+*.log
+.idea/
+*.iml
+.vscode/
+Dockerfile
+.dockerignore

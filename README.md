@@ -145,7 +145,7 @@ defecto `127.0.0.1,::1`, es decir, tu máquina). Desde HU-17 este control
 | Variable | Valor | Si se deja vacía |
 |---|---|---|
 | `ADMIN_IPS_PERMITIDAS` | IPs o rangos CIDR de quienes administran, separados por comas (p. ej. `190.12.34.56,10.20.0.0/16`) | Nadie entra al panel |
-| `PROXIES_CONFIANZA` | Expresión regular con las IPs internas del balanceador (y de CloudFront si llega directo), p. ej. `10\.0\.\d{1,3}\.\d{1,3}` | La IP del cliente es la de la conexión: detrás del balanceador sería la del balanceador |
+| `PROXIES_CONFIANZA` | Expresión regular con las IPs internas del balanceador (la red de la VPC), p. ej. `10\.0\.\d{1,3}\.\d{1,3}` | La IP del cliente es la de la conexión: detrás del balanceador sería la del balanceador |
 
 El backend solo cree al encabezado `X-Forwarded-For` si la conexión viene de
 `PROXIES_CONFIANZA`; así un cliente no puede hacerse pasar por una IP
