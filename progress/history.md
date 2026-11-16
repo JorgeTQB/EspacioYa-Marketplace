@@ -1955,3 +1955,27 @@
   Learner Lab (credenciales, tfvars, apply con 0 tareas, push a ECR, encender, crear admin, nuevas versiones, apagar)
   y sección 2 con el emulador y su límite conocido (falla en SG y S3 Control en 1.0.385).
 - **Verificación:** `terraform validate` y `fmt -check` OK. Nada aplicado todavía en el Learner Lab.
+
+## 2026-11-15 — Primer apply en el Learner Lab y bucket por CloudFormation (sdd: false)
+
+- **Resultado del primer apply (Jorge):** se crearon RDS, ALB, red, ECR, secreto, logs, cluster y el servicio de nginx.
+  Falló el bucket: la SCP del Learner Lab niega `s3:GetBucketObjectLockConfiguration` y el proveedor aws lo lee
+  siempre tras crear un `aws_s3_bucket` (`AccessDenied`). Sin crear: servicio y task definition del backend y
+  `crear_admin`. Probadas con la CLI todas las lecturas de S3: solo Object Lock está negada.
+- **Prueba:** pila de CloudFormation de prueba en el lab → `CREATE_COMPLETE`, bucket con PAB, AES256 y
+  BucketOwnerEnforced; pila borrada.
+- **Cambio:** bucket movido a `4_Infraestructure/terraform/s3.tf`. En AWS lo crea `aws_cloudformation_stack`
+  (`espacioya-uat-bucket`), con `terraform_data` que vacía el bucket antes del destroy; en el emulador sigue
+  `aws_s3_bucket`. `ecs.tf` y `outputs.tf` usan `local.bucket_nombre`. `validate` OK.
+- **Pendiente:** que Jorge saque del state y borre el bucket a medio crear (`espacioya-uat-archivos-b75ddc39`, vacío)
+  y vuelva a aplicar.
+
+## 2026-11-15 — UAT desplegado en el Learner Lab (sdd: false)
+
+- **Jorge** aplicó el Terraform corregido, subió las imágenes a ECR (login por `cmd /c`: el `|` de PowerShell 5.1
+  daba `400 Bad Request`), encendió 1 tarea de backend y 1 de nginx y creó el admin.
+- **Verificación (lecturas):** servicios en *steady state* (1/1 y 1/1), los dos target groups `healthy`;
+  `GET /`, `/espacios/1` y `/api/politicas-privacidad/vigente` → 200 por HTTPS; HTTP 80 → 301 a 443; log
+  `Cuenta admin creada`; RDS `available` (PostgreSQL 17.9). WAF apagado (`waf_activo = false`).
+- **Pendiente:** prueba funcional en el navegador (registro, búsqueda, reserva, panel admin con MFA), subir a 2 tareas
+  y WAF para la demo y JMeter, y apagar al terminar.

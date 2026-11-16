@@ -17,7 +17,7 @@ output "ecr_frontend" {
 }
 
 output "bucket_archivos" {
-  value = aws_s3_bucket.archivos.bucket
+  value = local.bucket_nombre
 }
 
 output "rds_endpoint" {

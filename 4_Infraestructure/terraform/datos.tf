@@ -1,4 +1,4 @@
-# RDS PostgreSQL y bucket S3 privado.
+# RDS PostgreSQL. El bucket S3 está en s3.tf.
 
 resource "aws_db_subnet_group" "principal" {
   name       = local.nombre
@@ -39,38 +39,3 @@ resource "aws_db_instance" "principal" {
   tags = { Name = local.nombre }
 }
 
-# --- S3 ----------------------------------------------------------------------------------------
-
-resource "random_id" "bucket" {
-  byte_length = 4
-}
-
-resource "aws_s3_bucket" "archivos" {
-  # Los nombres de bucket son globales: el sufijo evita choques con otros equipos.
-  bucket        = "${local.nombre}-archivos-${random_id.bucket.hex}"
-  force_destroy = var.eliminar_con_datos
-}
-
-resource "aws_s3_bucket_public_access_block" "archivos" {
-  bucket                  = aws_s3_bucket.archivos.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_ownership_controls" "archivos" {
-  bucket = aws_s3_bucket.archivos.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "archivos" {
-  bucket = aws_s3_bucket.archivos.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256" # SSE-S3; los documentos además van cifrados por la app (AES-256-GCM)
-    }
-  }
-}

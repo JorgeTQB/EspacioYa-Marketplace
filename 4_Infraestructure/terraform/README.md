@@ -14,7 +14,8 @@ Las imágenes salen de [`2_Backend/Dockerfile`](../../2_Backend/Dockerfile) y
 | `red.tf` | VPC, 2 subredes públicas y 2 privadas, IGW, endpoint gateway de S3 y los 4 security groups |
 | `alb.tf` | ALB, target groups, listeners (`/api/*` → backend, resto → nginx) y certificado autofirmado opcional |
 | `waf.tf` | Web ACL: límite por IP + reglas administradas de AWS |
-| `datos.tf` | RDS y bucket S3 |
+| `datos.tf` | RDS |
+| `s3.tf` | Bucket S3 (por CloudFormation en AWS) |
 | `secretos.tf` | Contraseñas y llaves generadas, en **un** secreto JSON |
 | `ecs.tf` | ECR, logs, cluster, task definitions, servicios y la tarea única para crear el admin |
 | `outputs.tf` | URL, repos ECR, bucket, endpoint de RDS y el comando para crear el admin |
@@ -31,27 +32,64 @@ Decisiones que no están en `arquitectura-aws.md`:
   rompería la subida de documentos y fotos (HU-05), porque bloquea cuerpos de más de 8 KB.
 - **HTTPS:** `modo_https = "autofirmado"` por defecto (opción 2 de § 6). Con dominio propio usa `"acm"`.
 - **Workspaces separados:** `emulador` y `learnerlab` tienen states distintos y nunca se pisan.
+- **Bucket por CloudFormation** ([`s3.tf`](s3.tf)): la SCP del Learner Lab niega
+  `s3:GetBucketObjectLockConfiguration`, y `aws_s3_bucket` lo lee siempre (falla con `AccessDenied` tras crearlo).
+  En AWS el bucket lo crea una pila `espacioya-uat-bucket`; en el emulador, `aws_s3_bucket`. En `destroy`, el bucket
+  se vacía antes con `aws s3 rm` (hace falta la AWS CLI).
 
 ## 1. Desplegar en el Learner Lab
 
-Todos los comandos se corren desde la raíz del repo, en PowerShell. Necesitas Docker Desktop, AWS CLI v2 y
+Todos los comandos se corren desde la raíz del repo, en PowerShell. Deja las comillas de `"-var-file=..."`: sin ellas,
+Windows PowerShell 5.1 parte el argumento en el punto y Terraform responde `Too many command line arguments`.
+Necesitas Docker Desktop, AWS CLI v2 y
 Terraform ≥ 1.9.
 
 ### 1.1 Credenciales (cada vez que inicias el lab)
 
-1. En AWS Academy: *Start Lab* y espera a que el círculo esté en verde.
-2. *AWS Details* → *AWS CLI* → *Show*. Copia el bloque completo (`aws_access_key_id`, `aws_secret_access_key` y
-   `aws_session_token`) en `%USERPROFILE%\.aws\credentials`, bajo `[default]`, reemplazando lo que hubiera.
-3. Comprueba que apuntas a AWS y no al emulador (debe salir tu cuenta del lab y un rol `voclabs`, **no**
-   `000000000000`):
+El archivo de credenciales está en `C:\Users\<tu-usuario>\.aws\credentials` (en PowerShell,
+`$env:USERPROFILE\.aws\credentials`). Es un archivo de texto sin extensión. El emulador **no** usa ese archivo: guarda
+lo suyo en `.aws\emulator\9297\` y solo lo usa dentro de `probar-emulador.ps1`.
+
+1. En AWS Academy: *Start Lab* y espera a que el círculo junto a *AWS* esté en verde.
+2. *AWS Details* → junto a *AWS CLI*, botón *Show*. Aparece un bloque como este (los valores son tuyos):
+
+   ```ini
+   [default]
+   aws_access_key_id=ASIA...
+   aws_secret_access_key=...
+   aws_session_token=IQoJb3JpZ2luX2Vj...(muy largo)
+   ```
+
+   Cópialo entero, desde `[default]` hasta el final del token.
+3. (Solo la primera vez) guarda una copia del archivo actual, por si lo necesitas:
+
+   ```bash
+   Copy-Item $env:USERPROFILE\.aws\credentials $env:USERPROFILE\.aws\credentials.bak
+   ```
+
+4. Ábrelo en el Bloc de notas:
+
+   ```bash
+   notepad $env:USERPROFILE\.aws\credentials
+   ```
+
+   - Si ya tiene un bloque `[default]` (por ejemplo de un lab anterior), **borra ese bloque entero**: la línea
+     `[default]` y sus tres líneas. No dejes dos `[default]`.
+   - Si tiene otros perfiles (`[otro-nombre]`), déjalos como están.
+   - Pega el bloque del paso 2, guarda (Ctrl+S) y cierra.
+5. Comprueba la región. `$env:USERPROFILE\.aws\config` debe tener `region = us-east-1` bajo `[default]`.
+6. Comprueba a qué cuenta apuntas:
 
    ```bash
    aws sts get-caller-identity
    ```
 
-   Si sale `000000000000`, abre una consola nueva: alguna variable `AWS_ENDPOINT_URL` quedó puesta.
+   Debe salir un `Account` de 12 dígitos (tu cuenta del lab) y un `Arn` con `assumed-role/voclabs/...`.
+   - `000000000000`: la consola tiene variables del emulador. Ciérrala y abre una nueva.
+   - `ExpiredToken` o `InvalidClientTokenId`: el bloque está viejo o mal pegado. Repite los pasos 2 y 4.
 
-Las credenciales caducan a las ~4 horas. Si Terraform falla con `ExpiredToken`, repite el paso 2.
+Las credenciales caducan a las ~4 horas, o antes si el lab se detiene. Cada vez que inicies el lab, repite los pasos
+2, 4 y 6: el bloque cambia en cada sesión.
 
 ### 1.2 Configuración
 
@@ -82,13 +120,14 @@ terraform -chdir=4_Infraestructure/terraform workspace select -or-create learner
 ```
 
 ```bash
-terraform -chdir=4_Infraestructure/terraform plan -var-file=entornos/learnerlab.tfvars
+terraform -chdir=4_Infraestructure/terraform plan "-var-file=entornos/learnerlab.tfvars"
 ```
 
-Revisa que el plan diga **64 to add** y que no haya errores. Luego:
+Revisa que el plan diga **63 to add** (61 con `waf_activo = false`) y que no haya errores. El emulador muestra 64
+porque ahí también crea un rol `LabRole` falso. Luego:
 
 ```bash
-terraform -chdir=4_Infraestructure/terraform apply -var-file=entornos/learnerlab.tfvars
+terraform -chdir=4_Infraestructure/terraform apply "-var-file=entornos/learnerlab.tfvars"
 ```
 
 Escribe `yes`. RDS tarda de 5 a 10 minutos; el resto, segundos. Si algo falla por permisos del lab
@@ -115,8 +154,11 @@ Escribe `yes`. RDS tarda de 5 a 10 minutos; el resto, segundos. Si algo falla po
 3. Inicia sesión de Docker en ECR (el registro es la parte de la URL antes de la `/`):
 
    ```bash
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ecrBack.Split('/')[0]
+   cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $($ecrBack.Split('/')[0])"
    ```
+
+   Debe responder `Login Succeeded`. Va por `cmd` porque el `|` de Windows PowerShell 5.1 modifica la contraseña y
+   ECR responde `400 Bad Request`. La sesión dura 12 horas.
 
 4. Construye y sube:
 
@@ -142,7 +184,7 @@ Escribe `yes`. RDS tarda de 5 a 10 minutos; el resto, segundos. Si algo falla po
 2. Aplica:
 
    ```bash
-   terraform -chdir=4_Infraestructure/terraform apply -var-file=entornos/learnerlab.tfvars
+   terraform -chdir=4_Infraestructure/terraform apply "-var-file=entornos/learnerlab.tfvars"
    ```
 
 3. Espera unos 3 minutos y revisa que las tareas estén corriendo (`runningCount` 2 y 1):
@@ -210,7 +252,7 @@ El ALB, el WAF y las IP públicas siguen cobrando aunque todo esté en 0 (~0.03 
 en días, bórralo:
 
 ```bash
-terraform -chdir=4_Infraestructure/terraform destroy -var-file=entornos/learnerlab.tfvars
+terraform -chdir=4_Infraestructure/terraform destroy "-var-file=entornos/learnerlab.tfvars"
 ```
 
 Con `eliminar_con_datos = true` (el valor por defecto) se borran también el bucket, las imágenes y la base, sin

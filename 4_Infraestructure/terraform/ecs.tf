@@ -87,7 +87,7 @@ locals {
     { name = "DB_USUARIO", value = var.db_usuario },
     { name = "FRONTEND_URL", value = local.url_publica },
     { name = "ALMACENAMIENTO_TIPO", value = "s3" },
-    { name = "ALMACENAMIENTO_S3_BUCKET", value = aws_s3_bucket.archivos.bucket },
+    { name = "ALMACENAMIENTO_S3_BUCKET", value = local.bucket_nombre },
     { name = "ALMACENAMIENTO_S3_REGION", value = var.region },
     { name = "PROXIES_CONFIANZA", value = var.proxies_confianza },
     { name = "ADMIN_IPS_PERMITIDAS", value = var.admin_ips_permitidas },
