@@ -66,7 +66,8 @@ class SolicitudReembolsoTest {
     }
 
     @Test
-    @DisplayName("HU-16 R8, R9: pide a la pasarela la transacción, el monto y la clave del intento reclamado")
+    @DisplayName("HU-31 R1: pide a la pasarela la transacción, el monto, la clave y el número del intento reclamado "
+            + "(HU-16 R8, R9)")
     void solicitudConLosDatosDelIntento() {
         when(registro.iniciar(4L, AHORA)).thenReturn(Optional.of(INTENTO));
         when(pasarela.reembolsar(any())).thenReturn(REALIZADO);
@@ -74,7 +75,7 @@ class SolicitudReembolsoTest {
         comando.ejecutar();
 
         verify(pasarela).reembolsar(new SolicitudReembolsoPasarela("sim-7-APROBADO-1", new BigDecimal("161.00"),
-                "espacioya-reembolso-4"));
+                "espacioya-reembolso-4", 1));
     }
 
     @Test
@@ -102,7 +103,8 @@ class SolicitudReembolsoTest {
     }
 
     @Test
-    @DisplayName("HU-16 R24: dos ejecuciones del mismo reembolso envían la misma clave de idempotencia")
+    @DisplayName("HU-31 R1, R4: dos ejecuciones del mismo reembolso envían la misma transacción, monto y clave "
+            + "(HU-16 R24), con números de intento 1 y 2")
     void mismaClaveEnCadaEjecucion() {
         var segundo = new IntentoReembolso(4L, 31L, 7L, "sim-7-APROBADO-1", new BigDecimal("161.00"), 2,
                 "espacioya-reembolso-4");
@@ -116,6 +118,12 @@ class SolicitudReembolsoTest {
         verify(pasarela, times(2)).reembolsar(enviadas.capture());
         assertThat(enviadas.getAllValues()).extracting(SolicitudReembolsoPasarela::claveIdempotencia)
                 .containsExactly("espacioya-reembolso-4", "espacioya-reembolso-4");
+        assertThat(enviadas.getAllValues()).extracting(SolicitudReembolsoPasarela::idTransaccion)
+                .containsExactly("sim-7-APROBADO-1", "sim-7-APROBADO-1");
+        assertThat(enviadas.getAllValues()).extracting(SolicitudReembolsoPasarela::monto)
+                .containsExactly(new BigDecimal("161.00"), new BigDecimal("161.00"));
+        assertThat(enviadas.getAllValues()).extracting(SolicitudReembolsoPasarela::numeroIntento)
+                .containsExactly(1, 2);
     }
 
     @Test

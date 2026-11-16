@@ -8,7 +8,6 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -28,8 +27,9 @@ import pe.edu.ulima.espacioya.pagos.domain.ReglasPago;
  * e id {@code sim-<reserva>-<APROBADO|RECHAZADO|SIN_RESULTADO>-<n>}: sin secreto, esa ruta rechaza todo pago (S16).
  * <p>
  * Reembolsos (HU-16 D7): aprueba los de pagos {@code sim-} (ningún dinero se movió) y falla los demás. Con
- * {@code fallos-reembolso = N}, las primeras N llamadas de cada clave de idempotencia fallan, para demostrar CA2 sin
- * reiniciar. El contador vive en memoria: tras un reinicio vuelve a 0.
+ * {@code fallos-reembolso = N}, los intentos 1 a N de cada reembolso fallan (HU-31): decide por el número de intento
+ * que llega en la solicitud, guardado en {@code reembolso.intentos}, sin estado en memoria. El resultado es el mismo
+ * con varias réplicas y tras reiniciar.
  */
 @Component
 @ConditionalOnProperty(name = "espacioya.pagos.pasarela", havingValue = "simulada")
@@ -47,7 +47,6 @@ public class PasarelaSimulada implements PasarelaPago {
     private final byte[] secretoWebhook;
     private final String tokenInterno;
     private final int fallosReembolso;
-    private final Map<String, AtomicInteger> llamadasDeReembolso = new ConcurrentHashMap<>();
 
     public PasarelaSimulada(@Value("${espacioya.pagos.secreto-webhook:}") String secretoWebhook,
                             @Value("${espacioya.pagos.simulada.fallos-reembolso:0}") int fallosReembolso) {
@@ -117,13 +116,12 @@ public class PasarelaSimulada implements PasarelaPago {
         if (!solicitud.idTransaccion().startsWith(ReglasPago.PREFIJO_SIMULADO)) {
             throw new ServicioExternoException();
         }
-        var clave = solicitud.claveIdempotencia();
-        var llamada = llamadasDeReembolso.computeIfAbsent(clave, sinLlamadas -> new AtomicInteger()).incrementAndGet();
-        if (llamada <= fallosReembolso) {
-            log.info("Reembolso simulado: falla configurada en la llamada {}", llamada);
+        var numero = solicitud.numeroIntento();
+        if (numero <= fallosReembolso) {
+            log.info("Reembolso simulado: falla configurada en el intento {}", numero);
             throw new ServicioExternoException();
         }
         log.info("Reembolso simulado: no se llamó a ninguna pasarela");
-        return new ReembolsoRealizado(PREFIJO_REEMBOLSO + clave);
+        return new ReembolsoRealizado(PREFIJO_REEMBOLSO + solicitud.claveIdempotencia());
     }
 }

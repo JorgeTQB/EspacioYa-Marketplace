@@ -46,7 +46,7 @@ public final class SolicitudReembolso implements ComandoReembolso {
         ReembolsoRealizado realizado;
         try {
             realizado = pasarela.reembolsar(new SolicitudReembolsoPasarela(intento.idTransaccion(), intento.monto(),
-                    intento.claveIdempotencia()));
+                    intento.claveIdempotencia(), intento.numero()));
         } catch (RuntimeException e) {
             registro.registrarFallo(intento, this);
             return ResultadoReembolso.FALLIDO;
