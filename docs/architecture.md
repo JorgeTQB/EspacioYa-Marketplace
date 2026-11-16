@@ -409,7 +409,7 @@ del checkout se comprueba `CatalogoEspaciosService.esVisible` (espacio publicado
 
 | Pieza | Qué hace |
 |-------|----------|
-| `pagos.service.pasarela.PasarelaPago` | Adapter. `crearCheckout`, `cerrarCheckout`, `idNotificado` (verifica la firma; vacío si no es de un pago) y `consultarPago`, sin tipos del proveedor. Lo implementan `MercadoPagoAdapter` (`RestClient` + HMAC, sin el SDK, DT-1) y `PasarelaSimulada`, cada una con `@ConditionalOnProperty`: no hay fábrica. HU-16 le agregó `reembolsar(SolicitudReembolsoPasarela(idTransaccion, monto, claveIdempotencia)) → ReembolsoRealizado(idReembolso)`: solo devuelve si la pasarela aprobó; cualquier falla, rechazo o respuesta incompleta → `ServicioExternoException`. En Mercado Pago es `POST /v1/payments/{id}/refunds` con `X-Idempotency-Key` |
+| `pagos.service.pasarela.PasarelaPago` | Adapter. `crearCheckout`, `cerrarCheckout`, `idNotificado` (verifica la firma; vacío si no es de un pago) y `consultarPago`, sin tipos del proveedor. Lo implementan `MercadoPagoAdapter` (`RestClient` + HMAC, sin el SDK, DT-1) y `PasarelaSimulada`, cada una con `@ConditionalOnProperty`: no hay fábrica. HU-16 le agregó `reembolsar(SolicitudReembolsoPasarela(idTransaccion, monto, claveIdempotencia, numeroIntento)) → ReembolsoRealizado(idReembolso)` (HU-31 agregó `numeroIntento` = `reembolso.intentos` ya confirmado, ≥ 1): solo devuelve si la pasarela aprobó; cualquier falla, rechazo o respuesta incompleta → `ServicioExternoException`. En Mercado Pago es `POST /v1/payments/{id}/refunds` con `X-Idempotency-Key`; Mercado Pago ignora el número de intento |
 | `pagos.service.CheckoutFacade` | Facade: la única entrada de `PagoController`. Coordina `EvaluacionCobro` y `SesionesCheckout`, sin reglas y sin confirmar nada. El webhook **no** pasa por ella |
 | `pagos.service.SimulacionPago`, `pagos.controller.PagoSimuladoController` | Solo existen con la simulada (`@ConditionalOnProperty`): con `mercadopago` la ruta responde 404. La pantalla hace de página de la pasarela: `SimulacionPago` comprueba rol, reserva, rechazos y checkout, audita `PAGO_SIMULADO` y entrega la notificación a `WebhookPagoService.recibir`. No toca `pago` ni `ReservasPorCobrar`. El resultado es lo único que elige el cliente; el monto sale de la reserva |
 | `PasarelaSimulada.notificacionDe` | Fuera de `PasarelaPago`: el Target no cambia y `MercadoPagoAdapter` no gana un método vacío. Arma la notificación con un token interno que no sale del proceso y no prueba nada de la firma real |
@@ -488,8 +488,9 @@ respuesta, por `creado_en` e `id`, `ReembolsoAdminDTO` sin datos del usuario ni 
 Ambas con `Cache-Control: no-store`.
 
 **Propiedad `espacioya.pagos.simulada.fallos-reembolso`** (`PAGOS_SIMULADA_FALLOS_REEMBOLSO`, 0 por defecto): con *N* > 0, la
-simulada falla las primeras *N* llamadas de cada clave de idempotencia. Con `1` se demuestra CA2 sin reiniciar: el automático
-falla y el reintento del admin funciona. El contador vive en memoria y vuelve a 0 al reiniciar.
+simulada falla los intentos 1 a *N* de cada reembolso, por el número de intento guardado en `reembolso.intentos`: el
+resultado es el mismo con varias réplicas y tras reiniciar (HU-31). Con `1` se demuestra CA2: el automático (intento 1)
+falla y el reintento del admin (intento 2) funciona.
 
 **Lo que deben saber las historias que siguen.** HU-26 crea su reembolso con `origen = RECLAMO` (agrega una fábrica
 `Reembolso.porReclamo`) y lo ejecuta con `SolicitudesReembolso.crear(...)` + `EjecutorReembolsos`, sin tocar el comando;

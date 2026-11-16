@@ -1868,3 +1868,39 @@
   4. Configurar la regla WAF por IP en el ALB de UAT (infraestructura).
 - **Resultado:** `./init.sh` completo salida 0 (2213 unitarias y 1273 IT, 0 fallos; arquitectura, ESLint y build OK).
   Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — HU-31 Fallo de reembolso simulado sin estado en memoria (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-31-reembolso-simulado-sin-estado`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-31.md`) → spec-author (`specs/HU-31/`, R1–R14, T1–T10) →
+  aprobación de Jorge Quispe el 2026-11-15 → implementer (`progress/impl_HU-31.md`) → reviewer `APPROVED`
+  (`progress/review_HU-31.md`, primera ronda, sin cambios requeridos).
+- **Decisiones aprobadas:** `PasarelaSimulada` decide el fallo por el número de intento persistido
+  (`Reembolso.intentos` / `IntentoReembolso.numero`), no por un contador en memoria: falla si `numeroIntento <=
+  fallos-reembolso`, así que dos réplicas o un reinicio dan el mismo resultado. `SolicitudReembolsoPasarela` gana un
+  cuarto componente `numeroIntento` (`< 1` → `IllegalArgumentException`, DT-1); el número sale de la base, nunca de la
+  petición. HU-16 R15 (N llamadas por clave) queda reemplazado por HU-31 R5 y R8 sin editar el spec de HU-16. Un
+  `PENDIENTE` sin respuesta que se reintenta también suma intento (HU-16 DT-6).
+- **Cambios (backend, `pagos`):** `SolicitudReembolsoPasarela` (record con `numeroIntento`), `SolicitudReembolso` (pasa
+  `intento.numero()`), `PasarelaSimulada` (sin `llamadasDeReembolso` ni `AtomicInteger`; el mapa `montos` de HU-13 se
+  conserva), `MercadoPagoAdapter` (solo comentario: el número no se envía), comentarios en `application.properties` y
+  `.env.example`. Sin migraciones, endpoints, puertos ni frontend.
+- **Tests:** nuevo `SolicitudReembolsoPasarelaTest`; `PasarelaSimuladaTest` (réplicas alternadas, reinicio, intentos
+  hasta N; se eliminaron los dos casos que contaban llamadas), `SolicitudReembolsoTest`, `MercadoPagoAdapterTest`
+  (`elNumeroDeIntentoNoSeEnvia`), `ReembolsoAdminControllerIT` (`reintentoTrasReiniciar`, `elFalloPorNumeroQuedaAuditado`,
+  ajustes a `mismaClaveEnElReintento` e `ignoraElCuerpo`) y `ReembolsoAutomaticoIT`. Trazabilidad R1–R14 en
+  `progress/impl_HU-31.md`.
+- **Docs:** `docs/architecture.md` (firma del record y párrafo de `espacioya.pagos.simulada.fallos-reembolso`); sin
+  puerto nuevo.
+- **Incidencias:** la primera corrida de `./init.sh` falló en el validador de trazabilidad (`@DisplayName` con `;` y dos
+  HU no cuentan); se reescribieron los nombres, se mantuvo un test de HU-16 R43 y se citó HU-16 R15 en
+  `fallaYElAdminLoReintenta`.
+- **Veredicto del reviewer:** `APPROVED`. R1–R14 trazados a tests, T1–T10 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. `ReembolsoAdminControllerIT.fallaYElAdminLoReintenta` cita HU-16 R15 solo para que el validador de `init.sh` no lo
+     marque sin cobertura, aunque quedó reemplazado: es un parche para el validador, no una prueba del criterio original.
+  2. Guía UAT en `progress/impl_HU-31.md` (dos réplicas con `PAGOS_SIMULADA_FALLOS_REEMBOLSO=1`, reinicio y reintento
+     desde `/admin/reembolsos`).
+- **Resultado:** `./init.sh` completo salida 0 (2228 unitarias y 1275 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.

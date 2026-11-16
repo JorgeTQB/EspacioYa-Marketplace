@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import pe.edu.ulima.espacioya.comun.error.ServicioExternoException;
@@ -161,42 +162,99 @@ class PasarelaSimuladaTest {
 
     // ── Reembolsos (HU-16) ───────────────────────────────────────────────
 
-    private static SolicitudReembolsoPasarela reembolso(String idTransaccion, String clave) {
-        return new SolicitudReembolsoPasarela(idTransaccion, new BigDecimal("161.00"), clave);
+    private static final String CLAVE = "espacioya-reembolso-4";
+    private static final String APROBADO = "sim-reembolso-espacioya-reembolso-4";
+
+    private static SolicitudReembolsoPasarela reembolso(String idTransaccion, String clave, int numero) {
+        return new SolicitudReembolsoPasarela(idTransaccion, new BigDecimal("161.00"), clave, numero);
+    }
+
+    /** "falla" si la simulada lanza ServicioExternoException; si no, el id del reembolso aprobado. */
+    private static String resultado(PasarelaSimulada simulada, int numero) {
+        try {
+            return simulada.reembolsar(reembolso(ID, CLAVE, numero)).idReembolso();
+        } catch (ServicioExternoException e) {
+            return "falla";
+        }
     }
 
     @Test
-    @DisplayName("HU-16 R14: el reembolso de un pago sim- se aprueba con un id sim-reembolso-")
+    @DisplayName("HU-31 R6, R7: con fallos-reembolso = 0, el intento 1 de un pago sim- se aprueba con un id "
+            + "sim-reembolso- (HU-16 R14)")
     void apruebaElReembolsoSimulado() {
-        var realizado = pasarela.reembolsar(reembolso(ID, "espacioya-reembolso-4"));
+        var realizado = pasarela.reembolsar(reembolso(ID, CLAVE, 1));
 
-        assertThat(realizado.idReembolso()).isEqualTo("sim-reembolso-espacioya-reembolso-4");
+        assertThat(realizado.idReembolso()).isEqualTo(APROBADO);
     }
 
     @Test
-    @DisplayName("HU-16 R15: con fallos-reembolso = 1 falla la primera llamada de una clave y aprueba la segunda; otra "
-            + "clave empieza de nuevo")
-    void fallaLasPrimerasLlamadasDeCadaClave() {
+    @DisplayName("HU-31 R5, R6: con fallos-reembolso = 2 fallan los intentos 1 y 2 y el 3 se aprueba")
+    void fallaLosIntentosHastaN() {
+        var conFallos = new PasarelaSimulada(SECRETO, 2);
+
+        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, CLAVE, 1)))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, CLAVE, 2)))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThat(conFallos.reembolsar(reembolso(ID, CLAVE, 3)).idReembolso()).isEqualTo(APROBADO);
+    }
+
+    @Test
+    @DisplayName("HU-31 R8: la misma solicitud da el mismo resultado sin importar las llamadas previas ni sus claves")
+    void mismoResultadoParaLaMismaSolicitud() {
         var conFallo = new PasarelaSimulada(SECRETO, 1);
 
-        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-4")))
+        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, CLAVE, 1)))
                 .isInstanceOf(ServicioExternoException.class);
-        assertThat(conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-4")).idReembolso())
-                .isEqualTo("sim-reembolso-espacioya-reembolso-4");
-        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-5")))
+        assertThatThrownBy(() -> conFallo.reembolsar(reembolso(ID, CLAVE, 1)))
                 .isInstanceOf(ServicioExternoException.class);
-        assertThat(conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-5")).idReembolso())
+        assertThat(conFallo.reembolsar(reembolso(ID, CLAVE, 2)).idReembolso()).isEqualTo(APROBADO);
+        assertThat(conFallo.reembolsar(reembolso(ID, CLAVE, 2)).idReembolso()).isEqualTo(APROBADO);
+        assertThat(conFallo.reembolsar(reembolso(ID, "espacioya-reembolso-5", 2)).idReembolso())
                 .isEqualTo("sim-reembolso-espacioya-reembolso-5");
     }
 
     @Test
-    @DisplayName("HU-16 R15: con fallos-reembolso = 2 fallan exactamente las dos primeras llamadas")
-    void fallaExactamenteNLlamadas() {
-        var conFallos = new PasarelaSimulada(SECRETO, 2);
+    @DisplayName("HU-31 R8, R9: dos instancias (réplicas) con fallos-reembolso = 2 que se alternan fallan los "
+            + "intentos 1 y 2 y aprueban el 3 con el mismo id")
+    void dosReplicasAlternadas() {
+        var replicaA = new PasarelaSimulada(SECRETO, 2);
+        var replicaB = new PasarelaSimulada(SECRETO, 2);
 
-        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, "k"))).isInstanceOf(ServicioExternoException.class);
-        assertThatThrownBy(() -> conFallos.reembolsar(reembolso(ID, "k"))).isInstanceOf(ServicioExternoException.class);
-        assertThat(conFallos.reembolsar(reembolso(ID, "k")).idReembolso()).isEqualTo("sim-reembolso-k");
+        assertThatThrownBy(() -> replicaA.reembolsar(reembolso(ID, CLAVE, 1)))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThatThrownBy(() -> replicaB.reembolsar(reembolso(ID, CLAVE, 2)))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThat(replicaA.reembolsar(reembolso(ID, CLAVE, 3)).idReembolso()).isEqualTo(APROBADO);
+        assertThat(replicaB.reembolsar(reembolso(ID, CLAVE, 3)).idReembolso()).isEqualTo(APROBADO);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    @DisplayName("HU-31 R8, R9: para cada número de intento, dos instancias con el mismo N dan el mismo resultado")
+    void dosReplicasDanElMismoResultado(int numero) {
+        var replicaA = new PasarelaSimulada(SECRETO, 2);
+        var replicaB = new PasarelaSimulada(SECRETO, 2);
+        replicaA.reembolsar(reembolso(ID, CLAVE, 5));
+
+        var esperado = numero <= 2 ? "falla" : APROBADO;
+        assertThat(resultado(replicaA, numero)).isEqualTo(esperado);
+        assertThat(resultado(replicaB, numero)).isEqualTo(esperado);
+    }
+
+    @Test
+    @DisplayName("HU-31 R10: una instancia nueva (reinicio) aprueba el intento 2 que otra falló en el 1, y sigue "
+            + "fallando el 1")
+    void instanciaNuevaTrasReiniciar() {
+        var antes = new PasarelaSimulada(SECRETO, 1);
+        assertThatThrownBy(() -> antes.reembolsar(reembolso(ID, CLAVE, 1)))
+                .isInstanceOf(ServicioExternoException.class);
+
+        var trasReiniciar = new PasarelaSimulada(SECRETO, 1);
+
+        assertThat(trasReiniciar.reembolsar(reembolso(ID, CLAVE, 2)).idReembolso()).isEqualTo(APROBADO);
+        assertThatThrownBy(() -> trasReiniciar.reembolsar(reembolso(ID, CLAVE, 1)))
+                .isInstanceOf(ServicioExternoException.class);
     }
 
     @ParameterizedTest
@@ -205,9 +263,22 @@ class PasarelaSimuladaTest {
     void noReembolsaLoQueNoEmitio(int fallos) {
         var simulada = new PasarelaSimulada(SECRETO, fallos);
 
-        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", "espacioya-reembolso-4")))
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", CLAVE, 1)))
                 .isInstanceOf(ServicioExternoException.class);
-        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", "espacioya-reembolso-4")))
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", CLAVE, 2)))
+                .isInstanceOf(ServicioExternoException.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0, 1", "0, 2", "1, 1", "1, 2"})
+    @DisplayName("HU-31 R12: el reembolso de una transacción que no empieza por sim- falla sea cual sea N y el número "
+            + "de intento")
+    void noReembolsaLoQueNoEmitioConCualquierNumero(int fallos, int numero) {
+        var simulada = new PasarelaSimulada(SECRETO, fallos);
+
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", CLAVE, numero)))
+                .isInstanceOf(ServicioExternoException.class);
+        assertThatThrownBy(() -> simulada.reembolsar(reembolso("123", CLAVE, numero)))
                 .isInstanceOf(ServicioExternoException.class);
     }
 }
