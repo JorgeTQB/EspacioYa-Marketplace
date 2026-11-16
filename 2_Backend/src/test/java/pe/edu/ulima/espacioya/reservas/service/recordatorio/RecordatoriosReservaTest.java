@@ -250,6 +250,23 @@ class RecordatoriosReservaTest {
     }
 
     @Test
+    @DisplayName("HU-25 R15, R16 (C3): una reserva confirmada sin horario no envía, no marca y no audita")
+    void confirmadaSinHorario() {
+        candidatas(ID);
+        var reserva = reserva(ID, EstadoReserva.CONFIRMADA);
+        when(reservas.findParaActualizar(ID)).thenReturn(Optional.of(reserva));
+        when(bloques.horarios(List.of(ID))).thenReturn(List.of());
+
+        assertThat(servicio().enviarPendientes()).isZero();
+
+        assertThat(reserva.getRecordatorioEnviadoEn()).isNull();
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+        assertThat(enviados).isEmpty();
+        verify(auditoria, never()).registrar(any());
+        verify(cuentas, never()).correoParaRecordatorio(any());
+    }
+
+    @Test
     @DisplayName("HU-25 R16: si la reserva ya empezó no envía ni marca")
     void yaEmpezo() {
         candidatas(ID);

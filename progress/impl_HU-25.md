@@ -153,3 +153,13 @@ Re-corrida tras el review (2026-11-08, B1 y B2): `Recordatorios.jsx` cambió el 
 correr se comprobó que no hubiera otro Maven sobre `2_Backend`: había un `mvnw test` ajeno en curso, se esperó a que
 terminara sin matarlo. `./init.sh` completo en verde (B2): unitarias **1818** tests, 0 fallos/errores; integración
 **1067** tests, 0 fallos/errores; ESLint sin errores ni advertencias; build del frontend OK; chequeos de arquitectura OK.
+
+## Ajuste posterior: camino C3 (caja blanca cap. 10)
+
+- 2026-11-16. Solo test, sin cambios en código de producción ni en el estado de la historia.
+- Agregado `RecordatoriosReservaTest.confirmadaSinHorario`
+  (`@DisplayName("HU-25 R15, R16 (C3): una reserva confirmada sin horario no envía, no marca y no audita")`): cubre
+  el camino C3 de `RecordatoriosReserva.recordarSiCorresponde()` (reserva CONFIRMADA que admite recordatorio, pero
+  `bloques.horarios(List.of(id))` devuelve lista vacía → `horario.isEmpty()` → `false`). Afirma 0 marcadas,
+  `recordatorioEnviadoEn` null, sin sincronizaciones ni correos, sin auditoría y sin consultar preferencias de correo.
+- `./2_Backend/mvnw -f 2_Backend/pom.xml test -Dtest=RecordatoriosReservaTest`: **14** tests, 0 fallos, 0 errores.

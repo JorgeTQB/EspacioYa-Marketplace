@@ -1979,3 +1979,18 @@
   `Cuenta admin creada`; RDS `available` (PostgreSQL 17.9). WAF apagado (`waf_activo = false`).
 - **Pendiente:** prueba funcional en el navegador (registro, búsqueda, reserva, panel admin con MFA), subir a 2 tareas
   y WAF para la demo y JMeter, y apagar al terminar.
+
+## 2026-11-16 — UAT en pausa (sdd: false)
+
+- **Jorge** pausó el entorno (opción A): tareas en 0 en `learnerlab.tfvars` + `apply`, y RDS detenido.
+- **Verificación (lecturas):** servicios ECS 0/0 y sin tareas; RDS `stopped`; interfaces de las tareas liberadas;
+  solo quedan las 2 IP públicas del ALB; WAF apagado. Costo en pausa ≈ 0.87 USD/día. RDS se vuelve a encender
+  sola a los 7 días (2026-11-23).
+
+## 2026-11-16 — HU-25: prueba del camino C3 (caja blanca, cap. 10)
+
+- **Jorge** pidió cubrir el camino C3 de `recordarSiCorresponde()`: una reserva confirmada sin horario.
+  El implementer agregó `confirmadaSinHorario` a `RecordatoriosReservaTest` (devuelve 0, no marca, no audita
+  y no envía). No se tocó código de producción; HU-25 sigue `done`.
+- **Verificación:** `RecordatoriosReservaTest` → 14 tests, 0 fallos (surefire). Detalle en `progress/impl_HU-25.md`.
+- **Pendiente (fuera del repo):** en el informe, tabla 10.4 de "5/6" a "6/6" y quitar la observación de 10.5.
