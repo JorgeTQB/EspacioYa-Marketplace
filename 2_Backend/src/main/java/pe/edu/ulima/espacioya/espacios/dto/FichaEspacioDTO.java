@@ -1,6 +1,7 @@
 package pe.edu.ulima.espacioya.espacios.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -18,6 +19,7 @@ import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.ValueDeserializer;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
+import pe.edu.ulima.espacioya.espacios.domain.Caracteristica;
 import pe.edu.ulima.espacioya.espacios.domain.DatosEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
 
@@ -25,6 +27,8 @@ import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
  * Ficha de un espacio al crearlo o editarlo (HU-07). No trae {@code id}, {@code arrendadorId} ni {@code estado}:
  * si el cliente los envía, Jackson los descarta (R3). Los textos se recortan antes de validar, para que las
  * longitudes se cuenten sin espacios al inicio ni al final. La zona la comprueba el servicio contra el catálogo.
+ * HU-23: {@code caracteristicas} ausente o {@code null} equivale a ninguna, porque el {@code PUT} reemplaza la ficha
+ * completa (P1).
  */
 public record FichaEspacioDTO(
         @NotBlank(message = FichaEspacioDTO.M_NOMBRE)
@@ -57,7 +61,10 @@ public record FichaEspacioDTO(
 
         @NotBlank(message = FichaEspacioDTO.M_DESCRIPCION)
         @Size(min = 10, max = 2000, message = FichaEspacioDTO.M_DESCRIPCION)
-        String descripcion) {
+        String descripcion,
+
+        @CaracteristicasDeLista(message = FichaEspacioDTO.M_CARACTERISTICAS)
+        List<String> caracteristicas) {
 
     public static final String M_NOMBRE = "Escribe un nombre de 3 a 100 caracteres.";
     public static final String M_TIPO = "Elige el tipo de espacio.";
@@ -67,6 +74,7 @@ public record FichaEspacioDTO(
     public static final String M_PRECIO =
             "El precio por hora debe estar entre S/ 1.00 y S/ 100 000.00, con hasta 2 decimales.";
     public static final String M_DESCRIPCION = "Escribe una descripción de 10 a 2000 caracteres.";
+    public static final String M_CARACTERISTICAS = "Elige características de la lista, sin repetir.";
 
     public FichaEspacioDTO {
         nombre = recortar(nombre);
@@ -75,9 +83,15 @@ public record FichaEspacioDTO(
         descripcion = recortar(descripcion);
     }
 
+    /** Ficha de HU-07 sin características (HU-23 DT-15). */
+    public FichaEspacioDTO(String nombre, String tipo, String direccion, String zona, Integer capacidad,
+                           BigDecimal precioHora, String descripcion) {
+        this(nombre, tipo, direccion, zona, capacidad, precioHora, descripcion, null);
+    }
+
     public DatosEspacio aDatos() {
         return new DatosEspacio(nombre, TipoEspacio.valueOf(tipo), direccion, zona, capacidad, precioHora,
-                descripcion);
+                descripcion, Caracteristica.deCodigos(caracteristicas == null ? List.of() : caracteristicas));
     }
 
     private static String recortar(String texto) {

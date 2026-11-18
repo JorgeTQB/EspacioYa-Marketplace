@@ -39,6 +39,7 @@
       "Bash(npm run *)",
       "Bash(npx vitest *)",
       "Read(~/.m2/**)",
+      "Read(~/AppData/Local/Temp/claude/**)",
       "Bash(./2_Backend/mvnw *)",
       "Bash(npm --prefix 3_frontend *)"
     ],

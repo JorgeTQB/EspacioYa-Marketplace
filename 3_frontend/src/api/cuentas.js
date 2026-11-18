@@ -1,4 +1,4 @@
-import { peticion } from './cliente.js'
+import { peticion, peticionArchivo } from './cliente.js'
 
 export function obtenerVersionPrivacidad() {
   return peticion('/api/politicas-privacidad/vigente')
@@ -126,4 +126,67 @@ export function activarMfa({ codigo }) {
 
 export function desactivarMfa({ contrasena, codigo }) {
   return peticion('/api/mfa/desactivacion', { metodo: 'POST', cuerpo: { contrasena, codigo } })
+}
+
+// Perfil del titular de la sesión (HU-20). La cuenta sale siempre de la sesión: ninguna ruta lleva un id.
+export function obtenerPerfil() {
+  return peticion('/api/usuarios/actual/perfil')
+}
+
+export function actualizarDatosPerfil({ nombre, telefono }) {
+  return peticion('/api/usuarios/actual/perfil', { metodo: 'PUT', cuerpo: { nombre, telefono } })
+}
+
+export function subirFotoPerfil(archivo) {
+  const formulario = new FormData()
+  if (archivo) formulario.append('foto', archivo)
+  return peticion('/api/usuarios/actual/foto', { metodo: 'PUT', cuerpo: formulario })
+}
+
+// La foto es privada: se descarga con el token como Blob (un <img src> no envía Authorization).
+export function obtenerFotoPerfil() {
+  return peticionArchivo('/api/usuarios/actual/foto')
+}
+
+export function quitarFotoPerfil() {
+  return peticion('/api/usuarios/actual/foto', { metodo: 'DELETE' })
+}
+
+export function solicitarCambioCorreo({ correo, contrasena }) {
+  return peticion('/api/usuarios/actual/cambios-correo', { metodo: 'POST', cuerpo: { correo, contrasena } })
+}
+
+// Pública (HU-20 D21): el token del enlace va en el cuerpo y un 400 no debe borrar la sesión del navegador.
+export function confirmarCambioCorreo(token) {
+  return peticion('/api/cambios-correo/confirmaciones', {
+    metodo: 'POST',
+    cuerpo: { token },
+    autenticada: false,
+  })
+}
+
+// Preferencia de recordatorios (HU-25, CA2). Solo apaga el recordatorio 24 h antes: pago y cancelación siempre llegan.
+export function obtenerPreferenciasCorreo() {
+  return peticion('/api/usuarios/actual/preferencias-correo')
+}
+
+export function actualizarPreferenciasCorreo({ recordatoriosActivos }) {
+  return peticion('/api/usuarios/actual/preferencias-correo', { metodo: 'PUT', cuerpo: { recordatoriosActivos } })
+}
+
+export function actualizarFacturacion({ tipoDocumento, numeroDocumento, razonSocial, direccionFiscal, contrasena }) {
+  return peticion('/api/arrendadores/actual/facturacion', {
+    metodo: 'PUT',
+    cuerpo: { tipoDocumento, numeroDocumento, razonSocial, direccionFiscal, contrasena },
+  })
+}
+
+// Derechos sobre datos personales (HU-22). POST con la contraseña en el cuerpo: nunca en la URL. La exportación
+// devuelve el JSON y la pantalla arma el archivo.
+export function exportarMisDatos({ contrasena }) {
+  return peticion('/api/usuarios/actual/exportaciones', { metodo: 'POST', cuerpo: { contrasena } })
+}
+
+export function eliminarMiCuenta({ contrasena }) {
+  return peticion('/api/usuarios/actual/eliminacion', { metodo: 'POST', cuerpo: { contrasena } })
 }

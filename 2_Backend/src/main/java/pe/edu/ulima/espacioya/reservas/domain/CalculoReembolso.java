@@ -14,10 +14,14 @@ public final class CalculoReembolso {
         this.politicas = List.copyOf(politicas);
     }
 
-    /** Las tres reglas fijas de RN-06; no hay configuración (simplificación "política fija" de la historia). */
+    /**
+     * Las tres reglas fijas de RN-06 y la de moderación de HU-27; no hay configuración (simplificación "política fija"
+     * de la historia).
+     */
     public static CalculoReembolso politicaFija() {
         return new CalculoReembolso(List.of(new ReembolsoUsuarioConAnticipacion(),
-                new ReembolsoUsuarioSinAnticipacion(), new ReembolsoCancelaArrendador()));
+                new ReembolsoUsuarioSinAnticipacion(), new ReembolsoCancelaArrendador(),
+                new ReembolsoPorModeracion()));
     }
 
     /** @throws IllegalStateException si no aplica ninguna o aplica más de una: es un error de programación. */

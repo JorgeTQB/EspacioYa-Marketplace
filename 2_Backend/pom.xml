@@ -20,7 +20,21 @@
 
 	<properties>
 		<java.version>25</java.version>
+		<!-- AWS SDK for Java v2 (HU-29): última 2.x estable de Maven Central al implementar -->
+		<aws-sdk.version>2.59.1</aws-sdk.version>
 	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${aws-sdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<dependencies>
 		<!-- API REST (Spring MVC + Jackson + Tomcat embebido) -->
@@ -58,6 +72,23 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<!-- Envío de correo por SMTP (HU-25, D8): solo lo usa el adaptador comun.correo.EnvioCorreoSmtp -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<!-- Almacenamiento en S3 (HU-29): solo lo usan comun.almacenamiento.AlmacenamientoS3 y su configuración.
+		     Cliente síncrono: no hace falta el cliente HTTP asíncrono (Netty). -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- Pruebas: JUnit 5, Mockito, AssertJ y MockMvc -->

@@ -1,0 +1,16 @@
+.secundario {
+  margin: 0;
+  color: var(--color-texto-secundario);
+}
+
+.tituloImpedimentos {
+  margin: 0 0 var(--espacio-2);
+}
+
+.impedimentos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+  margin: 0;
+  padding-left: var(--espacio-4);
+}

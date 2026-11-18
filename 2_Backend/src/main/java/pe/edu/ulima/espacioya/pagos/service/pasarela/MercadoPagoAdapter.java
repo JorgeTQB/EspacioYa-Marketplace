@@ -145,6 +145,7 @@ public class MercadoPagoAdapter implements PasarelaPago {
     }
 
     // La misma clave en cada intento: si una respuesta se perdió, Mercado Pago devuelve el reembolso ya hecho (HU-16 D6).
+    // El número de intento no se envía: solo lo usa la simulada (HU-31).
     @Override
     public ReembolsoRealizado reembolsar(SolicitudReembolsoPasarela solicitud) {
         var respuesta = llamar("reembolsar el pago", () -> cliente.post()

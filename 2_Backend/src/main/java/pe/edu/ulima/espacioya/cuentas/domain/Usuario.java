@@ -1,7 +1,10 @@
 package pe.edu.ulima.espacioya.cuentas.domain;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 import jakarta.persistence.Column;
@@ -16,6 +19,8 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "usuario")
 public class Usuario {
+
+    public static final String TEXTO_ANONIMIZADO = "Cuenta eliminada";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,6 +54,21 @@ public class Usuario {
 
     @Column(length = 9)
     private String telefono;
+
+    // HU-20 D1: el correo pedido y aún no confirmado; usuario.correo no cambia hasta confirmar.
+    @Column(name = "correo_pendiente", length = 254)
+    private String correoPendiente;
+
+    // HU-20 D15: clave de ArchivosPrivados (carpeta "perfiles"), nunca una URL.
+    @Column(name = "foto_ruta", length = 60)
+    private String fotoRuta;
+
+    @Column(name = "foto_tipo_mime", length = 20)
+    private String fotoTipoMime;
+
+    // HU-25 D4: opt-out, toda cuenta empieza con recordatorios. Solo la lee el proceso de recordatorios (D7, RN-14).
+    @Column(name = "recordatorios_activos", nullable = false)
+    private boolean recordatoriosActivos = true;
 
     protected Usuario() {
     }
@@ -86,6 +106,82 @@ public class Usuario {
 
     public static String normalizarCorreo(String correo) {
         return correo == null ? null : correo.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static String enmascararCorreo(String correo) {
+        if (correo == null || correo.isEmpty()) {
+            return "***";
+        }
+        var arroba = correo.lastIndexOf('@');
+        if (arroba <= 0) {
+            return correo.charAt(0) + "***";
+        }
+        return correo.charAt(0) + "***" + correo.substring(arroba);
+    }
+
+    /** @return los nombres de los campos que cambiaron ("nombre", "telefono"); un valor en blanco se guarda nulo. */
+    public List<String> actualizarDatos(String nombreNuevo, String telefonoNuevo) {
+        var nombreLimpio = limpiar(nombreNuevo);
+        var telefonoLimpio = limpiar(telefonoNuevo);
+        var campos = new ArrayList<String>();
+        if (!Objects.equals(nombre, nombreLimpio)) {
+            nombre = nombreLimpio;
+            campos.add("nombre");
+        }
+        if (!Objects.equals(telefono, telefonoLimpio)) {
+            telefono = telefonoLimpio;
+            campos.add("telefono");
+        }
+        return List.copyOf(campos);
+    }
+
+    private static String limpiar(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
+    }
+
+    public void solicitarCambioCorreo(String correoNormalizado) {
+        if (correoNormalizado == null || correoNormalizado.equals(correo)) {
+            throw new IllegalArgumentException("El correo pendiente debe ser distinto del actual");
+        }
+        correoPendiente = correoNormalizado;
+    }
+
+    public void confirmarCambioCorreo() {
+        if (correoPendiente == null) {
+            throw new IllegalStateException("La cuenta no tiene un correo pendiente");
+        }
+        correo = correoPendiente;
+        correoPendiente = null;
+    }
+
+    /** @return la ruta anterior (o null) para borrarla tras el commit. */
+    public String cambiarFoto(String ruta, String tipoMime) {
+        var anterior = fotoRuta;
+        fotoRuta = ruta;
+        fotoTipoMime = tipoMime;
+        return anterior;
+    }
+
+    /** @return la ruta quitada (o null si no había foto). */
+    public String quitarFoto() {
+        return cambiarFoto(null, null);
+    }
+
+    public boolean tieneFoto() {
+        return fotoRuta != null;
+    }
+
+    public boolean tieneRecordatoriosActivos() {
+        return recordatoriosActivos;
+    }
+
+    /** @return true si el valor cambió (HU-25 R8, R9). */
+    public boolean cambiarRecordatorios(boolean activos) {
+        if (recordatoriosActivos == activos) {
+            return false;
+        }
+        recordatoriosActivos = activos;
+        return true;
     }
 
     public boolean esAdmin() {
@@ -127,6 +223,40 @@ public class Usuario {
 
     public boolean puedeReactivarse() {
         return esGestionablePorAdmin() && estado == EstadoUsuario.SUSPENDIDA;
+    }
+
+    // HU-22: el titular elimina su propia cuenta; el admin no tiene a quién pedir supresión (P4 de HU-17).
+    public boolean puedeEliminarse() {
+        return (rol == Rol.USUARIO || rol == Rol.ARRENDADOR) && estado == EstadoUsuario.ACTIVA;
+    }
+
+    /**
+     * Supresión (HU-22 R21–R23): el correo pasa al marcador (libera el original para otro registro, R33), los datos
+     * personales quedan nulos y la contraseña es un hash que nadie conoce. Se conservan el rol y el consentimiento.
+     *
+     * @return la ruta de la foto quitada (o null) para borrarla tras el commit.
+     * @throws IllegalStateException si la cuenta no es {@code USUARIO}/{@code ARRENDADOR} {@code ACTIVA}.
+     */
+    public String anonimizar(String hashNuevo) {
+        if (!puedeEliminarse()) {
+            throw new IllegalStateException("La cuenta no se puede eliminar: " + rol + " " + estado);
+        }
+        if (hashNuevo == null || hashNuevo.isBlank()) {
+            throw new IllegalArgumentException("La anonimización exige un hash nuevo");
+        }
+        var foto = quitarFoto();
+        correo = marcadorCorreo(id);
+        nombre = null;
+        telefono = null;
+        correoPendiente = null;
+        hashContrasena = hashNuevo;
+        estado = EstadoUsuario.ELIMINADA;
+        return foto;
+    }
+
+    // .invalid es un TLD reservado (RFC 2606): nunca recibe correo. En minúsculas por ck_usuario_correo_normalizado.
+    public static String marcadorCorreo(Long id) {
+        return "eliminada-" + id + "@espacioya.invalid";
     }
 
     public void suspender() {
@@ -181,5 +311,17 @@ public class Usuario {
 
     public String getTelefono() {
         return telefono;
+    }
+
+    public String getCorreoPendiente() {
+        return correoPendiente;
+    }
+
+    public String getFotoRuta() {
+        return fotoRuta;
+    }
+
+    public String getFotoTipoMime() {
+        return fotoTipoMime;
     }
 }

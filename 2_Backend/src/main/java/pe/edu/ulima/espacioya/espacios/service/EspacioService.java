@@ -155,7 +155,8 @@ public class EspacioService {
         return usuario.usuarioId();
     }
 
-    private HabilitacionArrendadorDTO habilitacion(UsuarioAutenticado usuario) {
+    /** Rol ARRENDADOR (R41) y correo verificado (R42); la reutiliza {@code EstadoEspacioService} (HU-21). */
+    HabilitacionArrendadorDTO habilitacion(UsuarioAutenticado usuario) {
         var habilitacion = cuentas.habilitacionArrendador(usuario);
         if (!habilitacion.correoVerificado()) {
             throw new AccesoDenegadoException();
@@ -177,7 +178,7 @@ public class EspacioService {
         return zonas.findAll().stream().collect(Collectors.toMap(Zona::getCodigo, Zona::getNombre));
     }
 
-    private EspacioDTO aDto(Espacio espacio) {
+    EspacioDTO aDto(Espacio espacio) {
         var zonaNombre = zonas.findById(espacio.getZona()).map(Zona::getNombre).orElse(null);
         var fotosDto = fotos.findByEspacioIdOrderByOrdenAsc(espacio.getId()).stream()
                 .map(foto -> new FotoEspacioDTO(foto.getId(), foto.getOrden(), urlDe(foto)))
@@ -185,7 +186,8 @@ public class EspacioService {
         return new EspacioDTO(espacio.getId(), espacio.getNombre(), espacio.getTipo().name(), espacio.getDireccion(),
                 espacio.getZona(), zonaNombre, espacio.getCapacidad(), espacio.getPrecioHora(),
                 espacio.getDescripcion(), espacio.getEstado().name(), espacio.getCreadoEn(),
-                espacio.getActualizadoEn(), fotosDto);
+                espacio.getActualizadoEn(), fotosDto,
+                espacio.getCaracteristicas().stream().map(Enum::name).toList());
     }
 
     // R11: la URL estable es /api/fotos/<UUID>, el UUID de la clave espacios/<UUID>; nunca la clave entera (R7).

@@ -13,9 +13,11 @@ import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Campo from '../../components/ui/Campo.jsx'
 import EtiquetaEstado from '../../components/ui/EtiquetaEstado.jsx'
+import GrupoCasillas from '../../components/ui/GrupoCasillas.jsx'
 import useSesion from '../../sesion/useSesion.js'
+import EstadoPublicacion from './EstadoPublicacion.jsx'
 import FotoDelEspacio from './FotoDelEspacio.jsx'
-import { TIPOS_ESPACIO } from './textosEspacios.js'
+import { AVISO_BAJA, AVISO_PAUSADO, CARACTERISTICAS, TIPOS_ESPACIO } from './textosEspacios.js'
 import estilos from './EditarEspacio.module.css'
 
 const MAXIMO_FOTOS = 5
@@ -30,6 +32,8 @@ const AVISO_PUBLICADO =
 const MENSAJE_FALTA_FOTO = 'Elige una foto.'
 const MENSAJE_TAMANO = 'El archivo debe pesar como máximo 5 MB.'
 const MENSAJE_MAXIMO_FOTOS = 'Ya tienes 5 fotos. Quita una para subir otra.'
+// HU-21: en BAJA (y en OCULTO, HU-27) la ficha y las fotos quedan de solo lectura; el servidor también lo rechaza.
+const NO_EDITABLES = ['BAJA', 'OCULTO']
 const FICHA_VACIA = {
   nombre: '',
   tipo: '',
@@ -38,6 +42,7 @@ const FICHA_VACIA = {
   capacidad: '',
   precioHora: '',
   descripcion: '',
+  caracteristicas: [],
 }
 
 function fichaDe(espacio) {
@@ -49,6 +54,7 @@ function fichaDe(espacio) {
     capacidad: String(espacio.capacidad),
     precioHora: String(espacio.precioHora),
     descripcion: espacio.descripcion,
+    caracteristicas: espacio.caracteristicas ?? [],
   }
 }
 
@@ -126,6 +132,8 @@ function EditarEspacio() {
   const actual = cargando ? null : espacio
   const fotos = actual?.fotos ?? []
   const cupoLleno = fotos.length >= MAXIMO_FOTOS
+  const soloLectura = NO_EDITABLES.includes(actual?.estado)
+  const admiteCambioDeEstado = actual?.estado === 'PUBLICADO' || actual?.estado === 'PAUSADO'
 
   function cambiar(campo) {
     return (valor) => setFicha((previa) => ({ ...previa, [campo]: valor }))
@@ -208,6 +216,11 @@ function EditarEspacio() {
     }
   }
 
+  function alCambiarEstado(nuevo, mensaje) {
+    setEspacio(nuevo)
+    setAlerta({ tipo: 'exito', texto: mensaje })
+  }
+
   if (noEncontrado) {
     return (
       <section className={estilos.pantalla}>
@@ -238,6 +251,8 @@ function EditarEspacio() {
         </Alerta>
       )}
       {actual?.estado === 'PUBLICADO' && <Alerta tipo="info">{AVISO_PUBLICADO}</Alerta>}
+      {actual?.estado === 'PAUSADO' && <Alerta tipo="info">{AVISO_PAUSADO}</Alerta>}
+      {actual?.estado === 'BAJA' && <Alerta tipo="info">{AVISO_BAJA}</Alerta>}
       {cargando && <p className={estilos.secundario}>Cargando…</p>}
 
       {!cargando && (
@@ -300,7 +315,16 @@ function EditarEspacio() {
             ayuda="De 10 a 2000 caracteres. Cuenta qué incluye el espacio."
             error={errores.descripcion}
           />
-          <Boton tipo="submit" cargando={guardando}>
+          <GrupoCasillas
+            leyenda="Características"
+            nombre="caracteristicas"
+            opciones={CARACTERISTICAS}
+            valores={ficha.caracteristicas}
+            onChange={cambiar('caracteristicas')}
+            ayuda="Marca lo que ofrece tu espacio."
+            error={errores.caracteristicas}
+          />
+          <Boton tipo="submit" cargando={guardando} deshabilitado={soloLectura}>
             {esNuevo ? 'Guardar borrador' : 'Guardar cambios'}
           </Boton>
         </form>
@@ -318,7 +342,7 @@ function EditarEspacio() {
                   <Boton
                     variante="peligro"
                     cargando={quitando === foto.id}
-                    deshabilitado={quitando !== null && quitando !== foto.id}
+                    deshabilitado={soloLectura || (quitando !== null && quitando !== foto.id)}
                     onClick={() => quitarFoto(foto.id)}
                   >
                     Quitar foto
@@ -338,11 +362,18 @@ function EditarEspacio() {
             error={errorFoto}
           />
           {cupoLleno && <p className={estilos.secundario}>{MENSAJE_MAXIMO_FOTOS}</p>}
-          <Boton variante="secundario" cargando={subiendo} deshabilitado={cupoLleno} onClick={subirFoto}>
+          <Boton
+            variante="secundario"
+            cargando={subiendo}
+            deshabilitado={cupoLleno || soloLectura}
+            onClick={subirFoto}
+          >
             Subir foto
           </Boton>
         </div>
       )}
+
+      {admiteCambioDeEstado && <EstadoPublicacion espacio={actual} onCambio={alCambiarEstado} />}
 
       {actual?.estado === 'BORRADOR' && (
         <div className={estilos.bloque}>

@@ -38,8 +38,9 @@ public class ReservasDeMisEspaciosController {
     @GetMapping
     public PaginaReservasDTO<ReservaDeMiEspacioDTO> listar(@AuthenticationPrincipal UsuarioAutenticado usuario,
                                                            @RequestParam(required = false) String grupo,
-                                                           @RequestParam(required = false) String pagina) {
-        return consulta.reservasDeMisEspacios(usuario, grupo, pagina);
+                                                           @RequestParam(required = false) String pagina,
+                                                           @RequestParam(required = false) String espacioId) {
+        return consulta.reservasDeMisEspacios(usuario, grupo, pagina, espacioId);
     }
 
     // HU-15: el arrendador cancela una reserva de su espacio; siempre con el 100 % para el usuario (R13).

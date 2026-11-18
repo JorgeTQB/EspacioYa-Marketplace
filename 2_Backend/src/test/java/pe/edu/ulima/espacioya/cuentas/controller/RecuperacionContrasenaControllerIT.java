@@ -172,6 +172,20 @@ class RecuperacionContrasenaControllerIT {
         }
 
         @Override
+
+        public void notificarCambioCorreo(String correoNuevo, String enlace) {
+
+        }
+
+
+        @Override
+
+        public void notificarAvisoCambioCorreo(String correoActual, String correoNuevoEnmascarado) {
+
+        }
+
+
+        @Override
         public void notificarCambioCuentaBancaria(String correoArrendador,
                 pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
         }

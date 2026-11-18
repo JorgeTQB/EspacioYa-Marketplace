@@ -675,6 +675,19 @@ class WebhookPagoIT extends PagosConMercadoPagoSoporte {
     }
 
     @Test
+    @DisplayName("HU-25 R27: con los recordatorios desactivados, el usuario y el arrendador reciben igual el "
+            + "comprobante y el aviso de reserva pagada")
+    void pagoSinRecordatorios() throws Exception {
+        jdbc.update("UPDATE usuario SET recordatorios_activos = false WHERE id IN (?, ?)", usuarioId, arrendadorId);
+        var id = pagoEnLaPasarela("approved", vigente());
+
+        notificar(id).andExpect(status().isOk());
+
+        assertThat(notificador.comprobantes()).extracting(Comprobante::correo).containsExactly(CORREO_USUARIO);
+        assertThat(notificador.avisos()).extracting(AvisoArrendador::correo).containsExactly(CORREO_ARRENDADOR);
+    }
+
+    @Test
     @DisplayName("HU-13 R50: sin confirmar no hay correos: tardío, otro monto y rechazado")
     void sinConfirmarNoHayCorreos() throws Exception {
         var expirada = reserva(usuarioId, "EXPIRADA", haceMinutos(1));

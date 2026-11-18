@@ -26,13 +26,15 @@ import pe.edu.ulima.espacioya.pagos.repository.CuentaBancariaRepository;
 import pe.edu.ulima.espacioya.pagos.repository.LiquidacionDetalleRepository;
 import pe.edu.ulima.espacioya.pagos.repository.LiquidacionRepository;
 import pe.edu.ulima.espacioya.pagos.repository.PagoRepository;
+import pe.edu.ulima.espacioya.pagos.service.puertos.ReclamosAbiertos;
 import pe.edu.ulima.espacioya.pagos.service.puertos.ReservaLiquidable;
 import pe.edu.ulima.espacioya.pagos.service.puertos.ReservasLiquidables;
 
 /**
  * Selección y armado de las liquidaciones de una generación (HU-19 CA1, CA3, D1). {@code pagos} decide qué pago cuenta
  * y la regla de las 48 h; {@code reservas}, por el puerto, si el estado de la reserva admite liquidación y su fin
- * (DT-3). Todo con <b>un</b> corte tomado después del bloqueo de generación (DT-7). Nunca modifica una liquidación
+ * (DT-3); {@code administracion}, por otro puerto, qué reservas retiene un reclamo abierto (HU-26 R20). Todo con
+ * <b>un</b> corte tomado después del bloqueo de generación (DT-7). Nunca modifica una liquidación
  * existente: las reservas nuevas van a una liquidación nueva (R17).
  */
 @Component
@@ -46,6 +48,7 @@ public class GeneradorLiquidaciones {
     private final PagoRepository pagos;
     private final CuentaBancariaRepository cuentas;
     private final ReservasLiquidables reservas;
+    private final ReclamosAbiertos reclamos;
     private final CuentaService cuentasUsuario;
     private final AuditoriaService auditoria;
     private final Clock reloj;
@@ -53,14 +56,15 @@ public class GeneradorLiquidaciones {
 
     public GeneradorLiquidaciones(LiquidacionRepository liquidaciones, LiquidacionDetalleRepository detalles,
                                   PagoRepository pagos, CuentaBancariaRepository cuentas,
-                                  ReservasLiquidables reservas, CuentaService cuentasUsuario,
-                                  AuditoriaService auditoria, Clock reloj,
+                                  ReservasLiquidables reservas, ReclamosAbiertos reclamos,
+                                  CuentaService cuentasUsuario, AuditoriaService auditoria, Clock reloj,
                                   @Value("${espacioya.pagos.pasarela}") String pasarela) {
         this.liquidaciones = liquidaciones;
         this.detalles = detalles;
         this.pagos = pagos;
         this.cuentas = cuentas;
         this.reservas = reservas;
+        this.reclamos = reclamos;
         this.cuentasUsuario = cuentasUsuario;
         this.auditoria = auditoria;
         this.reloj = reloj;
@@ -96,13 +100,16 @@ public class GeneradorLiquidaciones {
 
     // TreeMap: una liquidación por arrendador en orden estable de id; sus pagos siguen por reserva ascendente.
     private Map<Long, List<Pago>> liquidablesPorArrendador(List<Pago> pendientes, Instant corte) {
-        Map<Long, ReservaLiquidable> descritas = reservas.describir(pendientes.stream().map(Pago::getReservaId)
-                        .toList()).stream()
+        var reservaIds = pendientes.stream().map(Pago::getReservaId).toList();
+        Map<Long, ReservaLiquidable> descritas = reservas.describir(reservaIds).stream()
                 .collect(Collectors.toMap(ReservaLiquidable::reservaId, Function.identity()));
+        // HU-26 R20: leído después del bloqueo de generación, que abrir un reclamo también toma (DT-6).
+        var retenidas = reclamos.conReclamoAbierto(reservaIds);
         Map<Long, List<Pago>> porArrendador = new TreeMap<>();
         for (var pago : pendientes) {
             var reserva = descritas.get(pago.getReservaId());
-            if (reserva != null && reserva.admitida() && ReglasLiquidacion.esLiquidable(reserva.finEn(), corte)) {
+            if (reserva != null && reserva.admitida() && ReglasLiquidacion.esLiquidable(reserva.finEn(), corte)
+                    && !retenidas.contains(reserva.reservaId())) {
                 porArrendador.computeIfAbsent(reserva.arrendadorId(), id -> new ArrayList<>()).add(pago);
             }
         }

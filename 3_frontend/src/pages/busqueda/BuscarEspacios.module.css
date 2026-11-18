@@ -11,6 +11,10 @@
   margin-bottom: var(--espacio-6);
 }
 
+.filaCompleta {
+  grid-column: 1 / -1;
+}
+
 .enviar {
   display: flex;
   align-items: flex-end;
@@ -40,6 +44,10 @@
 
 .vacio p {
   margin: 0;
+}
+
+.accionVacio {
+  margin-top: var(--espacio-2);
 }
 
 .lista {

@@ -33,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.ErrorCampoDTO;
+import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ValidacionException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
@@ -329,5 +330,98 @@ class ConsultaReservasServiceTest {
         assertThat(pagina.reservas()).extracting(ReservaDeMiEspacioDTO::id).containsExactly(11L, 12L);
         assertThat(pagina.hayMas()).isFalse();
         assertThat(pedidos.getAllValues()).containsExactly(List.of(211L, 212L));
+    }
+
+    // ── Filtro por espacio (HU-21 R19–R22) ───────────────────────────────
+
+    @Test
+    @DisplayName("HU-21 R19: con espacioId de un espacio propio devuelve solo las confirmadas de ese espacio")
+    void filtraPorEspacioPropio() {
+        when(catalogo.nombresDelArrendador(ARRENDADOR_ID)).thenReturn(Map.of(40L, "Cancha A", 41L, "Cancha B"));
+        when(dao.confirmadasDeEspacios(Set.of(41L))).thenReturn(List.of(confirmada(2L, 21L, 41L, HOY.plusDays(2), 9)));
+        when(cuentas.nombres(List.of(21L))).thenReturn(Map.of(21L, "Carla Ríos"));
+
+        var pagina = servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1", "41");
+
+        assertThat(pagina.reservas()).containsExactly(new ReservaDeMiEspacioDTO(2L, 41L, "Cancha B", "Carla Ríos",
+                "CONFIRMADA", HOY.plusDays(2), 9, 10, new BigDecimal("80.50")));
+        assertThat(pagina.pagina()).isEqualTo(1);
+        assertThat(pagina.hayMas()).isFalse();
+        verify(dao, never()).confirmadasDeEspacios(Set.of(40L, 41L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-1", "9223372036854775808", "", "1.5", " 4"})
+    @DisplayName("HU-21 R20: un espacioId que no es un entero positivo da 400 en espacioId junto a grupo, sin DAO")
+    void espacioIdInvalido(String espacioId) {
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(ARRENDADOR, "todas", "1", espacioId))
+                .isInstanceOf(ValidacionException.class)
+                .satisfies(error -> assertThat(errores(error)).containsExactly(
+                        new ErrorCampoDTO("grupo", "Elige próximas o pasadas."),
+                        new ErrorCampoDTO("espacioId", "El espacio no es válido.")));
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "0", espacioId))
+                .isInstanceOf(ValidacionException.class)
+                .satisfies(error -> assertThat(errores(error)).containsExactly(
+                        new ErrorCampoDTO("pagina", "La página no es válida."),
+                        new ErrorCampoDTO("espacioId", "El espacio no es válido.")));
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1", espacioId))
+                .isInstanceOf(ValidacionException.class)
+                .satisfies(error -> assertThat(errores(error)).containsExactly(
+                        new ErrorCampoDTO("espacioId", "El espacio no es válido.")));
+        verifyNoInteractions(dao, catalogo, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-21 R20: el mayor espacioId válido es Long.MAX_VALUE")
+    void espacioIdMaximo() {
+        when(catalogo.nombresDelArrendador(ARRENDADOR_ID)).thenReturn(Map.of(Long.MAX_VALUE, "Cancha A"));
+        when(dao.confirmadasDeEspacios(Set.of(Long.MAX_VALUE))).thenReturn(List.of());
+
+        var pagina = servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", null, "9223372036854775807");
+
+        assertThat(pagina.reservas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-21 R21: un espacioId ajeno o inexistente da 404 sin consultar reservas")
+    void espacioIdAjenoDa404() {
+        when(catalogo.nombresDelArrendador(ARRENDADOR_ID)).thenReturn(Map.of(40L, "Cancha A"));
+
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1", "99"))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(dao, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-21 R21: con espacioId y un arrendador sin espacios da 404, no una página vacía")
+    void espacioIdSinEspaciosDa404() {
+        when(catalogo.nombresDelArrendador(ARRENDADOR_ID)).thenReturn(Map.of());
+
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1", "40"))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(dao, cuentas);
+    }
+
+    @Test
+    @DisplayName("HU-21 R22: sin espacioId responde como HU-14, con todas las confirmadas de sus espacios")
+    void sinEspacioIdIgualQueHu14() {
+        when(catalogo.nombresDelArrendador(ARRENDADOR_ID)).thenReturn(Map.of(40L, "Cancha A", 41L, "Cancha B"));
+        when(dao.confirmadasDeEspacios(Set.of(40L, 41L))).thenReturn(List.of(
+                confirmada(1L, 20L, 40L, HOY.plusDays(1), 18), confirmada(2L, 21L, 41L, HOY.plusDays(2), 9)));
+        when(cuentas.nombres(any())).thenReturn(Map.of());
+
+        var conNull = servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1", null);
+        var deTres = servicio.reservasDeMisEspacios(ARRENDADOR, "proximas", "1");
+
+        assertThat(conNull.reservas()).extracting(ReservaDeMiEspacioDTO::id).containsExactly(1L, 2L);
+        assertThat(deTres).isEqualTo(conNull);
+    }
+
+    @Test
+    @DisplayName("HU-21 R20: con espacioId y otro rol da 403 antes de validar")
+    void espacioIdConOtroRol() {
+        assertThatThrownBy(() -> servicio.reservasDeMisEspacios(USUARIO, "proximas", "1", "abc"))
+                .isInstanceOf(AccesoDenegadoException.class);
+        verifyNoInteractions(dao, catalogo, cuentas);
     }
 }

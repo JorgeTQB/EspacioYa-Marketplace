@@ -416,7 +416,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-20.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-21",
@@ -436,7 +436,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-21.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-22",
@@ -457,7 +457,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-22.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-23",
@@ -479,7 +479,7 @@
       ],
       "historia": "docs/historias/HU-23.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-24",
@@ -493,12 +493,15 @@
       "depends_on": [
         "HU-14"
       ],
-      "owner": "Adriana Callupe",
+      "owner": "Ariel Enriquez",
       "tester": "Sebastian Garate",
-      "patterns": [],
+      "patterns": [
+        "Decorator",
+        "DAO"
+      ],
       "historia": "docs/historias/HU-24.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-25",
@@ -520,7 +523,7 @@
       ],
       "historia": "docs/historias/HU-25.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-26",
@@ -536,12 +539,12 @@
         "HU-16",
         "HU-19"
       ],
-      "owner": "Ariel Enriquez",
+      "owner": "Adriana Callupe",
       "tester": "Eduardo Saldaña",
       "patterns": [],
       "historia": "docs/historias/HU-26.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-27",
@@ -562,7 +565,7 @@
       "patterns": [],
       "historia": "docs/historias/HU-27.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "HU-28",
@@ -577,12 +580,71 @@
         "HU-13",
         "HU-16"
       ],
-      "owner": "Eduardo Saldaña",
-      "tester": "Ariel Enriquez",
+      "owner": "Ariel Enriquez",
+      "tester": "Eduardo Saldaña",
       "patterns": [],
       "historia": "docs/historias/HU-28.md",
       "sdd": true,
-      "status": "pending"
+      "status": "done"
+    },
+    {
+      "id": "HU-29",
+      "title": "[Técnica] Almacenamiento de archivos en S3 seleccionable por configuración",
+      "epic": "T",
+      "module": "comun",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-05"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [
+        "Adapter"
+      ],
+      "historia": "docs/historias/HU-29.md",
+      "sdd": true,
+      "status": "done"
+    },
+    {
+      "id": "HU-30",
+      "title": "[Técnica] Límite de intentos compartido entre réplicas",
+      "epic": "T",
+      "module": "comun",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-03"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [],
+      "historia": "docs/historias/HU-30.md",
+      "sdd": true,
+      "status": "done"
+    },
+    {
+      "id": "HU-31",
+      "title": "[Técnica] Fallo de reembolso simulado sin estado en memoria",
+      "epic": "T",
+      "module": "pagos",
+      "release": 2,
+      "sprint": 9,
+      "week": 12,
+      "size": "S",
+      "depends_on": [
+        "HU-16"
+      ],
+      "owner": "Jorge Quispe",
+      "tester": "Por definir",
+      "patterns": [],
+      "historia": "docs/historias/HU-31.md",
+      "sdd": true,
+      "status": "done"
     }
   ]
 }

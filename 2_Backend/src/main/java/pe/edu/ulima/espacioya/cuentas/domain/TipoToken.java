@@ -1,5 +1,6 @@
 package pe.edu.ulima.espacioya.cuentas.domain;
 
 public enum TipoToken {
-    RECUPERACION
+    RECUPERACION,
+    CAMBIO_CORREO
 }

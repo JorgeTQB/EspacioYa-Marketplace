@@ -114,6 +114,9 @@ negarse a arrancar. Reglas:
 - **Nombres de clase:** `<Clase>Test` (unitaria, corre con `./mvnw test`, sin
   Docker) y `<Clase>IT` (integración, corre con `./mvnw verify`, necesita
   Docker). Toda `*IT` lleva `@Import(TestcontainersConfiguration.class)`.
+  `./init.sh` elige las unitarias por estos nombres: corre `<Clase>Test` y
+  toda `*Test` que mencione una clase cambiada, así que la prueba debe
+  nombrar la clase que prueba.
 - **Una prueba por criterio de aceptación**, incluido el de error, y por cada
   control STRIDE verificable.
 - **Nombres de test descriptivos** y `@DisplayName` con la historia y el

@@ -41,6 +41,31 @@ class ReglasLimiteFichaTest {
     }
 
     @Test
+    @DisplayName("HU-24 R37: la regla de las reseñas es GET /api/espacios/{id}/resenas del grupo catalogo")
+    void reglaDeLasResenas() {
+        var regla = reglas.reglaLimiteResenas(limite);
+
+        assertThat(regla.metodo()).isEqualTo("GET");
+        assertThat(regla.ruta()).isEqualTo("/api/espacios/{id}/resenas").isEqualTo(ReglasLimiteFicha.RUTA_RESENAS);
+        assertThat(regla.grupo()).isEqualTo(LimiteCatalogo.GRUPO);
+        assertThat(regla.aplicaA("GET", "/api/espacios/7/resenas")).isTrue();
+        assertThat(regla.aplicaA("GET", "/api/espacios/abc/resenas")).isTrue();
+        assertThat(regla.aplicaA("GET", "/api/espacios/7")).isFalse();
+        assertThat(regla.aplicaA("GET", "/api/resenas/pendientes")).isFalse();
+        assertThat(regla.aplicaA("POST", "/api/espacios/7/resenas")).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-24 R37: las reseñas comparten la clave por IP con la ficha y la búsqueda")
+    void resenasCompartenElCupo() {
+        var busqueda = new ReglasLimiteBusqueda().reglaLimiteBusqueda(limite);
+
+        assertThat(reglas.reglaLimiteResenas(limite).clave("10.13.0.1"))
+                .isEqualTo(reglas.reglaLimiteFicha(limite).clave("10.13.0.1"))
+                .isEqualTo(busqueda.clave("10.13.0.1"));
+    }
+
+    @Test
     @DisplayName("HU-11 R28, R30: la ficha, la disponibilidad y la búsqueda comparten la clave por IP")
     void compartenElCupoConLaBusqueda() {
         var busqueda = new ReglasLimiteBusqueda().reglaLimiteBusqueda(limite);

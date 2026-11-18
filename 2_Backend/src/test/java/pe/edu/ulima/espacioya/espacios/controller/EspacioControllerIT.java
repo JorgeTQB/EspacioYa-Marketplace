@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +31,8 @@ class EspacioControllerIT extends EspaciosControllerSoporte {
     private static final String SIN_FOTOS = "Agrega al menos una foto antes de publicar.";
     private static final String ESTADO_NO_EDITABLE = "Este espacio ya no se puede editar.";
     private static final List<String> CLAVES_DETALLE = List.of("id", "nombre", "tipo", "direccion", "zona",
-            "zonaNombre", "capacidad", "precioHora", "descripcion", "estado", "creadoEn", "actualizadoEn", "fotos");
+            "zonaNombre", "capacidad", "precioHora", "descripcion", "estado", "creadoEn", "actualizadoEn", "fotos",
+            "caracteristicas");
 
     private void subirUnaFoto(String token, long id) throws Exception {
         subir(token, id, foto("cancha.jpg", "image/jpeg", ArchivosDePrueba.jpeg(40, 30)))
@@ -554,5 +557,151 @@ class EspacioControllerIT extends EspaciosControllerSoporte {
                 .andExpect(jsonPath("$.errores[0].campo").value("nombre"));
         editar(token, 999_999L, ficha("tipo", "PISCINA")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores[0].campo").value("tipo"));
+    }
+
+    // ── Características (HU-23 CA1) ──────────────────────────────────────
+
+    private List<String> caracteristicasEnBd(long espacioId) {
+        return jdbc.queryForList("SELECT caracteristica FROM espacio_caracteristica WHERE espacio_id = ? "
+                + "ORDER BY caracteristica", String.class, espacioId);
+    }
+
+    private long crearConCaracteristicas(String token, List<String> caracteristicas) throws Exception {
+        var cuerpo = crear(token, ficha("caracteristicas", caracteristicas)).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return ((Number) mapa(cuerpo).get("id")).longValue();
+    }
+
+    @Test
+    @DisplayName("HU-23 R1, R6: crear con características las guarda y las devuelve en el orden de la lista fija")
+    void crearConCaracteristicas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+
+        crear(token, ficha("caracteristicas", List.of("VESTUARIOS", "TECHADO")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.caracteristicas.length()").value(2))
+                .andExpect(jsonPath("$.caracteristicas[0]").value("TECHADO"))
+                .andExpect(jsonPath("$.caracteristicas[1]").value("VESTUARIOS"));
+
+        var id = ((Number) espacios().get(0).get("id")).longValue();
+        assertThat(caracteristicasEnBd(id)).containsExactly("TECHADO", "VESTUARIOS");
+    }
+
+    @Test
+    @DisplayName("HU-23 R2, R6: editar reemplaza las características por exactamente las enviadas")
+    void editarReemplazaCaracteristicas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+        var id = crearConCaracteristicas(token, List.of("TECHADO", "ILUMINACION"));
+
+        editar(token, id, ficha("caracteristicas", List.of("ESTACIONAMIENTO", "VESTUARIOS", "ILUMINACION")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caracteristicas[0]").value("ILUMINACION"))
+                .andExpect(jsonPath("$.caracteristicas[1]").value("VESTUARIOS"))
+                .andExpect(jsonPath("$.caracteristicas[2]").value("ESTACIONAMIENTO"));
+
+        assertThat(caracteristicasEnBd(id)).containsExactly("ESTACIONAMIENTO", "ILUMINACION", "VESTUARIOS");
+    }
+
+    @Test
+    @DisplayName("HU-23 R3: crear o editar sin el campo o con null deja el espacio sin características")
+    void sinCampoCaracteristicas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+
+        crear(token, ficha()).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.caracteristicas.length()").value(0));
+        var id = crearConCaracteristicas(token, List.of("TECHADO"));
+        editar(token, id, ficha()).andExpect(status().isOk())
+                .andExpect(jsonPath("$.caracteristicas.length()").value(0));
+        assertThat(caracteristicasEnBd(id)).isEmpty();
+
+        var otro = crearConCaracteristicas(token, List.of("VESTUARIOS"));
+        editar(token, otro, ficha("caracteristicas", null)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.caracteristicas.length()").value(0));
+        assertThat(caracteristicasEnBd(otro)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R4, R5: un código inválido o repetido responde 400 en caracteristicas sin crear ni modificar")
+    void caracteristicasInvalidas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+        var invalidas = new ArrayList<List<String>>();
+        invalidas.add(List.of("techado"));
+        invalidas.add(List.of("PISCINA"));
+        invalidas.add(List.of(""));
+        invalidas.add(Arrays.asList("TECHADO", null));
+        invalidas.add(List.of("TECHADO", "VESTUARIOS", "TECHADO"));
+
+        for (var lista : invalidas) {
+            crear(token, ficha("caracteristicas", lista)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mensaje").value(MENSAJE_VALIDACION))
+                    .andExpect(jsonPath("$.errores.length()").value(1))
+                    .andExpect(jsonPath("$.errores[0].campo").value("caracteristicas"))
+                    .andExpect(jsonPath("$.errores[0].mensaje")
+                            .value("Elige características de la lista, sin repetir."));
+        }
+        assertThat(espacios()).isEmpty();
+
+        var id = crearConCaracteristicas(token, List.of("ILUMINACION"));
+        var antes = espacio(id);
+        reloj.avanzar(Duration.ofMinutes(5));
+        for (var lista : invalidas) {
+            editar(token, id, ficha("caracteristicas", lista)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errores[0].campo").value("caracteristicas"));
+        }
+        assertThat(espacio(id)).isEqualTo(antes);
+        assertThat(caracteristicasEnBd(id)).containsExactly("ILUMINACION");
+        assertThat(auditorias("EDICION_ESPACIO")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R6: la consulta del espacio devuelve las características en el orden de la lista fija")
+    void consultarDevuelveCaracteristicas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+        var id = crearConCaracteristicas(token, List.of("ESTACIONAMIENTO", "ILUMINACION", "TECHADO"));
+
+        consultar(token, id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.caracteristicas.length()").value(3))
+                .andExpect(jsonPath("$.caracteristicas[0]").value("TECHADO"))
+                .andExpect(jsonPath("$.caracteristicas[1]").value("ILUMINACION"))
+                .andExpect(jsonPath("$.caracteristicas[2]").value("ESTACIONAMIENTO"));
+    }
+
+    @Test
+    @DisplayName("HU-23 R7, R8: editar audita caracteristicas=[]->[…]; el mismo conjunto en otro orden no audita")
+    void auditaCambioDeCaracteristicas() throws Exception {
+        var ana = crearArrendador(CORREO);
+        var token = token(CORREO);
+        var id = crearEspacio(token);
+
+        editar(token, id, ficha("caracteristicas", List.of("VESTUARIOS", "TECHADO"))).andExpect(status().isOk());
+        var actualizado = espacio(id).get("actualizado_en");
+        reloj.avanzar(Duration.ofMinutes(5));
+        editar(token, id, ficha("caracteristicas", List.of("TECHADO", "VESTUARIOS"))).andExpect(status().isOk());
+
+        var auditoria = auditorias("EDICION_ESPACIO");
+        assertThat(auditoria).hasSize(1);
+        assertThat(auditoria.get(0)).containsEntry("usuario_id", ana.getId()).containsEntry("entidad_id", id)
+                .containsEntry("detalle", "caracteristicas=[]->[TECHADO, VESTUARIOS]");
+        assertThat(espacio(id).get("actualizado_en")).isEqualTo(actualizado);
+    }
+
+    @Test
+    @DisplayName("HU-23 R9: editar las características de un espacio en BAJA u OCULTO responde no editable")
+    void noEditableNoCambiaCaracteristicas() throws Exception {
+        crearArrendador(CORREO);
+        var token = token(CORREO);
+        for (var estado : List.of("BAJA", "OCULTO")) {
+            var id = crearConCaracteristicas(token, List.of("TECHADO"));
+            forzarEstado(id, estado);
+
+            error(editar(token, id, ficha("caracteristicas", List.of("VESTUARIOS"))), ESTADO_NO_EDITABLE);
+
+            assertThat(caracteristicasEnBd(id)).containsExactly("TECHADO");
+        }
     }
 }

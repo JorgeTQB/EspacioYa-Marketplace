@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -136,5 +137,186 @@ class EspacioTest {
 
         assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
         assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.BORRADOR);
+    }
+
+    @Test
+    @DisplayName("HU-21 R6, R8, R16: pausable solo PUBLICADO, reanudable solo PAUSADO, baja desde PUBLICADO o PAUSADO")
+    void predicadosDeEstado() {
+        for (var estado : EstadoEspacio.values()) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esPausable()).isEqualTo(estado == EstadoEspacio.PUBLICADO);
+            assertThat(espacio.esReanudable()).isEqualTo(estado == EstadoEspacio.PAUSADO);
+            assertThat(espacio.admiteBaja())
+                    .isEqualTo(estado == EstadoEspacio.PUBLICADO || estado == EstadoEspacio.PAUSADO);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: pausar un PUBLICADO lo deja PAUSADO con actualizadoEn del reloj")
+    void pausarPublicado() {
+        var espacio = enEstado(EstadoEspacio.PUBLICADO);
+
+        espacio.pausar(DESPUES);
+
+        assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.PAUSADO);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-21 R6: pausar fuera de PUBLICADO lanza y no cambia estado ni actualizadoEn")
+    void pausarFueraDePublicadoLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.PAUSADO, EstadoEspacio.BAJA,
+                EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.pausar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: reanudar un PAUSADO lo deja PUBLICADO con actualizadoEn del reloj")
+    void reanudarPausado() {
+        var espacio = enEstado(EstadoEspacio.PAUSADO);
+
+        espacio.reanudar(DESPUES);
+
+        assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.PUBLICADO);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-21 R8: reanudar fuera de PAUSADO lanza y no cambia estado ni actualizadoEn")
+    void reanudarFueraDePausadoLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.PUBLICADO, EstadoEspacio.BAJA,
+                EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.reanudar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R39: dar de baja un PUBLICADO o un PAUSADO lo deja en BAJA con actualizadoEn del reloj")
+    void darDeBajaPublicadoOPausado() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.PUBLICADO, EstadoEspacio.PAUSADO}) {
+            var espacio = enEstado(estado);
+
+            espacio.darDeBaja(DESPUES);
+
+            assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.BAJA);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+            assertThat(espacio.esEditable()).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("HU-21 R16: dar de baja un BORRADOR, BAJA u OCULTO lanza y no cambia estado ni actualizadoEn")
+    void darDeBajaNoAdmitidaLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThatThrownBy(() -> espacio.darDeBaja(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R32: ocultar un PUBLICADO o un PAUSADO lo deja OCULTO con actualizadoEn del reloj")
+    void ocultarPublicadoOPausado() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.PUBLICADO, EstadoEspacio.PAUSADO}) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esOcultable()).isTrue();
+
+            espacio.ocultar(DESPUES);
+
+            assertThat(espacio.getEstado()).isEqualTo(EstadoEspacio.OCULTO);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R39: ocultar un BORRADOR, BAJA u OCULTO lanza y no cambia estado ni actualizadoEn")
+    void ocultarNoOcultableLanza() {
+        for (var estado : new EstadoEspacio[] {EstadoEspacio.BORRADOR, EstadoEspacio.BAJA, EstadoEspacio.OCULTO}) {
+            var espacio = enEstado(estado);
+            assertThat(espacio.esOcultable()).isFalse();
+            assertThatThrownBy(() -> espacio.ocultar(DESPUES)).isInstanceOf(IllegalStateException.class);
+            assertThat(espacio.getEstado()).isEqualTo(estado);
+            assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
+        }
+    }
+
+    @Test
+    @DisplayName("HU-27 R38: un OCULTO es final: no es editable, pausable, reanudable ni admite baja")
+    void ocultoEsFinal() {
+        var espacio = enEstado(EstadoEspacio.PUBLICADO);
+        espacio.ocultar(DESPUES);
+
+        assertThat(espacio.esEditable()).isFalse();
+        assertThat(espacio.esPausable()).isFalse();
+        assertThat(espacio.esReanudable()).isFalse();
+        assertThat(espacio.admiteBaja()).isFalse();
+        assertThat(espacio.esOcultable()).isFalse();
+    }
+
+    private static DatosEspacio conCaracteristicas(Caracteristica... caracteristicas) {
+        return new DatosEspacio(DATOS.nombre(), DATOS.tipo(), DATOS.direccion(), DATOS.zona(), DATOS.capacidad(),
+                DATOS.precioHora(), DATOS.descripcion(), Set.of(caracteristicas));
+    }
+
+    @Test
+    @DisplayName("HU-23 R1: crear guarda exactamente las características de la ficha, en el orden fijo")
+    void crearGuardaCaracteristicas() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), AHORA);
+
+        assertThat(espacio.getCaracteristicas())
+                .containsExactly(Caracteristica.TECHADO, Caracteristica.VESTUARIOS);
+    }
+
+    @Test
+    @DisplayName("HU-23 R3: la ficha de HU-07 sin características deja el espacio sin ninguna")
+    void fichaSinCaracteristicas() {
+        assertThat(Espacio.crear(7L, DATOS, AHORA).getCaracteristicas()).isEmpty();
+        assertThat(new DatosEspacio("N", TipoEspacio.CANCHA, "D", "Z", 1, BigDecimal.ONE, "X", null)
+                .caracteristicas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R2, R7: editar reemplaza las características y anota caracteristicas=[antes]->[nuevas]")
+    void editarAnotaCambioDeCaracteristicas() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.ILUMINACION), AHORA);
+
+        var cambios = espacio.editar(
+                conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), DESPUES);
+
+        assertThat(cambios).containsExactly("caracteristicas=[ILUMINACION]->[TECHADO, VESTUARIOS]");
+        assertThat(espacio.getCaracteristicas())
+                .containsExactly(Caracteristica.TECHADO, Caracteristica.VESTUARIOS);
+        assertThat(espacio.getActualizadoEn()).isEqualTo(DESPUES);
+    }
+
+    @Test
+    @DisplayName("HU-23 R7: el cambio de características va después de la descripción y desde [] si no tenía")
+    void editarCaracteristicasDespuesDeDescripcion() {
+        var espacio = Espacio.crear(7L, DATOS, AHORA);
+        var nuevos = new DatosEspacio(DATOS.nombre(), DATOS.tipo(), DATOS.direccion(), DATOS.zona(),
+                DATOS.capacidad(), DATOS.precioHora(), "Otra descripción más completa.",
+                Set.of(Caracteristica.ESTACIONAMIENTO, Caracteristica.TECHADO));
+
+        assertThat(espacio.editar(nuevos, DESPUES))
+                .containsExactly("descripcion", "caracteristicas=[]->[TECHADO, ESTACIONAMIENTO]");
+    }
+
+    @Test
+    @DisplayName("HU-23 R8: el mismo conjunto en otro orden y sin otros cambios no anota nada ni toca actualizadoEn")
+    void editarMismasCaracteristicasSinCambios() {
+        var espacio = Espacio.crear(7L, conCaracteristicas(Caracteristica.TECHADO, Caracteristica.VESTUARIOS), AHORA);
+
+        var cambios = espacio.editar(conCaracteristicas(Caracteristica.VESTUARIOS, Caracteristica.TECHADO), DESPUES);
+
+        assertThat(cambios).isEmpty();
+        assertThat(espacio.getActualizadoEn()).isEqualTo(AHORA);
     }
 }

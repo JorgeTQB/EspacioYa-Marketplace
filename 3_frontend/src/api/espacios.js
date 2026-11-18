@@ -26,6 +26,20 @@ export function publicarEspacio(id) {
   return peticion(`${MIS_ESPACIOS}/${id}/publicacion`, { metodo: 'POST' })
 }
 
+// HU-21. Sin cuerpo: el servidor toma el dueño de la sesión y decide si el estado admite la acción.
+export function pausarEspacio(id) {
+  return peticion(`${MIS_ESPACIOS}/${id}/pausa`, { metodo: 'POST' })
+}
+
+export function reanudarEspacio(id) {
+  return peticion(`${MIS_ESPACIOS}/${id}/reanudacion`, { metodo: 'POST' })
+}
+
+// Si el espacio tiene reservas por terminar, responde 400 con un error en el campo "reservas".
+export function darDeBajaEspacio(id) {
+  return peticion(`${MIS_ESPACIOS}/${id}/baja`, { metodo: 'POST' })
+}
+
 export function subirFotoEspacio(id, archivo) {
   const formulario = new FormData()
   if (archivo) formulario.append('foto', archivo)

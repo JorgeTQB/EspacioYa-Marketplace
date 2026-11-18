@@ -2,6 +2,11 @@
 export const SIN_RESULTADOS = 'No encontramos espacios disponibles para esa fecha en esa zona.'
 export const SUGERENCIA_SIN_RESULTADOS = 'Prueba con otra fecha o con otra zona.'
 export const SIN_MAS_RESULTADOS = 'No hay más resultados.'
+// HU-23 CA3: sin resultados con algún filtro, se sugiere quitar alguno.
+export const SIN_RESULTADOS_CON_FILTROS = 'No encontramos espacios que cumplan todos los filtros.'
+export const SUGERENCIA_QUITAR_FILTRO =
+  'Prueba a quitar algún filtro: precio máximo, capacidad mínima o alguna característica.'
+export const BOTON_QUITAR_FILTROS = 'Quitar filtros'
 
 const DIAS_VENTANA = 55
 const FORMATO_LIMA = new Intl.DateTimeFormat('en-CA', {

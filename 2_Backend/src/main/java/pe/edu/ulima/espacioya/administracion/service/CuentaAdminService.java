@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.administracion.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.time.Clock;
 import java.time.Instant;
 
@@ -14,7 +16,6 @@ import pe.edu.ulima.espacioya.administracion.dto.SuspensionVigenteDTO;
 import pe.edu.ulima.espacioya.administracion.repository.SuspensionCuentaRepository;
 import pe.edu.ulima.espacioya.comun.auditoria.AuditoriaService;
 import pe.edu.ulima.espacioya.comun.auditoria.EventoAuditoria;
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
 import pe.edu.ulima.espacioya.cuentas.dto.BusquedaCuentasDTO;
@@ -37,7 +38,6 @@ public class CuentaAdminService {
     public static final int LONGITUD_MINIMA_BUSQUEDA = 3;
     public static final int LONGITUD_MAXIMA_BUSQUEDA = 100;
 
-    private static final String ROL_ADMIN = "ADMIN";
     private static final String ESTADO_SUSPENDIDA = "SUSPENDIDA";
 
     private final CuentaService cuentas;
@@ -95,14 +95,6 @@ public class CuentaAdminService {
         var registro = suspensiones.save(SuspensionCuenta.reactivar(id, admin.usuarioId(), ahora));
         auditar(ACCION_REACTIVADA, admin, registro, ip, "");
         return new AccionCuentaDTO(registro.getAccion().name(), cambio.estado(), ahora);
-    }
-
-    // El rol se relee del backend en cada solicitud (RNF-SEG-18); CuentaService lo vuelve a comprobar (R40). Copia
-    // del de RevisionIdentidadService a propósito (S11): HU-27 puede extraerlo.
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
-        }
     }
 
     // El motivo vive solo en suspension_cuenta y el correo solo en cuentas: la auditoría no los duplica (R46).

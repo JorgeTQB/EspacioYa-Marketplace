@@ -279,4 +279,56 @@ class ReservaTest {
         assertThat(cancelada(QuienCancela.USUARIO, "0").admiteLiquidacion()).isTrue();
         assertThat(cancelada(QuienCancela.USUARIO, "0.00").admiteLiquidacion()).isTrue();
     }
+
+    @Test
+    @DisplayName("HU-27 R64, R68: cancelar como ADMIN deja CANCELADA por ADMIN y nunca admite liquidación")
+    void canceladaPorAdminNoAdmiteLiquidacion() {
+        var reserva = cancelada(QuienCancela.ADMIN, "241.50");
+
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(reserva.getCanceladaPor()).isEqualTo(QuienCancela.ADMIN);
+        assertThat(reserva.getCanceladaEn()).isEqualTo(INICIO);
+        assertThat(reserva.getMontoReembolso()).isEqualTo(new BigDecimal("241.50"));
+        assertThat(reserva.admiteLiquidacion()).isFalse();
+        assertThat(cancelada(QuienCancela.ADMIN, "0").admiteLiquidacion()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-25 R14, R17: solo una CONFIRMADA sin recordatorio admite recordatorio")
+    void admiteRecordatorio() {
+        assertThat(conEstado(EstadoReserva.CONFIRMADA).admiteRecordatorio()).isTrue();
+        assertThat(conEstado(EstadoReserva.PENDIENTE_PAGO).admiteRecordatorio()).isFalse();
+        assertThat(conEstado(EstadoReserva.EXPIRADA).admiteRecordatorio()).isFalse();
+        assertThat(conEstado(EstadoReserva.CANCELADA).admiteRecordatorio()).isFalse();
+    }
+
+    @Test
+    @DisplayName("HU-25 R13, R14: marcarRecordatorio guarda el ahora y la reserva ya no admite otro")
+    void marcaElRecordatorio() {
+        var reserva = conEstado(EstadoReserva.CONFIRMADA);
+
+        reserva.marcarRecordatorio(EMPIEZA);
+
+        assertThat(reserva.getRecordatorioEnviadoEn()).isEqualTo(EMPIEZA);
+        assertThat(reserva.admiteRecordatorio()).isFalse();
+        assertThatThrownBy(() -> reserva.marcarRecordatorio(EMPIEZA)).isInstanceOf(IllegalStateException.class);
+        assertThat(reserva.getRecordatorioEnviadoEn()).isEqualTo(EMPIEZA);
+    }
+
+    @Test
+    @DisplayName("HU-25 R17: no se marca el recordatorio de una reserva pendiente, expirada o cancelada")
+    void noMarcaSinConfirmar() {
+        for (var estado : new EstadoReserva[] {EstadoReserva.PENDIENTE_PAGO, EstadoReserva.EXPIRADA,
+                EstadoReserva.CANCELADA}) {
+            var reserva = conEstado(estado);
+            assertThatThrownBy(() -> reserva.marcarRecordatorio(EMPIEZA)).isInstanceOf(IllegalStateException.class);
+            assertThat(reserva.getRecordatorioEnviadoEn()).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("HU-25 R14: una reserva nueva no tiene recordatorio")
+    void nuevaSinRecordatorio() {
+        assertThat(nueva().getRecordatorioEnviadoEn()).isNull();
+    }
 }

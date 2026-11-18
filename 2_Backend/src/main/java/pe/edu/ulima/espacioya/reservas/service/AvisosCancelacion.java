@@ -38,4 +38,16 @@ public class AvisosCancelacion {
         DespuesDelCommit.ejecutar(() -> notificador.notificarCancelacionAlUsuario(correoUsuario, alUsuario));
         DespuesDelCommit.ejecutar(() -> notificador.notificarCancelacionAlArrendador(correoArrendador, alArrendador));
     }
+
+    /**
+     * Como {@link #programar}, solo el aviso al usuario (HU-27 DT-22, R70): al ocultar un espacio por fraude, el
+     * arrendador recibe un único resumen de la moderación en vez de un aviso por reserva.
+     */
+    public void programarAlUsuario(Long usuarioId, String espacioNombre, ReservaConHorario horario, QuienCancela quien,
+                                   ReembolsoCalculado reembolso) {
+        var correoUsuario = cuentas.correoDe(usuarioId);
+        var alUsuario = new AvisoCancelacionUsuario(espacioNombre, horario.fecha(), horario.horaInicio(),
+                horario.horaFin(), quien.name(), reembolso.porcentaje(), reembolso.monto());
+        DespuesDelCommit.ejecutar(() -> notificador.notificarCancelacionAlUsuario(correoUsuario, alUsuario));
+    }
 }

@@ -145,6 +145,20 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
         }
 
         @Override
+
+        public void notificarCambioCorreo(String correoNuevo, String enlace) {
+
+        }
+
+
+        @Override
+
+        public void notificarAvisoCambioCorreo(String correoActual, String correoNuevoEnmascarado) {
+
+        }
+
+
+        @Override
         public void notificarCambioCuentaBancaria(String correoArrendador,
                 pe.edu.ulima.espacioya.cuentas.service.AvisoCambioCuentaBancaria aviso) {
         }
@@ -687,6 +701,19 @@ class CancelacionReservaControllerIT extends ReservasControllerSoporte {
                 new AvisoCancelacionUsuario(NOMBRE, fecha, 18, 20, "USUARIO", 100, new BigDecimal("161.00"))));
         assertThat(notificador.alArrendador).containsExactly(new AvisoAlArrendador(CORREO_ARRENDADOR,
                 new AvisoCancelacionArrendador(NOMBRE, fecha, 18, 20, "USUARIO")));
+    }
+
+    @Test
+    @DisplayName("HU-25 R28: con los recordatorios desactivados, el usuario y el arrendador reciben igual los avisos "
+            + "de cancelación")
+    void cancelacionSinRecordatorios() throws Exception {
+        jdbc.update("UPDATE usuario SET recordatorios_activos = false WHERE id IN (?, ?)", usuarioId, arrendadorId);
+        var reserva = pagadaLejos();
+
+        cancelar(token(CORREO_USUARIO), reserva, "161.00").andExpect(status().isOk());
+
+        assertThat(notificador.alUsuario).extracting(AvisoAlUsuario::correo).containsExactly(CORREO_USUARIO);
+        assertThat(notificador.alArrendador).extracting(AvisoAlArrendador::correo).containsExactly(CORREO_ARRENDADOR);
     }
 
     @Test

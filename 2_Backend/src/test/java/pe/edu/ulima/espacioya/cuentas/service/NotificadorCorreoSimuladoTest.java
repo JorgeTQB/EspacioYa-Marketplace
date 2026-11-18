@@ -170,4 +170,38 @@ class NotificadorCorreoSimuladoTest {
                 .doesNotContain("9876");
         assertThat(salida.getErr()).doesNotContain("ana.secreta").doesNotContain("9876");
     }
+
+    @Test
+    @DisplayName("HU-20 R26, R46: el enlace de cambio de correo solo va al log con la propiedad activada y sin el correo")
+    void cambioDeCorreoEnlaceSoloEnDesarrollo(CapturedOutput salida) {
+        var enlace = "http://localhost:5173/confirmar-correo#token=" + TOKEN;
+
+        new NotificadorCorreoSimulado(false).notificarCambioCorreo("nuevo.secreto@correo.pe", enlace);
+
+        assertThat(salida.getOut())
+                .contains("Envío de correo para confirmar el cambio de correo simulado: no se envió ningún correo")
+                .doesNotContain(TOKEN)
+                .doesNotContain("confirmar-correo")
+                .doesNotContain("nuevo.secreto");
+
+        new NotificadorCorreoSimulado(true).notificarCambioCorreo("nuevo.secreto@correo.pe", enlace);
+
+        assertThat(salida.getOut())
+                .contains("[Solo desarrollo] Enlace de cambio de correo simulado: " + enlace)
+                .doesNotContain("nuevo.secreto");
+        assertThat(salida.getErr()).doesNotContain("nuevo.secreto");
+    }
+
+    @Test
+    @DisplayName("HU-20 R27, R46: el aviso simulado al correo anterior no escribe ningún correo")
+    void avisoCambioDeCorreoSinCorreos(CapturedOutput salida) {
+        new NotificadorCorreoSimulado(true).notificarAvisoCambioCorreo("ana.secreta@correo.pe", "n***@correo.pe");
+
+        assertThat(salida.getOut())
+                .contains("INFO")
+                .contains("Envío de aviso de cambio de correo simulado: no se envió ningún correo (HU-20).")
+                .doesNotContain("ana.secreta")
+                .doesNotContain("n***@correo.pe");
+        assertThat(salida.getErr()).doesNotContain("ana.secreta");
+    }
 }

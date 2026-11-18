@@ -24,6 +24,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import pe.edu.ulima.espacioya.busqueda.domain.ResumenCalificaciones;
 import pe.edu.ulima.espacioya.busqueda.dto.BloqueLibreDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.DisponibilidadPublicaDTO;
 import pe.edu.ulima.espacioya.busqueda.dto.FichaPublicaDTO;
@@ -49,12 +50,14 @@ class FichaServiceTest {
     private CatalogoEspaciosService catalogo;
     @Mock
     private DisponibilidadService disponibilidad;
+    @Mock
+    private ResenaService resenas;
 
     private FichaService servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new FichaService(catalogo, disponibilidad, Clock.fixed(AHORA, ZoneOffset.UTC));
+        servicio = new FichaService(catalogo, disponibilidad, resenas, Clock.fixed(AHORA, ZoneOffset.UTC));
     }
 
     private ReglaNegocioException errorDeFecha(String fecha) {
@@ -68,16 +71,42 @@ class FichaServiceTest {
     @DisplayName("HU-11 R1: la ficha de un espacio visible copia todos los datos de FichaPublicada al DTO")
     void fichaDeUnEspacioVisible() {
         when(catalogo.publicado(12L)).thenReturn(Optional.of(FICHA));
+        when(resenas.resumen(12L)).thenReturn(new ResumenCalificaciones(null, 0));
 
         assertThat(servicio.ficha("12")).isEqualTo(new FichaPublicaDTO(12L, "Cancha Los Olivos", "CANCHA",
                 "Av. Universitaria 1234, Los Olivos", "LOS_OLIVOS", "Los Olivos", 22, new BigDecimal("80.00"),
-                "Cancha de grass sintético con iluminación.", List.of("/api/fotos/a", "/api/fotos/b")));
+                "Cancha de grass sintético con iluminación.", List.of("/api/fotos/a", "/api/fotos/b"), null, 0));
+    }
+
+    @Test
+    @DisplayName("HU-24 R27: la ficha de un espacio visible lleva el promedio y el total de sus reseñas")
+    void fichaConResumen() {
+        when(catalogo.publicado(12L)).thenReturn(Optional.of(FICHA));
+        when(resenas.resumen(12L)).thenReturn(new ResumenCalificaciones(new BigDecimal("4.3"), 4));
+
+        var ficha = servicio.ficha("12");
+
+        assertThat(ficha.calificacionPromedio()).isEqualTo(new BigDecimal("4.3"));
+        assertThat(ficha.totalResenas()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("HU-24 R29: sin reseñas visibles, calificacionPromedio es nulo y totalResenas 0")
+    void fichaSinResenas() {
+        when(catalogo.publicado(12L)).thenReturn(Optional.of(FICHA));
+        when(resenas.resumen(12L)).thenReturn(new ResumenCalificaciones(null, 0));
+
+        var ficha = servicio.ficha("12");
+
+        assertThat(ficha.calificacionPromedio()).isNull();
+        assertThat(ficha.totalResenas()).isZero();
     }
 
     @Test
     @DisplayName("HU-11 R1: acepta el id más grande que cabe en un long")
     void aceptaElIdMaximo() {
         when(catalogo.publicado(Long.MAX_VALUE)).thenReturn(Optional.of(FICHA));
+        when(resenas.resumen(Long.MAX_VALUE)).thenReturn(new ResumenCalificaciones(null, 0));
 
         assertThat(servicio.ficha(String.valueOf(Long.MAX_VALUE))).isNotNull();
     }
@@ -88,6 +117,7 @@ class FichaServiceTest {
         when(catalogo.publicado(13L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> servicio.ficha("13")).isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(resenas);
     }
 
     @ParameterizedTest

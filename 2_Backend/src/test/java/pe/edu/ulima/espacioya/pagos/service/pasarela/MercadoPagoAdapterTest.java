@@ -43,7 +43,7 @@ class MercadoPagoAdapterTest {
     private static final SolicitudCheckout SOLICITUD = new SolicitudCheckout(7L, new BigDecimal("241.50"), VENCE,
             "http://localhost:5173/reservas/7");
     private static final SolicitudReembolsoPasarela REEMBOLSO = new SolicitudReembolsoPasarela("123",
-            new BigDecimal("161.00"), "espacioya-reembolso-4");
+            new BigDecimal("161.00"), "espacioya-reembolso-4", 1);
     private static final String SECRETO_DEL_PROVEEDOR = "detalle-interno-del-proveedor";
     private static final String CUERPO_DEL_PROVEEDOR = "{\"message\":\"" + SECRETO_DEL_PROVEEDOR + "\"}";
 
@@ -359,6 +359,24 @@ class MercadoPagoAdapterTest {
         assertThat(solicitud.autorizacion()).isEqualTo("Bearer " + LLAVE);
         assertThat(solicitud.claveIdempotencia()).isEqualTo("espacioya-reembolso-4");
         assertThat(solicitud.cuerpo()).isEqualTo("{\"amount\":161.00}");
+    }
+
+    @Test
+    @DisplayName("HU-31 R4, R14: dos intentos que solo difieren en el número envían la misma ruta, autorización, "
+            + "cuerpo y X-Idempotency-Key")
+    void elNumeroDeIntentoNoSeEnvia() {
+        var tercero = new SolicitudReembolsoPasarela("123", new BigDecimal("161.00"), "espacioya-reembolso-4", 3);
+
+        adaptador.reembolsar(REEMBOLSO);
+        adaptador.reembolsar(tercero);
+
+        var enviadas = doble.solicitudes("POST");
+        assertThat(enviadas).hasSize(2);
+        assertThat(enviadas.get(1)).isEqualTo(enviadas.get(0));
+        assertThat(enviadas.get(1).ruta()).isEqualTo("/v1/payments/123/refunds");
+        assertThat(enviadas.get(1).autorizacion()).isEqualTo("Bearer " + LLAVE);
+        assertThat(enviadas.get(1).cuerpo()).isEqualTo("{\"amount\":161.00}");
+        assertThat(enviadas.get(1).claveIdempotencia()).isEqualTo("espacioya-reembolso-4");
     }
 
     @Test

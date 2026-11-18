@@ -52,6 +52,8 @@ public class ConfiguracionSeguridad {
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/validaciones").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recuperaciones/confirmaciones").permitAll()
+                        // Confirmación del correo nuevo (HU-20 D21): la autorización es el token del cuerpo. Solo POST.
+                        .requestMatchers(HttpMethod.POST, "/api/cambios-correo/confirmaciones").permitAll()
                         // La URL firmada es la autorización (HU-05, DT-3): el navegador la abre sin token.
                         .requestMatchers(HttpMethod.GET, "/api/archivos").permitAll()
                         // Fotos de espacios (HU-07, DT-4): públicas si el espacio está publicado; si no, el servicio
@@ -61,9 +63,11 @@ public class ConfiguracionSeguridad {
                         // trata como anónimo.
                         .requestMatchers(HttpMethod.GET, "/api/espacios").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/zonas").permitAll()
-                        // Ficha pública y sus bloques libres (HU-11 DT-12); cualquier otra subruta exige sesión.
+                        // Ficha pública, sus bloques libres y sus reseñas (HU-11 DT-12, HU-24); cualquier otra
+                        // subruta exige sesión.
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/espacios/*/disponibilidad").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/espacios/*/resenas").permitAll()
                         // Lo llama la pasarela, sin sesión (HU-13 R22): la autorización es su firma.
                         .requestMatchers(HttpMethod.POST, "/api/pagos/webhook").permitAll()
                         .anyRequest().authenticated());

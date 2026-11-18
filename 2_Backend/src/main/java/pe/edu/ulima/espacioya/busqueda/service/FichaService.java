@@ -29,11 +29,14 @@ public class FichaService {
 
     private final CatalogoEspaciosService catalogo;
     private final DisponibilidadService disponibilidad;
+    private final ResenaService resenas;
     private final Clock reloj;
 
-    public FichaService(CatalogoEspaciosService catalogo, DisponibilidadService disponibilidad, Clock reloj) {
+    public FichaService(CatalogoEspaciosService catalogo, DisponibilidadService disponibilidad, ResenaService resenas,
+                        Clock reloj) {
         this.catalogo = catalogo;
         this.disponibilidad = disponibilidad;
+        this.resenas = resenas;
         this.reloj = reloj;
     }
 
@@ -43,7 +46,9 @@ public class FichaService {
         if (espacioId == null) {
             throw new RecursoNoEncontradoException();
         }
-        return catalogo.publicado(espacioId).map(FichaPublicaDTO::de).orElseThrow(RecursoNoEncontradoException::new);
+        // El resumen se pide solo con la ficha en la mano: un espacio no visible no llega a contar reseñas.
+        var ficha = catalogo.publicado(espacioId).orElseThrow(RecursoNoEncontradoException::new);
+        return FichaPublicaDTO.de(ficha, resenas.resumen(espacioId));
     }
 
     @Transactional(readOnly = true)
@@ -67,7 +72,7 @@ public class FichaService {
     }
 
     // null = no es un id bien escrito: 1 a 19 dígitos, sin desbordar un long y mayor que 0.
-    private static Long idValido(String texto) {
+    static Long idValido(String texto) {
         if (texto == null || !ID_BIEN_ESCRITO.matcher(texto).matches()) {
             return null;
         }

@@ -1,0 +1,11 @@
+# Solo entran pom.xml, mvnw, .mvn/ y src/. Nada de secretos, compilados ni archivos subidos.
+target/
+almacenamiento/
+.env
+.env.*
+*.log
+.idea/
+*.iml
+.vscode/
+Dockerfile
+.dockerignore

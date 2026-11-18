@@ -185,6 +185,20 @@ abstract class PagosSoporte {
         }
 
         @Override
+
+        public void notificarCambioCorreo(String correoNuevo, String enlace) {
+
+        }
+
+
+        @Override
+
+        public void notificarAvisoCambioCorreo(String correoActual, String correoNuevoEnmascarado) {
+
+        }
+
+
+        @Override
         public void notificarCambioCuentaBancaria(String correoArrendador, AvisoCambioCuentaBancaria aviso) {
             if (falla) {
                 throw new IllegalStateException("el proveedor de correo falló");
@@ -232,7 +246,9 @@ abstract class PagosSoporte {
 
     @AfterEach
     void limpiar() {
-        // HU-19: las liquidaciones apuntan a reserva, pago, perfil y usuario, sin cascada.
+        // HU-19 y HU-26: liquidaciones y reclamos apuntan a reserva, pago, perfil y usuario, sin cascada.
+        jdbc.update("DELETE FROM mensaje_reclamo");
+        jdbc.update("DELETE FROM reclamo");
         jdbc.update("DELETE FROM liquidacion_detalle");
         jdbc.update("DELETE FROM liquidacion");
         jdbc.update("DELETE FROM reembolso");

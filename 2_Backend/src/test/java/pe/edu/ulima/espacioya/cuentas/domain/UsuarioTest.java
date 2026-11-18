@@ -229,4 +229,124 @@ class UsuarioTest {
         assertThat(usuario.getRol()).isEqualTo(Rol.USUARIO);
         assertThat(usuario.getEstado()).isEqualTo(EstadoUsuario.ACTIVA);
     }
+
+    // ── HU-20 ────────────────────────────────────────────────────────────
+
+    private static Usuario arrendador() {
+        return Usuario.registrarArrendador("ana@correo.pe", "$2a$12$hash", "Ana Pérez", "987654321", "2026-10",
+                AHORA);
+    }
+
+    @Test
+    @DisplayName("HU-20 R8: actualizarDatos guarda el nombre sin espacios extremos y el teléfono, y dice qué cambió")
+    void actualizarDatosDevuelveLosCamposCambiados() {
+        var usuario = arrendador();
+
+        var campos = usuario.actualizarDatos("  Ana María Pérez ", "912345678");
+
+        assertThat(campos).containsExactly("nombre", "telefono");
+        assertThat(usuario.getNombre()).isEqualTo("Ana María Pérez");
+        assertThat(usuario.getTelefono()).isEqualTo("912345678");
+        assertThat(usuario.actualizarDatos("Ana María Pérez", "912345678")).isEmpty();
+        assertThat(usuario.actualizarDatos("Ana María Pérez", "923456789")).containsExactly("telefono");
+    }
+
+    @Test
+    @DisplayName("HU-20 R11: actualizarDatos guarda nulo un nombre o teléfono nulo o en blanco")
+    void actualizarDatosBlancoEsNulo() {
+        var usuario = arrendador();
+
+        assertThat(usuario.actualizarDatos("   ", null)).containsExactly("nombre", "telefono");
+        assertThat(usuario.getNombre()).isNull();
+        assertThat(usuario.getTelefono()).isNull();
+        assertThat(usuario.actualizarDatos(null, "")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-20 R25, R31: solicitar deja el correo pendiente sin tocar el actual; confirmar lo reemplaza")
+    void cambioDeCorreoEnDosPasos() {
+        var usuario = usuarioActivo();
+
+        usuario.solicitarCambioCorreo("nuevo@correo.pe");
+
+        assertThat(usuario.getCorreo()).isEqualTo("ana@correo.pe");
+        assertThat(usuario.getCorreoPendiente()).isEqualTo("nuevo@correo.pe");
+
+        usuario.confirmarCambioCorreo();
+
+        assertThat(usuario.getCorreo()).isEqualTo("nuevo@correo.pe");
+        assertThat(usuario.getCorreoPendiente()).isNull();
+    }
+
+    @Test
+    @DisplayName("HU-20 R23, R32: no se pide el mismo correo y no se confirma sin correo pendiente")
+    void cambioDeCorreoInvalido() {
+        var usuario = usuarioActivo();
+
+        assertThatThrownBy(() -> usuario.solicitarCambioCorreo("ana@correo.pe"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(usuario::confirmarCambioCorreo).isInstanceOf(IllegalStateException.class);
+        assertThat(usuario.getCorreo()).isEqualTo("ana@correo.pe");
+        assertThat(usuario.getCorreoPendiente()).isNull();
+    }
+
+    @Test
+    @DisplayName("HU-20 R15, R17: cambiarFoto devuelve la ruta anterior y quitarFoto deja la cuenta sin foto")
+    void fotoDePerfil() {
+        var usuario = usuarioActivo();
+        var primera = "perfiles/11111111-1111-1111-1111-111111111111";
+        var segunda = "perfiles/22222222-2222-2222-2222-222222222222";
+
+        assertThat(usuario.tieneFoto()).isFalse();
+        assertThat(usuario.cambiarFoto(primera, "image/png")).isNull();
+        assertThat(usuario.tieneFoto()).isTrue();
+        assertThat(usuario.cambiarFoto(segunda, "image/jpeg")).isEqualTo(primera);
+        assertThat(usuario.getFotoRuta()).isEqualTo(segunda);
+        assertThat(usuario.getFotoTipoMime()).isEqualTo("image/jpeg");
+
+        assertThat(usuario.quitarFoto()).isEqualTo(segunda);
+        assertThat(usuario.tieneFoto()).isFalse();
+        assertThat(usuario.getFotoTipoMime()).isNull();
+        assertThat(usuario.quitarFoto()).isNull();
+    }
+
+    @Test
+    @DisplayName("HU-20 R49: enmascararCorreo deja el primer carácter y el dominio")
+    void enmascaraCorreo() {
+        assertThat(Usuario.enmascararCorreo("juana.secreta@correo.pe")).isEqualTo("j***@correo.pe");
+        assertThat(Usuario.enmascararCorreo("x@y.pe")).isEqualTo("x***@y.pe");
+        assertThat(Usuario.enmascararCorreo(null)).isEqualTo("***");
+    }
+
+    @Test
+    @DisplayName("HU-25 R10: toda cuenta nueva (usuario, arrendador o admin) empieza con recordatorios activos")
+    void cuentaNuevaConRecordatorios() {
+        assertThat(usuarioActivo().tieneRecordatoriosActivos()).isTrue();
+        assertThat(Usuario.registrarArrendador("beto@correo.pe", "$2a$12$hash", "Beto", "987654321", "2026-10", AHORA)
+                .tieneRecordatoriosActivos()).isTrue();
+        assertThat(Usuario.registrarAdmin("admin@correo.pe", "$2a$12$hash", "2026-10", AHORA)
+                .tieneRecordatoriosActivos()).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-25 R2: cambiarRecordatorios guarda el valor y avisa que cambió")
+    void cambiaLosRecordatorios() {
+        var usuario = usuarioActivo();
+
+        assertThat(usuario.cambiarRecordatorios(false)).isTrue();
+        assertThat(usuario.tieneRecordatoriosActivos()).isFalse();
+        assertThat(usuario.cambiarRecordatorios(true)).isTrue();
+        assertThat(usuario.tieneRecordatoriosActivos()).isTrue();
+    }
+
+    @Test
+    @DisplayName("HU-25 R9: el mismo valor no cuenta como cambio")
+    void mismoValorNoCambia() {
+        var usuario = usuarioActivo();
+
+        assertThat(usuario.cambiarRecordatorios(true)).isFalse();
+        usuario.cambiarRecordatorios(false);
+        assertThat(usuario.cambiarRecordatorios(false)).isFalse();
+        assertThat(usuario.tieneRecordatoriosActivos()).isFalse();
+    }
 }

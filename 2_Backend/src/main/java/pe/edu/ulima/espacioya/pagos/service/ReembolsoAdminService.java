@@ -1,5 +1,7 @@
 package pe.edu.ulima.espacioya.pagos.service;
 
+import static pe.edu.ulima.espacioya.comun.seguridad.RolesSesion.exigirAdmin;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -7,7 +9,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import pe.edu.ulima.espacioya.comun.error.AccesoDenegadoException;
 import pe.edu.ulima.espacioya.comun.error.RecursoNoEncontradoException;
 import pe.edu.ulima.espacioya.comun.error.ReglaNegocioException;
 import pe.edu.ulima.espacioya.comun.seguridad.UsuarioAutenticado;
@@ -34,8 +35,6 @@ public class ReembolsoAdminService {
     public static final String MENSAJE_YA_REEMBOLSADO = "Este reembolso ya se realizó.";
     public static final String MENSAJE_EN_PROCESO =
             "Este reembolso se está procesando. Espera un momento y vuelve a cargar la lista.";
-
-    private static final String ROL_ADMIN = "ADMIN";
 
     private final ReembolsoRepository reembolsos;
     private final PagoRepository pagos;
@@ -85,12 +84,6 @@ public class ReembolsoAdminService {
         if (motivo.isPresent()) {
             throw new ReglaNegocioException(motivo.get() == MotivoNoReintentable.YA_REEMBOLSADO
                     ? MENSAJE_YA_REEMBOLSADO : MENSAJE_EN_PROCESO);
-        }
-    }
-
-    private static void exigirAdmin(UsuarioAutenticado admin) {
-        if (admin == null || !ROL_ADMIN.equals(admin.rol())) {
-            throw new AccesoDenegadoException();
         }
     }
 

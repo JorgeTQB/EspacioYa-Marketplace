@@ -1306,3 +1306,691 @@
 - **Resultado:** `./init.sh` completo en verde en la implementación, en el review y en el cierre (1358 unitarias y 794
   IT, 0 fallos, errores ni omitidas; ESLint limpio y build OK; único WARN, llaves de cifrado locales, ajeno). Status →
   `done`. Todo sin commitear.
+
+## 2026-11-04 — HU-20 Edición de perfil (done)
+
+- **Dueña:** Adriana Callupe · **Tester:** Sebastian Garate · **Rama:** `feature/HU-20-edicion-perfil` · **Agentes:**
+  orquestador → explorador → spec-author → implementer → reviewer (2 vueltas).
+- **Spec:** `specs/HU-20/` (R1–R52, T1–T24, D1–D22), aprobado por Adriana Callupe el 2026-11-04 sin cambios. Exploración en
+  `progress/explore_HU-20.md`.
+- **Cambios:** migración `V6_1__perfil_usuario.sql` (`usuario.correo_pendiente`, `foto_ruta`, `foto_tipo_mime`,
+  `ck_usuario_correo_pendiente`, `ck_usuario_foto`, token `CAMBIO_CORREO`). En `cuentas`: `PerfilService`,
+  `CambioCorreoService`, `FacturacionService`, `ReautenticacionPerfil` (5 fallos / 15 min por cuenta, `perfil|<id>`),
+  `PerfilController`, `ConfirmacionCorreoController` (pública), `FacturacionController`, 6 DTO, `CampoFacturacion`,
+  `CambioFacturacion`, `MotivoRechazoCambioCorreo`; `Usuario`, `PerfilArrendador`, `Token`, `TipoToken` y
+  `NotificadorCorreo` (+ simulado y 7 dobles de prueba) ampliados; `permitAll` de `POST /api/cambios-correo/confirmaciones`.
+  Sin puertos nuevos ni dependencias nuevas. Frontend: `pages/cuentas/Perfil.jsx` (`/panel/perfil`) y
+  `ConfirmarCorreo.jsx` (`/confirmar-correo`), 8 funciones en `api/cuentas.js`, `ProveedorSesion.refrescar()`, enlace
+  "Mi perfil" en `Panel`. Docs: `modelo-datos`, `requerimientos` (RNF-SEG-17 con los dos límites nuevos y nota D9 en
+  RN-02), `architecture` (sección "Perfil: qué deja HU-20") y `frontend`.
+- **Tests:** 136 con `@DisplayName("HU-20 …")` entre unitarias (`ReautenticacionPerfilTest`, `PerfilServiceTest`,
+  `CambioCorreoServiceTest`, `FacturacionServiceTest`, `PerfilDTOValidacionTest` y ampliaciones de dominio) e IT
+  (`PerfilUsuarioMigracionIT`, `PerfilControllerIT`, `CambioCorreoControllerIT`, `FacturacionControllerIT`, base
+  `PerfilSoporte`). R1–R52 trazados en `progress/impl_HU-20.md`.
+- **Desvíos aceptados por el reviewer:** `IS NOT NULL` explícito en `ck_usuario_foto` (hueco de NULL del design);
+  `ValidacionException` para R10; re-chequeo de "mismo correo" dentro de la transacción; en `EN_REVISION` la pantalla muestra
+  documento y razón social como texto; `MockMvcPrint.NONE` en las IT para verificar R46; correo con espacios → 400 por
+  `@Email`; `confirmar` bloquea `usuario` antes de marcar el token (O1, design § 6).
+- **Review:** vuelta 1 `CHANGES_REQUESTED`: `./init.sh` dio exit 1 por una carrera intermitente en
+  `CambioCorreoService.confirmar` (se auditaba `CUENTA_NO_HABILITADA` en vez de `TOKEN_USADO`). Se corrigió revisando el
+  correo pendiente solo dentro de la transacción tras `marcarUsado`, y `confirmacionesSimultaneas` pasó a
+  `@RepeatedTest(10)` (30/30 en verde). Vuelta 2 `APPROVED`.
+- **Pendientes para la dueña (observaciones no bloqueantes del review):**
+  - **O2 (R35):** un `numeroDocumento` inválido junto con otro campo inválido de Bean Validation solo devuelve los errores
+    de Bean Validation, porque `ValidadorDocumento` corre después en el servicio (orden que fija el design § 4). "Un error
+    por cada campo inválido" se cumple por etapas.
+  - **O3:** en `FacturacionService.actualizar`, cualquier `DataIntegrityViolationException` de la transacción, y no solo
+    la de `uq_perfil_arrendador_hash_documento`, se trata como "documento en uso" y cuenta un fallo. Convendría filtrar
+    por el nombre de la restricción.
+  - No consta la prueba en el navegador de `/panel/perfil` y `/confirmar-correo`. Sin correo real (HU-25), el enlace se
+    ve en el log con `CORREO_SIMULADO_REGISTRAR_ENLACE=true`.
+  - Si HU-21 o HU-22 llegan antes a `develop` con una `V6_1`, renombrar `V6_1__perfil_usuario.sql` al siguiente número libre.
+- **Lo que HU-20 deja para otras historias:** HU-22 (Kevin Chan) debe exportar y anonimizar `correo_pendiente`, la foto
+  (también el archivo en `ArchivosPrivados`) y los tokens `CAMBIO_CORREO`, y puede reutilizar `ReautenticacionPerfil`.
+  HU-25 implementa `notificarCambioCorreo` y `notificarAvisoCambioCorreo` en el adaptador real. HU-06 recibe en la cola a
+  los arrendadores devueltos a revisión, con sus documentos vigentes (D11). `cuenta_bancaria.titular` no se actualiza al
+  cambiar la razón social (D14).
+- **Resultado:** `./init.sh` completo en verde tras la vuelta 1, en la máquina del implementer y en la del revisor
+  (1438 unitarias y 859 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-04 — HU-21 Pausar o dar de baja una publicación (done)
+
+- **Dueño:** Sebastian Garate · prueba y documenta: Adriana Callupe · rama `feature/HU-21-pausar-baja-publicacion`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-21.md`) → spec-author (`specs/HU-21/`, R1–R40, T1–T20) →
+  aprobación de Sebastian Garate el 2026-11-04 (decisiones 1–13 de `design.md` § 2 tal como están) → implementer →
+  reviewer (`progress/review_HU-21.md`, APPROVED en la primera vuelta).
+- **Cambios (backend):** `Espacio` con `esPausable`, `esReanudable`, `admiteBaja`, `pausar`, `reanudar`, `darDeBaja`;
+  `BloqueReservado.terminaDespuesDe`; `EstadoEspacioService` nuevo (orden rol → propiedad con bloqueo de fila → estado →
+  identidad/fotos o reservas por terminar → cambio → auditoría `PAUSA_ESPACIO` / `REANUDACION_ESPACIO` / `BAJA_ESPACIO`,
+  con `;actor=ADMIN;arrendadorId=` si actúa el admin); `EstadoEspacioDTO`; `EstadoEspacioController`
+  (`POST /api/arrendadores/actual/espacios/{id}/pausa|reanudacion|baja`) y `EspacioAdminController`
+  (`POST /api/admin/espacios/{id}/pausa|baja`); `EspacioService.habilitacion` y `aDto` a visibilidad de paquete; filtro
+  opcional `espacioId` en `GET /api/arrendadores/actual/reservas` (`ConsultaReservasService`, 400 si no es entero
+  positivo, 404 si no es propio). Sin migración, sin puerto nuevo, sin cambios en `busqueda`, `pagos` ni `comun`.
+- **Cambios (frontend):** `pausarEspacio`, `reanudarEspacio`, `darDeBajaEspacio`; `listarReservasDeMisEspacios` con
+  `espacioId`; `pages/espacios/EstadoPublicacion.jsx` y `ReservasAfectadas.jsx`; `pages/reservas/TarjetaReservaDeMiEspacio.jsx`
+  extraída de `ReservasDeMisEspacios.jsx`; avisos `PAUSADO`/`BAJA` y solo lectura en `EditarEspacio.jsx`. Solo kit y tokens.
+- **Docs:** `docs/architecture.md` (estados del espacio, sección "Estado del espacio: qué deja HU-21 (HU-27)",
+  Disponibilidad, Mis reservas, Cancelación) y `docs/frontend.md` (`/panel/espacios/:id`).
+- **Tests:** 84 con `@DisplayName("HU-21 …")`: `EspacioTest` (casos nuevos), `BloqueReservadoTest`,
+  `EstadoEspacioServiceTest`, `ConsultaReservasServiceTest` (casos nuevos), `EstadoEspacioControllerIT`,
+  `EspacioAdminControllerIT`, `BajaEspacioConReservasIT` (puerto real, cancelación HU-15 al 100 %) y
+  `BajaEspacioConcurrenciaIT` (R17: el invariante no depende del orden de los hilos y los dos órdenes se prueban además en
+  secuencia). R1–R40 trazados en `progress/impl_HU-21.md`.
+- **Bloqueo y decisión (opción 1):** la primera corrida de `./init.sh` falló en `MisReservasControllerIT
+  .deSusEspaciosEnCualquierEstado` (HU-14): HU-21 R21 (404 con `espacioId` ajeno) chocaba con HU-14 R7 ("se ignora
+  cualquier parámetro distinto de `grupo` y `pagina`, como `espacioId`"). Sebastian Garate eligió la opción 1: **R21 deja
+  sin efecto la parte de HU-14 R7 sobre `espacioId` solo en la ruta del arrendador** (`GET /api/reservas` sigue
+  ignorándolo); documentado en `specs/HU-21/design.md`. Único test existente cambiado: línea 383 de
+  `MisReservasControllerIT`, sin `&espacioId=<ajeno>` (sigue comprobando que se ignora `arrendadorId`).
+- **Pendientes:**
+  - **Al abrir el PR, avisar a Adriana Callupe (dueña de HU-14)** del ajuste en `MisReservasControllerIT` línea 383 y de
+    la excepción a HU-14 R7.
+  - Opcional (observación 2 del review): en `ReservasDeMisEspacios.jsx`, `tarjetaDeReserva(reserva)` es un envoltorio
+    de una línea de `TarjetaReservaDeMiEspacio`; podría pasarse el componente directamente.
+  - HU-27 puede llamar a las rutas del admin desde su cola de moderación; el admin aún no tiene pantalla ni avisa por
+    correo (decisión 5).
+- **Resultado:** `./init.sh` completo en verde tras el desbloqueo, en la máquina del implementer y en la del reviewer
+  (1493 unitarias y 894 IT, 0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-05 — HU-22 Derechos sobre datos personales (done)
+
+- **Dueño:** Kevin Chan · prueba y documenta: Jorge Quispe · rama `feature/HU-22-derechos-datos-personales` (desde
+  `develop`; por indicación del dueño `master` no se toca ni se considera).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-22.md`) → spec-author (`specs/HU-22/`, R1–R45, T1–T20, sin
+  migraciones) → aprobación de Kevin Chan el 2026-11-04 (D1–D9 y supuestos tal como están) → implementer (bloqueado por
+  Docker y retomado) → reviewer vuelta 1 `CHANGES_REQUESTED` → implementer → decisión del dueño → spec-author (§ 15.1) →
+  reviewer vuelta 2 `APPROVED` (`progress/review_HU-22.md`). Informe de implementación en `progress/impl_HU-22.md`.
+- **Decisiones aprobadas (`design.md` § 2):**
+  - D1: los registros contables se conservan sin fecha de fin y sin purga (§9 punto 6 sigue abierto).
+  - D2: los cobros por liquidar del arrendador bloquean la eliminación (R39).
+  - D3: reembolsos `PENDIENTE`/`FALLIDO` y pagos `PAGADO_TARDIO`/`MONTO_DISTINTO` no bloquean.
+  - D4: en la exportación, el documento y la cuenta bancaria van enmascarados.
+  - D5: el correo y el documento quedan libres para registrarse de nuevo (R33).
+  - D6: razón social y documento del arrendador se anonimizan aunque haya liquidaciones `PAGADA`.
+  - D7: la exportación del arrendador incluye solo las reservas `CONFIRMADA` de sus espacios, sin datos de quien reservó.
+  - D8: sin correo de aviso de la eliminación.
+  - D9: los espacios del arrendador eliminado conservan su estado, ocultos por HU-09 D1.
+- **Cambios (backend):** puerto `cuentas.service.puertos.ParticipanteDatosPersonales` (`TitularDatos`, `SeccionDatos`,
+  `Impedimento`), implementado por `DatosPersonalesReservasImpl` (`@Order(1)`) y `DatosPersonalesPagosImpl` (`@Order(2)`);
+  `DatosPersonalesService` y `DatosPersonalesController` (exportación y eliminación con reautenticación por contraseña);
+  `Usuario.anonimizar`/`puedeEliminarse`, `PerfilArrendador.anonimizar`; `Operacion.EXPORTACION/ELIMINACION` en
+  `ReautenticacionPerfil`; `DesafioMfaRepository.borrarDeUsuario`; `PagoService.pagosDeReservas` y consultas por lote en
+  `PagoRepository`, `ReembolsoRepository`, `LiquidacionRepository`; DTO de exportación en `cuentas`, `pagos` y `reservas`.
+  Sin migraciones.
+- **Cambios (frontend):** `exportarMisDatos`/`eliminarMiCuenta` en `api/cuentas.js`; `pages/cuentas/DatosPersonales.jsx`
+  (+ `.module.css`, textos) y quinta tarjeta en `Perfil.jsx`. Solo kit y tokens.
+- **Docs:** `docs/architecture.md` (fila del puerto, `PagoService.pagosDeReservas`, "Datos personales: qué deja HU-22"),
+  `docs/frontend.md` (tarjeta de `/panel/perfil`), `docs/modelo-datos.md` (marcadores de una cuenta `ELIMINADA`).
+- **Desviaciones menores (aceptadas por el reviewer):** (1) R29 anula los tokens de `TipoToken.values()` porque el enum no
+  tiene `VERIFICACION` (aviso para HU-25: comprobar que la eliminación lo anula cuando se agregue); (2) perfil leído con
+  `perfiles.findParaActualizar` en lugar de `findById`; (3) fecha del archivo desde `generadaEn` en Lima; (4) un solo
+  `ahora` y corte en el primer espacio con reservas por terminar; (5) `ConfirmacionContrasenaDTO` sin `@NotBlank` para
+  respetar el orden 403 → 429 → 400; (6) el arrendador usa `ReservaExportadaDTO` con `precioHora`, `creadaEn` y datos de
+  cancelación en `null`.
+- **Entorno:** Docker Desktop no respondía y la historia pasó a `blocked` (T15 y T20 sin verificar). El dueño encendió
+  Docker. El servicio de Windows `postgresql-x64-18` ocupaba el puerto 5432 y el backend se conectaba ahí (falla de login
+  de `espacioya`); **con autorización de Kevin Chan se detuvo ese servicio**, y el backend arrancó contra
+  `espacioya-postgres` (Flyway en v6.1). Si se vuelve a encender, chocará otra vez con el contenedor.
+- **Vueltas de revisión:** vuelta 1 `CHANGES_REQUESTED` por C4 (R42, R43 y R44 sin prueba concurrente real). Se agregó
+  `DatosPersonalesConcurrenciaIT` (6 IT, hilos reales con `CountDownLatch` contra PostgreSQL, 10 rondas con retraso
+  creciente y los dos órdenes en secuencia), sin cambios de producción. Vuelta 2 `APPROVED`.
+- **Riesgo aceptado por el dueño (`specs/HU-22/design.md` § 15.1, supuesto 10 de `requirements.md`):** una solicitud cuya
+  sesión se validó antes de que se confirme la eliminación y que bloquea la fila de `usuario` después sigue adelante con la
+  cuenta ya `ELIMINADA` (comprobado: `ReservaService.crear` deja una reserva `PENDIENTE_PAGO` en una cuenta eliminada). Mismo
+  patrón, sin comprobar, en `CuentaBancariaService` (HU-18), `PerfilService`, `FacturacionService`, `MfaService` y
+  `CambioCorreoService`; la suspensión de HU-09 tiene la misma ventana. Ventana de pocos ms. El 2026-11-05 Kevin Chan eligió
+  la opción 2 (aceptar y documentar, sin cambiar código). Corrección propuesta para más adelante: que
+  `CuentaServiceImpl.bloquearCuenta` y los servicios de `cuentas` comprueben `ACTIVA` bajo el bloqueo. R43 y R44 no se ven
+  afectadas.
+- **Pendientes (observaciones no bloqueantes del review):** `DatosPersonales.jsx` (`mostrarError`) supone que el error
+  trae `errores`; si `descargarJson` lanza un error del navegador, `falla.errores.filter` da `TypeError` (proteger con un
+  arreglo vacío por defecto). Al cerrar se actualizaron los comentarios viejos que apuntaban al hallazgo "pendiente de
+  decisión" (`DatosPersonalesConcurrenciaIT` y `impl_HU-22.md`) para que apunten a § 15.1.
+- **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1562 unitarias y 931 IT,
+  0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-05 — HU-23 Filtros de búsqueda por precio, capacidad y características ★ Decorator (done)
+
+- **Dueño:** Sebastian Garate · prueba y documenta: Adriana Callupe · rama `feature/HU-23-filtros-busqueda` (desde
+  `develop`).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-23.md`) → spec-author (`specs/HU-23/`, R1–R30, T1–T23) →
+  aprobación de Sebastian Garate el 2026-11-05 (P1–P8 aceptadas por defecto) → implementer → reviewer `APPROVED` en la
+  primera vuelta (`progress/review_HU-23.md`). Informe de implementación en `progress/impl_HU-23.md`.
+- **Decisiones aprobadas (P1–P8):** `PUT` sin `caracteristicas` = lista vacía; parámetros `precioMaximo`,
+  `capacidadMinima` y `caracteristica` repetido; límites inclusivos; rangos de la ficha; valor vacío = 400; repetidos =
+  400; los resultados no exponen capacidad ni características; tabla `caracteristica` con PK `codigo`.
+- **Patrón ★ Decorator:** Component `BusquedaEspacios` y ConcreteComponent `BusquedaBase` (de HU-10, sin cambios de
+  comportamiento); Decorator abstracto `FiltroBusqueda` (`buscar` `final`); ConcreteDecorators `FiltroPrecioMaximo`,
+  `FiltroCapacidadMinima`, `FiltroCaracteristicas`; ensamblador `FiltrosBusqueda.envolver` (solo los filtros presentes;
+  sin filtros devuelve la base misma). Prueba de composición en `FiltrosBusquedaTest`.
+- **Cambios (backend):** migración `V7_1__caracteristicas.sql` (tablas `caracteristica` y `espacio_caracteristica`);
+  enum `Caracteristica`; `DatosEspacio`/`Espacio` con `@ElementCollection` y auditoría del cambio de características;
+  `@CaracteristicasDeLista` + validador en `FichaEspacioDTO`; `EspacioDTO.caracteristicas`; `EspacioPublicado` con
+  capacidad y características, `CatalogoEspaciosService.esCaracteristicaValida` y `@EntityGraph` en
+  `buscarPublicados*`; `ConsultaBusqueda` y `BusquedaService.buscar(ConsultaBusqueda)` con lista blanca;
+  `BusquedaController` con `getParameterValues("caracteristica")`. Rate limiting compartido con HU-10, sin regla nueva.
+- **Cambios (frontend):** componente del kit `GrupoCasillas` (+ `.module.css`, solo tokens) y `step` en `Campo`;
+  características en `EditarEspacio.jsx`; filtros en `api/busqueda.js` y `BuscarEspacios.jsx` (en la URL, paginación que
+  los conserva, CA3 con "Quitar filtros").
+- **Docs:** `docs/architecture.md` (párrafo de `CatalogoEspaciosService`, "Filtros: qué deja HU-23", fila HU-23 de
+  patrones), `docs/modelo-datos.md`, `docs/frontend.md` (`GrupoCasillas`).
+- **Desviación menor (aceptada por el reviewer):** R28 ("sin ejecutar la búsqueda") se prueba de forma observable (429 en
+  lugar de 400 con un filtro inválido), sin espía sobre `BusquedaService`.
+- **Pendientes (observaciones no bloqueantes del review):** en `EditarEspacio.jsx` el `GrupoCasillas` no se deshabilita en
+  `BAJA`/`OCULTO` (igual que los demás campos; el servidor lo rechaza por R9). Se puede mejorar con una prop
+  `deshabilitado` en el kit.
+- **Resultado:** `./init.sh` completo exit 0 en la máquina del implementer y en la del reviewer (1605 unitarias y 956 IT,
+  0 fallos; ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-06 — Reasignación de HU-24
+
+- HU-24 pasa de Adriana Callupe a Ariel Enriquez, a pedido de Ariel en la sesión. El tester sigue siendo Sebastian Garate.
+- Archivos: `feature_list.json`, `docs/historias/HU-24.md`, `docs/requerimientos.md`.
+
+## 2026-11-06 — HU-24 Reseñas y calificaciones (done)
+
+- **Dueño:** Ariel Enriquez · prueba y documenta: Sebastian Garate · rama `feature/HU-24-resenas-calificaciones`.
+- **Reasignación:** HU-24 pasó de Adriana Callupe a Ariel Enriquez a pedido de Ariel en la sesión; el tester no cambió (ver la
+  entrada "Reasignación de HU-24"). Actualizados `feature_list.json`, `docs/historias/HU-24.md` y `docs/requerimientos.md`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-24.md`) → spec-author (`specs/HU-24/`, R1–R43, T1–T29) →
+  aprobación de Ariel Enriquez el 2026-11-06 → implementer (`progress/impl_HU-24.md`) → reviewer `APPROVED`
+  (`progress/review_HU-24.md`).
+- **Decisiones aprobadas (P1–P13, valores propuestos):** P1 ventana `fin ≤ ahora < fin + 14 días` desde `instanteDeFin`, hora
+  de Lima; P2 `POST /api/resenas` con `reservaId` en el cuerpo (ajena o inexistente 404, propia no reseñable 400, otro rol
+  403); P3 comentario obligatorio de 1 a 500; P4 sanitizar al guardar, sin escapar a entidades y sin dependencias; P5
+  `GET /api/resenas/pendientes`, `ReservaDTO` sin cambios; P6 `FichaPublicaDTO` gana `calificacionPromedio` y `totalResenas`,
+  reseñas en `GET /api/espacios/{id}/resenas` de 10 en 10, promedio con 1 decimal `HALF_UP`, calculado al consultar; P7 la
+  búsqueda no muestra, ordena ni filtra por promedio; P8 sin datos del autor en la ficha; P9 se puede reseñar aunque el
+  espacio ya no sea visible; P10 un reembolso por reclamo no impide reseñar, sin consultar `pagos`; P11 HU-22 exporta las
+  reseñas (solo `USUARIO`), al eliminar la cuenta el comentario pasa a "Comentario eliminado." y la calificación se conserva,
+  sin impedimentos; P12 una reseña oculta no se ve, no cuenta y no se puede repetir (único sobre `reserva_id` sin filtrar por
+  estado); P13 sin límite por usuario, la ruta pública usa el cupo `catalogo`.
+- **Resoluciones (P14–P18):** P14 `ReservaDTO` no se amplía y la autorización queda para HU-26; P15 `busqueda` solo importa
+  `cuentas.service.puertos`, con flecha nueva en el diagrama; P16 mandan `feature_list.json` y `docs/historias/HU-24.md`, y
+  `specs/HU-14/` no se toca; P17 `design.md` § 7 fija lo que faltaba de `resena` y se actualiza `docs/modelo-datos.md`; P18
+  sin efecto, `FichaPublicaDTO` pasa de 10 a 12 campos.
+- **Cambios (backend):** migración `V7_2__resena.sql`; en `busqueda`, `domain` (`EstadoResena`, `MotivoNoResenable`,
+  `ReglasResena`, `Resena`, `ResumenCalificaciones`), `ResenaRepository`, `TotalesResena`, DTO de reseñas, `ResenaService`,
+  `ResenaController` y `DatosPersonalesResenasImpl` (`@Order(3)`); `comun/texto/SanitizadorTexto`; en `reservas`,
+  `ReservasParaResena`, `ReservaParaResena` y su implementación; ajustes en `FichaPublicaDTO`, `FichaService`,
+  `BusquedaService` (solo visibilidad de `pagina`), `ReglasLimiteFicha` y `ConfiguracionSeguridad`. Sin puertos nuevos ni
+  dependencias nuevas.
+- **Cambios (frontend):** `ResenarReserva` y `ResenasEspacio` (con sus `.module.css`); cambios en `api/busqueda.js`,
+  `MisReservas.jsx`, `FichaEspacio.jsx`, `textosFicha.js` y `textosReservas.js`. Solo tokens y kit.
+- **Docs:** `docs/architecture.md`, `docs/modelo-datos.md`, `docs/frontend.md`, `docs/requerimientos.md`.
+- **Desviación justificada:** `ResenaService.deEspacio` responde vacío si el offset no cabe en un `int`, porque
+  `PageableUtils.getOffsetAsInteger` de spring-data-jpa 4.1.2 lanza una excepción y sería un 500 con una `pagina` válida según
+  R34. No cambia ningún `R<n>`; `design.md` no se editó y el comportamiento quedó en `docs/architecture.md`.
+- **Entorno:** Docker no respondía durante la implementación, así que las IT se escribieron sin ejecutarse y T29 quedó abierta
+  hasta tener `./init.sh` completo en verde. Se reinició Docker Desktop. T29 se marcó al cerrar y `progress/impl_HU-24.md` se
+  actualizó con ese resultado.
+- **No verificado:** las pantallas **no se revisaron en un navegador**, solo con lectura de código, lint y build. Lo visible
+  queda para la caja negra de UAT (`docs/verification.md`, Nivel 3). Tampoco se arrancó el backend con `spring-boot:run`:
+  en este entorno faltan `CIFRADO_LLAVE`, `CIFRADO_LLAVE_HUELLA` y `ALMACENAMIENTO_LLAVE_FIRMA`.
+- **Pendientes (observaciones 1 a 6 del review, no bloqueantes):**
+  1. Decisión del dueño sobre la sanitización: `2 < 4 y 5 > 3` se guarda como `2  3`, porque `< 4 y 5 >` parece una etiqueta y se
+     borra. Cumple P4, DT-8 y R21, pero se pierde texto sin aviso. Si Ariel no lo acepta, es un cambio de spec.
+  2. R38 se prueba de forma indirecta: `resenasConCupoAgotado` comprueba el 429 y que no salen datos, no cuenta consultas. Basta
+     porque el límite se aplica en un filtro, antes del controlador.
+  3. Marcar T29 y actualizar `progress/impl_HU-24.md`: resuelto en este cierre.
+  4. Corridas de `./init.sh` cortadas sin causa conocida: dos, ambas en las pruebas del backend (salida 4, sin salida de Maven)
+     y con Docker apagado. Sin fallo de prueba asociado. `ResenaControllerIT` suma un contexto y un contenedor propios, y
+     Docker tiene unos 7.9 GB de memoria. Vigilar en las próximas corridas.
+  5. Parpadeo posible, sin observar: tras publicar, "Calificar" puede verse un instante si "Pasadas" recarga antes que los
+     pendientes (`MisReservas.jsx:65-77`). El servidor respondería *ya reseñada*.
+  6. Migración: si HU-25 llega antes a `develop` con `V7_2`, renombrar antes del merge (`docs/conventions.md`).
+- **Resultado:** `./init.sh` completo salida 0 en la corrida del reviewer y en la de cierre (1722 unitarias y 1044 IT, 0 fallos;
+  arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+- 2026-11-06: Ariel Enriquez aceptó la observación 1 del review de HU-24: la sanitización de P4 se mantiene aunque texto como `2 < 4 y 5 > 3` pierda lo que parece una etiqueta. No cambia el spec.
+
+## 2026-11-06 — Pruebas unitarias selectivas en `init.sh`
+- **Agente:** Jorge Quispe con Claude Code.
+- **Cambios:** `init.sh` (paso 5) corre solo las unitarias (`*Test`) de las
+  clases creadas, modificadas o borradas en la rama respecto de `develop`
+  (o `BASE_PRUEBAS`), más los cambios sin commit: `<Clase>Test` y toda
+  `*Test` que mencione la clase. Cambios en `pom.xml`, `.mvn/` o
+  `src/*/resources` (salvo `db/`) corren todas. Las `*IT` siguen corriendo
+  todas en el modo completo. Nueva bandera `--todo` para la suite unitaria
+  completa. Actualizados `AGENTS.md`, `README.md`, `CHECKPOINTS.md` (C4),
+  `docs/verification.md` y `docs/conventions.md`.
+- **Resultado:** con el diff de HU-24, `--rapido` corre 11 clases (211 tests)
+  en vez de 1722, en verde. En `develop` sin cambios solo compila. Falta
+  probar el modo completo con Docker encendido.
+
+## 2026-11-08 — Reglas de shell más estrictas para los agentes
+- **Agente:** Jorge Quispe con Claude Code.
+- **Motivo:** el implementer de HU-25 corría comandos con bucles `for`,
+  variables y `;` encadenados (y `python -c` para cambiar CRLF), que Claude
+  Code no puede analizar y por eso pedía permiso a cada rato.
+- **Cambios:** `CLAUDE.md` y `.claude/agents/{orquestador,implementer,
+  spec-author,reviewer}.md`: se prohíben bucles, variables, `$(...)` y
+  encadenar con `;`/`&&`/`|`; un comando simple por llamada; nada de
+  `python -c`/`sed -i` para reescribir archivos; los reportes de pruebas y
+  las salidas `.output` se leen con `Read`/`Grep`.
+- **Pendiente:** agregar `Read(~/AppData/Local/Temp/claude/**)` a
+  `.claude/settings.json` (lo debe hacer el usuario).
+
+## 2026-11-08 — Candado para que el hook Stop no choque con `./init.sh`
+- **Agente:** Jorge Quispe con Claude Code.
+- **Motivo:** el hook Stop (`.claude/hooks/verificar-cierre.sh`) corre
+  `./init.sh --rapido` cada vez que Claude termina de responder, aunque un
+  subagente esté corriendo `./init.sh` completo. Los dos escribían en
+  `2_Backend/target` y se pisaban los reportes (2 IT falsas en la primera
+  revisión de HU-25).
+- **Cambios:** `init.sh` crea `.init.lock` mientras corre y lo borra al salir;
+  si ya hay uno vigente, espera hasta 30 min. Un candado de más de 60 min se
+  considera abandonado. El hook no corre si existe el candado. `.init.lock` en
+  `.gitignore`.
+- **Resultado:** con candado el hook sale en 0,2 s sin correr nada.
+
+## 2026-11-08 — Reasignación de HU-26
+- **Agente:** orquestador, a pedido de Adriana Callupe.
+- **Motivo:** coordinación del equipo: Ariel Enriquez tomó la HU-24 (ya
+  `done`) y Adriana Callupe toma la HU-26.
+- **Cambios:** `feature_list.json`: `owner` de HU-26 pasa de "Ariel
+  Enriquez" a "Adriana Callupe" (tester sin cambios: Eduardo Saldaña).
+  Rama `feature/HU-26-reclamos-reserva` creada desde `develop`.
+
+## 2026-11-08 — HU-26 Reclamos sobre una reserva (done)
+
+- **Dueña:** Adriana Callupe · prueba y documenta: Eduardo Saldaña · rama `feature/HU-26-reclamos-reserva` (desde `develop`
+  @ 023874f).
+- **Reasignación:** HU-26 pasó de Ariel Enriquez a Adriana Callupe por coordinación del equipo (Ariel tomó la HU-24); el
+  tester no cambió (ver la entrada "Reasignación de HU-26").
+- **Agentes:** orquestador → explorador (`progress/explore_HU-26.md`, huecos H1–H14) → spec-author (`specs/HU-26/`, R1–R70,
+  T1–T41) → aprobación de Adriana Callupe el 2026-11-08 ("aprobado", sin cambios) → implementer (`progress/impl_HU-26.md`)
+  → reviewer `APPROVED` (`progress/review_HU-26.md`).
+- **Decisiones aprobadas (P1–P12, valores por defecto):** hilo de mensajes de ambas partes (10 por parte, mientras el
+  reclamo esté abierto); ventana `inicio ≤ ahora < fin + 48 h` solo para reservas `CONFIRMADA`; motivos de catálogo;
+  reembolso `TOTAL` (monto del servidor) o `PARCIAL` (0 < monto < pagado); la reserva sigue `CONFIRMADA`; puerto
+  `pagos.ReclamosAbiertos` que retiene la liquidación mientras haya reclamo abierto (bloqueo de la generación al abrir);
+  el remanente de un reembolso parcial no se liquida (P7); correo al arrendador al abrir y a ambas partes al resolver;
+  participante de HU-22 `@Order(4)`.
+- **Cambios (backend):** migración `V8_1__reclamos.sql`; en `administracion`, dominio (`EstadoReclamo`, `MotivoReclamo`,
+  `PapelReclamo`, `TipoReembolsoReclamo`, `MotivoNoReclamable`, `ReglasReclamo`, `Reclamo`, `MensajeReclamo`),
+  repositorios, DTO, `ReclamoService`, `ReclamoAdminService`, `VistaReclamos`, `AvisosReclamo`, correos (Factory Method),
+  `ReclamosAbiertosImpl`, `DatosPersonalesReclamosImpl`, `ReclamoController` y `ReclamoAdminController`; en `reservas`,
+  `ReservasParaReclamo`; en `pagos`, `ReembolsoPorReclamo`, puerto `ReclamosAbiertos`, `Reembolso.porReclamo`,
+  `LiquidacionDetalleRepository.existsByReservaId`, 3 métodos nuevos en `PagoService` (con `reembolsar` común) y el puerto
+  en `GeneradorLiquidaciones`. Pruebas unitarias e IT nuevas; ajustadas `PagoServiceImplTest`,
+  `GeneradorLiquidacionesTest`, `PagosSoporte`, `DatosPersonalesSoporte` (`ParticipanteQueFalla` → `@Order(5)`) y
+  `DatosPersonalesControllerIT`.
+- **Cambios (frontend):** `ReportarProblema`, `MisReclamos`, `DetalleReclamo`, `HiloReclamo`, `ReclamosAdmin`,
+  `ResolverReclamo` (con sus `.module.css`); cambios en `api/administracion.js`, `EtiquetaEstado.jsx` (3 estados),
+  `textosAdministracion.js`, `MisReservas.jsx`, `Panel.jsx`, `DatosPersonales.jsx`, `textosCuentas.js` y `App.jsx`
+  (4 rutas). Solo tokens y kit.
+- **Docs:** `docs/architecture.md` (puerto `ReclamosAbiertos`, `@Order(4)`, sección de reclamos), `docs/modelo-datos.md`,
+  `docs/frontend.md`. `docs/requerimientos.md` §9 punto 3 no se tocó (pregunta abierta 1 sin confirmar por el PO).
+- **Desviaciones justificadas:** (1) `ck_reclamo_resolucion` más estricto que el design, con `IS NOT NULL` explícitos,
+  porque un `CHECK` con NULL se acepta en PostgreSQL (lo detectó `ReclamoRestriccionesIT`; cumple R65); (2) el parseo de
+  `pagina` va en `VistaReclamos.numeroDePagina` (service) y no en el controlador, para comprobar el rol antes; (3) la IT del
+  reembolso fallido va en `ReclamoReembolsoFallidoIT` (necesita otro contexto de Spring); (4) IT de HU-22 para reclamos en
+  `DatosPersonalesReclamosIT`; (5) `ReclamosAdmin.jsx` reutiliza `SeccionLiquidaciones.jsx`.
+- **Veredicto del reviewer:** `APPROVED`. R1–R70 trazados a tests, T1–T41 verificadas, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. Confirmar antes del merge que `V8_1` sigue libre en `develop` (HU-27 y HU-28 son del mismo sprint); si no, renombrar.
+  2. Pregunta abierta 1 con el PO: ¿se confirma el hilo de mensajes (P1) como "respuesta del arrendador" (§9 punto 3 de
+     `docs/requerimientos.md`)? Si es una sola respuesta o queda fuera, cambian R23–R30.
+  3. Pregunta abierta 2 con el PO: ¿el remanente de un reembolso parcial se liquida al arrendador? (Hoy no, P7.)
+  4. Observación del reviewer: si una reserva no tuviera bloques, `ReclamoAdminService.resolver` no enviaría correos sin dejar
+     rastro; imposible con los datos actuales.
+- **Resultado:** `./init.sh` completo salida 0 en la corrida del implementer y en la del reviewer (301 unitarias de las clases
+  tocadas y 1159 tests en `verify`, 0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-10 — HU-28: cambio de dueño (arnés)
+
+- **Cambio:** por acuerdo del equipo, el dueño de HU-28 pasa de Eduardo Saldaña a Ariel Enriquez; Eduardo queda como tester. Edición de `feature_list.json` hecha por el orquestador a pedido de Ariel.
+- **Estado:** spec redactado por spec-author en `specs/HU-28/` (status `spec_ready`), a la espera de aprobación de Ariel.
+
+## 2026-11-10 — HU-28: Historial de pagos y comprobantes (implementer)
+
+- **Cambios:** `GET /api/transacciones?pagina=n` y `GET /api/transacciones/{id}/comprobante` (`TransaccionController`,
+  `HistorialPagosService`, solo rol `USUARIO`, `no-store`). Lista pagos `PAGADO` y `REEMBOLSADO` (`EstadoPago.EN_HISTORIAL`,
+  `PagoRepository.deReservas`, 10 por página) con `montoReembolsado`; los `sim-` solo con pasarela simulada. Puerto nuevo
+  `pagos.ReservasDelUsuario` implementado por `reservas.ReservasDelUsuarioImpl`. Comprobante PDF 1.4 escrito a mano
+  (`GeneradorComprobantePdf`, sin librería) con solo los últimos 4 dígitos; mismo 404 para id ajeno, inexistente o no
+  elegible. Sin migración ni auditoría. Frontend: `/mis-pagos` (`MisPagos.jsx`), `EtiquetaEstado` con `PAGADO` y
+  `REEMBOLSADO`, enlace en `Panel`. Docs: `docs/architecture.md`, `docs/frontend.md`.
+- **Tests:** `HistorialPagosServiceTest`, `GeneradorComprobantePdfTest`, `HistorialPagosControllerIT`,
+  `ReservasDelUsuarioImplIT`; trazabilidad R1-R22 en `progress/impl_HU-28.md`.
+- **Incidencias:** la sesión arrancó en `develop` (se creó la rama de la historia) y hubo un bloqueo temporal por Docker
+  apagado, resuelto.
+- **Veredicto del reviewer:** `APPROVED` (`progress/review_HU-28.md`).
+- **Resultado:** `./init.sh` completo salida 0 (233 unitarias, 1177 tests en `verify`, 0 fallos; lint y build OK). Status →
+  `done`. Todo sin commitear.
+
+## 2026-11-10 — HU-27 Reportes y moderación de publicaciones y reseñas (done)
+
+- **Dueño:** Kevin Chan · rama `feature/HU-27-reportes-moderacion` (desde `develop` @ d5e0a80). A pedido de Kevin, la rama
+  incluye HU-28 traída por fast-forward (`git merge --ff-only origin/feature/HU-28-historial-pagos-comprobantes`,
+  d5e0a80..c3d6af6, sin commit nuevo; HU-28 aún sin PR a `develop`). Los 6 archivos compartidos (`App.jsx`,
+  `EtiquetaEstado.jsx`, `Panel.jsx`, `docs/architecture.md`, `docs/frontend.md`, `feature_list.json`) se combinaron sin
+  conflictos.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-27.md`) → spec-author (`specs/HU-27/`, R1–R62, T1–T31) →
+  respuestas de Kevin → spec-author con delta (`progress/spec_delta_HU-27.md`, R63–R78, T32–T38) → aprobación de Kevin Chan
+  el 2026-11-09 → implementer (`progress/impl_HU-27.md`) → reviewer `CHANGES_REQUESTED` → spec-author alinea `design.md`
+  (`progress/spec_fix_HU-27.md`) → reviewer `APPROVED` (`progress/review_HU-27.md`, re-revisión 2026-11-10).
+- **Decisiones aprobadas:** P1–P17. Reporta cualquier usuario o arrendador (no el admin, ni su propio espacio o reseña);
+  catálogo de motivos; un reporte por persona y contenido; cupo de 10 en 24 h móviles (429); la decisión resuelve los
+  reportes hermanos; motivo obligatorio también al mantener; estados `POR_REVISAR`/`MANTENIDO`/`OCULTADO`; ocultar es
+  **definitivo** (P8, confirmado por Kevin); `OCULTAR_POR_FRAUDE` (P17, solo espacios) cancela las reservas `CONFIRMADA`
+  por iniciar con reembolso 100 % (Strategy `MODERACION`, `QuienCancela.ADMIN`), fuera de liquidación, con correo a los
+  usuarios ("Cancelada por: EspacioYa") y un resumen al arrendador, todo en una transacción; `OCULTAR` simple no toca
+  reservas; sección `reportes` en HU-22 (`@Order(5)`); `exigirAdmin` extraído a `comun.seguridad.RolesSesion`; el admin no
+  ve al reportante; `espacio_id`/`resena_id` con FK en lugar de `objetivo_id` (P15). Preguntas no bloqueantes del delta
+  resueltas por Kevin: se acepta el riesgo del pago aprobado tras ocultar (≤ 15 min), basta el reclamo de HU-26 para
+  reservas ya iniciadas, y el admin puede ocultar por fraude aunque ningún reporte tenga motivo `FRAUDE`.
+- **Cambios (backend):** migración `V8_2__reportes.sql`; en `administracion`, dominio `Reporte` y enums, `ReglasReporte`,
+  `ReporteRepository`, DTO, `ReporteService`, `ReporteAdminService`, `VistaReportes`, `AvisosModeracion`, correo del
+  espacio ocultado (Factory Method), `DatosPersonalesReportesImpl`, `ReporteController` y `ReporteAdminController`; en
+  `espacios`, `Espacio.ocultar`, `EstadoEspacioService.ocultarComoAdmin` y `ModeracionEspacios(Impl)`; en `busqueda`,
+  `Resena.ocultar` y `ModeracionResenas(Impl)`; en `reservas`, `QuienCancela.ADMIN`, `ReembolsoPorModeracion`,
+  `CancelacionPorModeracion(Impl)` y rechazo de `ADMIN` en las rutas de HU-15; `QuienCancelo` ("EspacioYa");
+  `RolesSesion.exigirAdmin` en 7 servicios. Pruebas unitarias e IT nuevas (`ReporteRestriccionesIT`,
+  `ReporteControllerIT`, `ReporteAdminControllerIT`, `OcultarPorFraudeIT`, `DatosPersonalesReportesIT`, entre otras).
+- **Cambios (frontend):** `ReportarContenido`, `ReportesAdmin`, `RevisarReporte` (con sus `.module.css`); cambios en
+  `api/administracion.js`, `EtiquetaEstado.jsx`, `FichaEspacio.jsx`, `ResenasEspacio.jsx`, `textosFicha.js`,
+  `textosAdministracion.js`, `Panel.jsx` y `App.jsx`. Solo tokens y kit.
+- **Docs:** `docs/architecture.md` (sección "Moderación: qué deja HU-27", `@Order(5)`, Strategy `MODERACION`,
+  `RolesSesion`, estados), `docs/modelo-datos.md` (`reporte`, `cancelada_por`), `docs/frontend.md`.
+- **Incidencias:** (1) Docker Desktop no arrancaba: HU-27 pasó a `blocked` hasta que Kevin lo levantó. (2) Al correr las IT
+  fallaron 4: un defecto real en `ck_reporte_decision` de `V8_2` (un CHECK con NULL acepta la fila; corregido con
+  `IS NOT NULL` explícitos, igual que HU-26) y 3 errores de datos o de aserción en los tests. (3) El reviewer rechazó la
+  primera vez solo porque `design.md` § migración conservaba ese hueco de NULL y porque faltaba `./init.sh` completo con
+  Docker; ambos resueltos.
+- **Veredicto del reviewer:** `APPROVED`. R1–R78 trazados a tests, T1–T38 `[x]`, checkpoints C1–C4 y C6 OK; C5 completado en
+  este cierre.
+- **Pendientes (no bloqueantes):**
+  1. Confirmar antes del merge que `V8_2` sigue libre en `develop`. Una base local que haya aplicado la versión anterior
+     de `V8_2` dará error de checksum en Flyway: recrearla.
+  2. Observaciones del reviewer: `ReporteAdminController` usa `ConversionReclamos.idReclamo` para el id de un reporte
+     (conviene un nombre neutral); etiquetas literales en `RevisarReporte.jsx` y `ReportesAdmin.jsx` fuera de
+     `textosAdministracion.js`.
+- **Resultado:** `./init.sh` completo salida 0 (896 unitarias y 1231 tests en `verify`, IT de HU-27 y HU-28 incluidas,
+  0 fallos; arquitectura, ESLint y build OK). Status → `done`. Todo sin commitear.
+
+## 2026-11-13 — HU-24 Reseñas y calificaciones, reapertura ★ Decorator, DAO (done)
+
+- **Dueño:** Ariel Enriquez · rama `feature/HU-24-resenas-calificaciones` (avanzada por fast-forward hasta `develop`
+  415f9a9).
+- **Motivo:** el plan del informe y el tablero asignan Decorator y DAO a HU-24, pero `feature_list.json` tenía
+  `patterns: []` y el spec original no aplicó patrones. La historia se reabrió (`done` → `pending`) con
+  `patterns: ["Decorator", "DAO"]`.
+- **Agentes:** orquestador → spec-author (`specs/HU-24/` editado: R44–R58, DT-20–DT-27, T30–T40) → aprobación de Ariel
+  Enriquez el 2026-11-13 (P21 = sí, `DatosPersonalesResenasImpl` y `ModeracionResenasImpl` de HU-27 migran al DAO; P22 =
+  `ESC-24`) → implementer (`progress/impl_HU-24.md`, sección "Reapertura 2026-11-13") → reviewer `CHANGES_REQUESTED` (R58
+  sin `@DisplayName`) → implementer agrega `ContratoResenasTest` → reviewer `APPROVED` (`progress/review_HU-24.md`,
+  "Re-revisión 2026-11-13").
+- **★ Decorator (`busqueda.service`):** Component `PublicacionResena`, ConcreteComponent `PublicacionResenaBase` (reserva
+  propia, *ya reseñada*, plazo, `ResenaDAO.guardar`), Decorator `PublicacionResenaDecorador`, ConcreteDecorators
+  `PublicacionSanitizada` (antes) → `PublicacionTransaccional` (`TransactionTemplate` + traducción de `uq_resena_reserva`)
+  → `PublicacionAuditada` (después, dentro de la transacción); ensamblador `ConfiguracionPublicacionResena.cadena` (único
+  `@Bean`); Client `ResenaService.crear`. Entrada `SolicitudResena`.
+- **★ DAO (`busqueda.repository`):** `ResenaDAO` + `ResenaDAOJpa` (`@Repository` de paquete) + TransferObject
+  `TrozoResenas`. Orden, filtro `VISIBLE`, tope de offset, `saveAndFlush` y bloqueo viven en el DAO. `ResenaRepository`
+  quedó igual (solo Javadoc) y solo lo usa `ResenaDAOJpa`. BusinessObjects: `ResenaService`, `PublicacionResenaBase`,
+  `DatosPersonalesResenasImpl` y `ModeracionResenasImpl`.
+- **Archivos:** 11 clases nuevas en `busqueda` (8 de la cadena y 3 del DAO); modificados `ResenaService`,
+  `ResenaRepository` (Javadoc), `DatosPersonalesResenasImpl` y `ModeracionResenasImpl`. Pruebas nuevas:
+  `ResenaDAOJpaTest`, `ResenaDAOJpaIT`, `PublicacionResenaBaseTest`, `PublicacionSanitizadaTest`,
+  `PublicacionTransaccionalTest`, `PublicacionAuditadaTest`, `ConfiguracionPublicacionResenaTest`,
+  `PublicacionResenaIT`, `AccesoResenasTest` y `ContratoResenasTest` (R58). Adaptadas sin cambiar ningún `@DisplayName`:
+  `ResenaServiceTest`, `DatosPersonalesResenasImplTest` y `ModeracionResenasImplTest`.
+- **Sin cambios (R58):** contrato HTTP, DTO, mensajes, migraciones, `comun/` ni frontend (`git diff develop --stat` vacío
+  en esas rutas). Tampoco se tocaron las pruebas marcadas "Sin cambios" en `design.md` § 14.
+- **Docs:** `docs/informe/HU-24.md` (nuevo: § 7.7 con los diagramas de clases y las tablas de roles, § 8.1 con la fila
+  `ESC-24`, § 8.1.1 con la secuencia "Reseñar una reserva pasada" y sus alternos, § 8.1.2 con código real y la tabla
+  mensaje → clase.método); `docs/historias/HU-24.md` (línea ★); `docs/architecture.md` (fila HU-24 ★ y párrafo en
+  "Reseñas"); `docs/requerimientos.md` § 7 (★, `Decorator, DAO`).
+- **Pruebas:** `mvnw verify` dio 2152 unitarias en verde y 1238 IT con 1 error ajeno a HU-24
+  (`MfaInicioSesionIT.auditoriaSinSecretos`: conexión JDBC cerrada tras una pausa del host de ~1,5 min). No se tocó, y pasó
+  en las corridas siguientes. Después del review, `./init.sh` completo: 138 unitarias de las clases tocadas + 1238 IT,
+  0 fallos, 0 errores. Todas las suites de HU-22, HU-26 y HU-27 en verde.
+- **Desvíos menores:** T31 y T36 se hicieron juntas, sin el constructor intermedio con dos accesos; además hay algunas
+  pruebas extra (ver `impl_HU-24.md`).
+- **Resultado:** status → `done`. `./init.sh` final, ya en `done`: salida 0, 138 unitarias de las clases tocadas
+  + 1238 IT, 0 fallos y 0 errores. `feature_list.json` válido (27 `done`, 1 `in_progress`). Todo sin commitear.
+
+## 2026-11-15 — Diagrama AWS: frontend en contenedor nginx (sdd: false)
+
+- **Motivo:** el despliegue UAT irá a una cuenta AWS Academy Learner Lab, donde CloudFront está bloqueado
+  (`AccessDenied` en `cloudfront:ListDistributions`). El frontend ya no puede servirse con S3 + CloudFront.
+- **Cambio:** `4_Infraestructure/arquitectura-aws.html`. El usuario entra directo al ALB con WAF, que envía `/api/*` al
+  contenedor del backend y el resto (`/*`) a un contenedor nginx en ECS Fargate con el `dist/` del frontend. Con
+  `VITE_API_URL` vacía, el frontend llama a la API por ruta relativa (`3_frontend/src/api/cliente.js:3`): mismo
+  origen, sin CORS.
+- **Pendiente de decisión del equipo (no reflejado aún):** HTTPS sin dominio propio, EFS para los archivos de HU-05
+  (el backend guarda en disco, no en S3), Fargate en subred pública para evitar el NAT Gateway, y SES (no disponible
+  en el Learner Lab; UAT usa correo simulado).
+
+## 2026-11-15 — Diagrama AWS: backend con 2 tareas balanceadas (sdd: false)
+
+- **Motivo:** mejorar disponibilidad (RNF-067) y repartir la CPU de bcrypt en el login (RNF-009).
+- **Cambio:** `4_Infraestructure/arquitectura-aws.html`. El grupo del backend pasa a "BACKEND (.JAR) × 2 TAREAS" (una
+  segunda tarjeta apilada detrás) y la ruta del ALB queda como `/API/* · ROUND ROBIN`; `<desc>` actualizado.
+- **Revisado en el código:** sesiones y checkouts en BD; los programadores bloquean la fila (`findParaActualizar`) y
+  no duplican trabajo; el pago simulado se resuelve dentro de una petición.
+- **Consecuencias:** los archivos de HU-05 deben ir a almacenamiento compartido (EFS o S3), ya no es opcional;
+  `LimitadorIntentos` cuenta por instancia (login y catálogo permiten el doble), se documenta como limitación de UAT;
+  el contador de reembolsos fallidos de HU-16 es por instancia; costo ×2 (bajar a 0 tareas fuera de pruebas).
+
+## 2026-11-15 — HU-25 marcada `done` por su dueño (registro de estado)
+
+- Jorge Quispe cambió HU-25 de `in_progress` a `done` en `feature_list.json`: la historia ya estaba terminada
+  (`progress/review_HU-25.md` con APPROVED) y faltaba actualizar el estado. Lo hizo el dueño, no un agente.
+
+## 2026-11-15 — Historias técnicas HU-29, HU-30 y HU-31 (backend con 2 réplicas)
+
+- Creadas a pedido de Jorge Quispe (dueño de las tres) en `feature_list.json` y `docs/historias/`: HU-29 S3
+  seleccionable por `ALMACENAMIENTO_TIPO` (sin fallback silencioso), HU-30 limitador de intentos en PostgreSQL,
+  HU-31 fallo de reembolso simulado según `Reembolso.intentos`. Ids `HU-XX` porque `init.sh` solo acepta ese formato.
+
+## 2026-11-15 — HU-29 Almacenamiento de archivos en S3 seleccionable por configuración ★ Adapter (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-29-almacenamiento-s3`.
+- **Agentes:** orquestador → spec-author (`specs/HU-29/`, R1–R30, T1–T15) → aprobación de Jorge Quispe el 2026-11-15 →
+  implementer (`progress/impl_HU-29.md`) → reviewer `CHANGES_REQUESTED` (falta `./init.sh` completo por Docker apagado,
+  una línea de javadoc > 120, registro de HU-25) → implementer → reviewer `APPROVED` (`progress/review_HU-29.md`, ronda 2).
+- **Decisiones aprobadas:** selección explícita con `ALMACENAMIENTO_TIPO=local|s3` (por defecto `local`, mayúsculas
+  aceptadas, vacío inválido) y sin pasar en silencio al disco si el bucket falla; `SeleccionAlmacenamiento`
+  (`BeanFactoryPostProcessor`) valida el tipo antes de crear beans (D5); con `s3` la región es obligatoria (D6); cada
+  `PutObject` pide SSE-S3 y va sin ACL, timeouts de 10 s por intento y 30 s por operación (D7/D8); las fallas siguen
+  como `UncheckedIOException` para responder igual que con el disco (§ 10); sin `*IT` contra AWS (§ 13).
+- **Cambios (backend, `comun/almacenamiento`):** nuevos `SeleccionAlmacenamiento`, `FallaAlmacenamiento`, ★
+  `AlmacenamientoS3` (Adapter sobre `S3Client`, comprueba el bucket al arrancar) y `ConfiguracionAlmacenamientoS3`
+  (`DefaultCredentialsProvider`, sin claves de acceso); `AlmacenamientoLocal` con `@ConditionalOnProperty(local,
+  matchIfMissing = true)`; javadoc de `AlmacenamientoArchivos`. `pom.xml`: AWS SDK v2 2.59.1 (BOM + `s3` sin
+  `netty-nio-client`; cliente síncrono `apache5-client`). Propiedades `espacioya.almacenamiento.tipo`, `.s3.bucket`,
+  `.s3.region` en `application.properties`, `tipo=local` en las de prueba y bloque en `.env.example`. Sin migraciones,
+  endpoints ni frontend; `ArchivosPrivados`, `ArchivosPublicos` y `ArchivoController` sin cambios.
+- **Tests:** `SeleccionAlmacenamientoTest`, `AlmacenamientoS3Test`, `ConfiguracionAlmacenamientoS3Test`, contrato común
+  `ContratoAlmacenamientoArchivos` (`AlmacenamientoLocalContratoTest`, `AlmacenamientoS3ContratoTest`) y el doble
+  `S3EnMemoria`. Trazabilidad R1–R30 en `progress/impl_HU-29.md`.
+- **Docs:** `docs/architecture.md` (Stack "Archivos", fila HU-29 en "Patrones por historia", sección "Almacenamiento: qué
+  deja HU-29 (★ Adapter)"); sin puerto nuevo.
+- **Incidencias:** la primera corrida de `./init.sh` completo falló solo porque Docker Desktop estaba apagado; se repitió
+  con Docker encendido.
+- **Veredicto del reviewer:** `APPROVED`. R1–R30 trazados a tests, T1–T15 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. Verificación en UAT contra el bucket real (design § 11): bucket con Block Public Access y SSE-S3, `LabRole` en la
+     task definition y endpoint gateway de S3. Es infraestructura, no código.
+  2. Sugerencia del reviewer: que el cambio de HU-25 en `feature_list.json` y el de `4_Infraestructure/arquitectura-aws.html`
+     (sdd: false) vayan en commits separados de HU-29.
+- **Resultado:** `./init.sh` completo salida 0 (2195 unitarias y 1238 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — HU-30 Límite de intentos compartido entre réplicas (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-30-limitador-compartido` (desde `develop` con HU-29
+  mergeada, PR #35).
+- **Agentes:** orquestador → explorador (`progress/explore_HU-30.md`) → spec-author (`specs/HU-30/`, R1–R27, T1–T14) →
+  aprobación de Jorge Quispe el 2026-11-15 → implementer (`progress/impl_HU-30.md`) → reviewer `APPROVED`
+  (`progress/review_HU-30.md`, primera ronda, sin cambios requeridos).
+- **Decisiones aprobadas:** contador compartido en PostgreSQL, sin Redis/ElastiCache (decisión del dueño);
+  `LimitadorIntentos` sigue concreta con las mismas firmas y delega en `ConteoIntentos` (D2); una fila por clave con
+  arreglo de instantes y un único `INSERT … ON CONFLICT DO UPDATE … WHERE … RETURNING` para conservar la ventana
+  deslizante exacta y la atomicidad (D3/D5); clave guardada como HMAC (`HuellaCampos`), no SHA-256 simple, así que rotar
+  `CIFRADO_LLAVE_HUELLA` reinicia los contadores (D4); retención de `registrar` = 1 h y `superaLimite` con ventana > 1 h
+  lanza `IllegalArgumentException` (D7); limpieza cada 10 min con `pg_try_advisory_xact_lock(300030)` para que dos
+  réplicas no hagan la misma pasada (D8); fallo cerrado si la base falla (D9).
+- **Cambios (backend, `comun/limite`):** nuevos `ConteoIntentos` (interfaz interna), `ConteoIntentosMemoria` (cuerpo
+  anterior de `LimitadorIntentos` sin cambios de lógica), `ConteoIntentosPostgres` (upsert atómico, `REQUIRES_NEW` en
+  escrituras, huella HMAC, ahora del `Clock` truncado a µs), `ConfiguracionLimiteIntentos` (bean `LimitadorIntentos`
+  sobre PostgreSQL) y `ProgramacionLimpiezaIntentos` (`@EnableScheduling`, `@ConditionalOnProperty`, `fixedDelayString`).
+  `LimitadorIntentos` sin `@Component`, con constructores `(Clock)` (memoria, para las pruebas unitarias existentes) y
+  `(ConteoIntentos)`. Migración `V9_1__intento_limite.sql`. Propiedades `espacioya.limite.limpieza.activa` /
+  `.intervalo` en `application.properties`, apagada en las de prueba, y `LIMITE_LIMPIEZA_ACTIVA` /
+  `LIMITE_LIMPIEZA_INTERVALO` en `.env.example`. Sin endpoints ni frontend; los siete usuarios del limitador,
+  `FiltroLimiteIntentos`, `ReglaLimite`, `ReglasLimite*`, `LimiteCatalogo` y todas las pruebas existentes sin cambios.
+- **Tests:** contrato común `ContratoConteoIntentos` (corre en `ConteoIntentosMemoriaTest` y en
+  `ConteoIntentosPostgresIT`), `ConteoIntentosPostgresTest`, `ProgramacionLimpiezaIntentosTest` y
+  `ConteoIntentosPostgresIT` (35 pruebas: dos instancias, concurrencia `@RepeatedTest(5)`, limpieza, bloqueo y R16 por
+  MockMvc). Trazabilidad R1–R27 en `progress/impl_HU-30.md`.
+- **Docs:** `docs/modelo-datos.md` (tabla `intento_limite` en Transversal y sus restricciones) y `docs/architecture.md`
+  (párrafo en (D): conteo compartido en PostgreSQL y nota del WAF); sin puerto nuevo ni patrón.
+- **Nota de despliegue (STRIDE D, design § 12, sin código):** en UAT los límites por IP del catálogo (120/min) y de
+  registro (5/h) ahora valen para el conjunto de réplicas y se **complementan** con una regla *rate-based* del AWS WAF
+  asociada al ALB (bloqueo por IP de origen ante volúmenes muy superiores), que frena una inundación antes de que cada
+  petición cueste una escritura en PostgreSQL. Va en la guía de despliegue. La IP del backend sigue saliendo de
+  `X-Forwarded-For` solo si la conexión viene de `PROXIES_CONFIANZA` (el ALB).
+- **Veredicto del reviewer:** `APPROVED`. R1–R27 trazados a tests, T1–T14 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. `V9_1` puede chocar con HU-31 (mismo sprint): si HU-31 llega antes a `develop`, renombrar antes del merge.
+  2. Riesgo residual aceptado (design § 16.1): el patrón `superaLimite → validar → registrar` de los servicios no es
+     atómico (tampoco antes); CA5 impidió cerrarlo aquí. Candidato a deuda técnica. `intentar` sí es exacto.
+  3. `REQUIRES_NEW` toma una segunda conexión del pool en las llamadas de MFA hechas dentro de una transacción
+     (design § 16.2); aceptable para UAT.
+  4. Configurar la regla WAF por IP en el ALB de UAT (infraestructura).
+- **Resultado:** `./init.sh` completo salida 0 (2213 unitarias y 1273 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — HU-31 Fallo de reembolso simulado sin estado en memoria (done)
+
+- **Dueño:** Jorge Quispe · tester: por definir · rama `feature/HU-31-reembolso-simulado-sin-estado`.
+- **Agentes:** orquestador → explorador (`progress/explore_HU-31.md`) → spec-author (`specs/HU-31/`, R1–R14, T1–T10) →
+  aprobación de Jorge Quispe el 2026-11-15 → implementer (`progress/impl_HU-31.md`) → reviewer `APPROVED`
+  (`progress/review_HU-31.md`, primera ronda, sin cambios requeridos).
+- **Decisiones aprobadas:** `PasarelaSimulada` decide el fallo por el número de intento persistido
+  (`Reembolso.intentos` / `IntentoReembolso.numero`), no por un contador en memoria: falla si `numeroIntento <=
+  fallos-reembolso`, así que dos réplicas o un reinicio dan el mismo resultado. `SolicitudReembolsoPasarela` gana un
+  cuarto componente `numeroIntento` (`< 1` → `IllegalArgumentException`, DT-1); el número sale de la base, nunca de la
+  petición. HU-16 R15 (N llamadas por clave) queda reemplazado por HU-31 R5 y R8 sin editar el spec de HU-16. Un
+  `PENDIENTE` sin respuesta que se reintenta también suma intento (HU-16 DT-6).
+- **Cambios (backend, `pagos`):** `SolicitudReembolsoPasarela` (record con `numeroIntento`), `SolicitudReembolso` (pasa
+  `intento.numero()`), `PasarelaSimulada` (sin `llamadasDeReembolso` ni `AtomicInteger`; el mapa `montos` de HU-13 se
+  conserva), `MercadoPagoAdapter` (solo comentario: el número no se envía), comentarios en `application.properties` y
+  `.env.example`. Sin migraciones, endpoints, puertos ni frontend.
+- **Tests:** nuevo `SolicitudReembolsoPasarelaTest`; `PasarelaSimuladaTest` (réplicas alternadas, reinicio, intentos
+  hasta N; se eliminaron los dos casos que contaban llamadas), `SolicitudReembolsoTest`, `MercadoPagoAdapterTest`
+  (`elNumeroDeIntentoNoSeEnvia`), `ReembolsoAdminControllerIT` (`reintentoTrasReiniciar`, `elFalloPorNumeroQuedaAuditado`,
+  ajustes a `mismaClaveEnElReintento` e `ignoraElCuerpo`) y `ReembolsoAutomaticoIT`. Trazabilidad R1–R14 en
+  `progress/impl_HU-31.md`.
+- **Docs:** `docs/architecture.md` (firma del record y párrafo de `espacioya.pagos.simulada.fallos-reembolso`); sin
+  puerto nuevo.
+- **Incidencias:** la primera corrida de `./init.sh` falló en el validador de trazabilidad (`@DisplayName` con `;` y dos
+  HU no cuentan); se reescribieron los nombres, se mantuvo un test de HU-16 R43 y se citó HU-16 R15 en
+  `fallaYElAdminLoReintenta`.
+- **Veredicto del reviewer:** `APPROVED`. R1–R14 trazados a tests, T1–T10 `[x]`, C1–C4 y C6 OK; C5 completado en este
+  cierre.
+- **Pendientes (no bloqueantes):**
+  1. `ReembolsoAdminControllerIT.fallaYElAdminLoReintenta` cita HU-16 R15 solo para que el validador de `init.sh` no lo
+     marque sin cobertura, aunque quedó reemplazado: es un parche para el validador, no una prueba del criterio original.
+  2. Guía UAT en `progress/impl_HU-31.md` (dos réplicas con `PAGOS_SIMULADA_FALLOS_REEMBOLSO=1`, reinicio y reintento
+     desde `/admin/reembolsos`).
+- **Resultado:** `./init.sh` completo salida 0 (2228 unitarias y 1275 IT, 0 fallos; arquitectura, ESLint y build OK).
+  Status → `done`. Todo sin commitear.
+
+## 2026-11-15 — Arquitectura AWS documentada en Markdown (sdd: false)
+
+- **Pedido de Jorge Quispe:** dejar la arquitectura de UAT en un `.md` para continuar el despliegue en otra sesión, y
+  saber qué cambiar en el informe.
+- **Nuevo:** `4_Infraestructure/arquitectura-aws.md` (entorno Learner Lab, componentes, red sin NAT, 2 réplicas,
+  seguridad y opciones de HTTPS, variables de la task definition, JMeter, costos, próximos pasos y alternativas
+  descartadas) y `progress/cambios_informe_aws.md` (cambios al `.docx` por sección).
+- **Actualizado:** `4_Infraestructure/arquitectura-aws.html` (SES → "Correo SMTP, simulado en UAT"; "URL FIRMADA" →
+  "SDK · LABROLE"; zona "VPC · ENTRADA SOLO DESDE ALB"), `docs/architecture.md` (fila "Despliegue UAT" en Stack) y
+  `README.md` (`PROXIES_CONFIANZA` sin CloudFront).
+- **Pendiente del equipo:** HTTPS sin dominio propio (recomendado: dominio barato + ACM). Los Dockerfiles del backend y
+  del frontend aún no existen.
+
+## 2026-11-15 — Terraform de UAT (sdd: false)
+
+- **Pedido de Jorge Quispe:** IaC en `4_Infraestructure/` para desplegar en el Learner Lab, probando antes en AWS
+  Emulator.
+- **Nuevo:** `4_Infraestructure/terraform/` (VPC sin NAT, ALB + WAF, ECS Fargate backend x2 y nginx x1, RDS PG 17,
+  S3 privado, ECR, un secreto JSON con llaves generadas, logs, tarea única para crear el admin), `entornos/*.tfvars.example`,
+  `probar-emulador.ps1` (workspace `emulador`, verifica la cuenta 000000000000) y `README.md`.
+- **Decisiones:** HTTPS autofirmado por defecto (`modo_https`); `SizeRestrictions_BODY` del WAF en *count* para no
+  bloquear subidas de HU-05; precondición que impide aplicar con la cuenta equivocada.
+- **Verificación:** `terraform validate` OK; `plan` en el emulador 1.0.382 con 64 recursos. `apply` creó 28 recursos de
+  AWS y falló por dos fallas del emulador (revoke de la salida por defecto de los SG con puertos 0-0, y S3 Control con
+  host `<cuenta>.127.0.0.1`). ALB, RDS y servicios ECS sin probar. Nada aplicado en el Learner Lab.
+- **Pendiente:** Dockerfiles; probar con el emulador 1.0.385; primer apply real.
+
+## 2026-11-15 — Dockerfiles y Terraform aplicado en AWS Emulator (sdd: false)
+
+- **Pedido de Jorge Quispe:** crear los Dockerfiles, actualizar el emulador y conseguir que el Terraform se despliegue.
+- **Nuevo:** `2_Backend/Dockerfile` (multi-stage, Maven Wrapper + temurin 25, corre como uid 10001) y `.dockerignore`;
+  `3_frontend/Dockerfile` (node 24 → nginx 1.29-alpine, `VITE_API_URL` vacía), `nginx.conf` (fallback de la SPA,
+  `assets/` con caché de 1 año e `index.html` sin caché) y `.dockerignore` (sin `.env`).
+  `4_Infraestructure/terraform/emulador/Dockerfile` (imagen del emulador, paquete latest) y `emulador/parche.mjs`
+  (proxy local que corrige dos fallas del emulador 1.0.385: revoke de la salida `-1` con puertos 0-0 y el host de
+  S3 Control con la cuenta delante). `probar-emulador.ps1` ahora usa el parche, `-a off` y la acción `detener`.
+- **Verificación:** emulador actualizado de 1.0.382 a 1.0.385. Imagen del backend contra un PostgreSQL desechable:
+  25 migraciones y `GET /api/politicas-privacidad/vigente` → 200 en ~10 s. Imagen del frontend: `/` y rutas de la SPA
+  → 200, el bundle no contiene `localhost:8080`. Terraform en el emulador: `apply` 64/64, segundo `plan` sin cambios,
+  `destroy` 64/64. Nada aplicado en el Learner Lab ni subido a ECR.
+
+## 2026-11-15 — Parche del emulador retirado y guía del Learner Lab (sdd: false)
+
+- **Pedido de Jorge Quispe:** quitar el proxy del emulador (va a probar en el Learner Lab), dejar los Dockerfiles en
+  `2_Backend/` y `3_frontend/`, y tener los pasos para el despliegue real.
+- **Cambios:** borrado `4_Infraestructure/terraform/emulador/parche.mjs`; `probar-emulador.ps1` vuelve a conectarse
+  directo al emulador (con firmas). `4_Infraestructure/terraform/README.md` reescrito: sección 1 con los pasos del
+  Learner Lab (credenciales, tfvars, apply con 0 tareas, push a ECR, encender, crear admin, nuevas versiones, apagar)
+  y sección 2 con el emulador y su límite conocido (falla en SG y S3 Control en 1.0.385).
+- **Verificación:** `terraform validate` y `fmt -check` OK. Nada aplicado todavía en el Learner Lab.
+
+## 2026-11-15 — Primer apply en el Learner Lab y bucket por CloudFormation (sdd: false)
+
+- **Resultado del primer apply (Jorge):** se crearon RDS, ALB, red, ECR, secreto, logs, cluster y el servicio de nginx.
+  Falló el bucket: la SCP del Learner Lab niega `s3:GetBucketObjectLockConfiguration` y el proveedor aws lo lee
+  siempre tras crear un `aws_s3_bucket` (`AccessDenied`). Sin crear: servicio y task definition del backend y
+  `crear_admin`. Probadas con la CLI todas las lecturas de S3: solo Object Lock está negada.
+- **Prueba:** pila de CloudFormation de prueba en el lab → `CREATE_COMPLETE`, bucket con PAB, AES256 y
+  BucketOwnerEnforced; pila borrada.
+- **Cambio:** bucket movido a `4_Infraestructure/terraform/s3.tf`. En AWS lo crea `aws_cloudformation_stack`
+  (`espacioya-uat-bucket`), con `terraform_data` que vacía el bucket antes del destroy; en el emulador sigue
+  `aws_s3_bucket`. `ecs.tf` y `outputs.tf` usan `local.bucket_nombre`. `validate` OK.
+- **Pendiente:** que Jorge saque del state y borre el bucket a medio crear (`espacioya-uat-archivos-b75ddc39`, vacío)
+  y vuelva a aplicar.
+
+## 2026-11-15 — UAT desplegado en el Learner Lab (sdd: false)
+
+- **Jorge** aplicó el Terraform corregido, subió las imágenes a ECR (login por `cmd /c`: el `|` de PowerShell 5.1
+  daba `400 Bad Request`), encendió 1 tarea de backend y 1 de nginx y creó el admin.
+- **Verificación (lecturas):** servicios en *steady state* (1/1 y 1/1), los dos target groups `healthy`;
+  `GET /`, `/espacios/1` y `/api/politicas-privacidad/vigente` → 200 por HTTPS; HTTP 80 → 301 a 443; log
+  `Cuenta admin creada`; RDS `available` (PostgreSQL 17.9). WAF apagado (`waf_activo = false`).
+- **Pendiente:** prueba funcional en el navegador (registro, búsqueda, reserva, panel admin con MFA), subir a 2 tareas
+  y WAF para la demo y JMeter, y apagar al terminar.
+
+## 2026-11-16 — UAT en pausa (sdd: false)
+
+- **Jorge** pausó el entorno (opción A): tareas en 0 en `learnerlab.tfvars` + `apply`, y RDS detenido.
+- **Verificación (lecturas):** servicios ECS 0/0 y sin tareas; RDS `stopped`; interfaces de las tareas liberadas;
+  solo quedan las 2 IP públicas del ALB; WAF apagado. Costo en pausa ≈ 0.87 USD/día. RDS se vuelve a encender
+  sola a los 7 días (2026-11-23).
+
+## 2026-11-16 — HU-25: prueba del camino C3 (caja blanca, cap. 10)
+
+- **Jorge** pidió cubrir el camino C3 de `recordarSiCorresponde()`: una reserva confirmada sin horario.
+  El implementer agregó `confirmadaSinHorario` a `RecordatoriosReservaTest` (devuelve 0, no marca, no audita
+  y no envía). No se tocó código de producción; HU-25 sigue `done`.
+- **Verificación:** `RecordatoriosReservaTest` → 14 tests, 0 fallos (surefire). Detalle en `progress/impl_HU-25.md`.
+- **Pendiente (fuera del repo):** en el informe, tabla 10.4 de "5/6" a "6/6" y quitar la observación de 10.5.

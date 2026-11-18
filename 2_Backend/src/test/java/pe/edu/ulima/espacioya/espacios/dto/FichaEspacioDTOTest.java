@@ -3,6 +3,8 @@ package pe.edu.ulima.espacioya.espacios.dto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import pe.edu.ulima.espacioya.espacios.domain.Caracteristica;
 import pe.edu.ulima.espacioya.espacios.domain.TipoEspacio;
 
 class FichaEspacioDTOTest {
@@ -230,5 +233,56 @@ class FichaEspacioDTOTest {
         assertThat(datos.capacidad()).isEqualTo(50);
         assertThat(datos.precioHora()).isEqualByComparingTo("120.50");
         assertThat(datos.descripcion()).isEqualTo(DESCRIPCION);
+    }
+
+    private static FichaEspacioDTO conCaracteristicas(List<String> caracteristicas) {
+        var v = valida();
+        return new FichaEspacioDTO(v.nombre(), v.tipo(), v.direccion(), v.zona(), v.capacidad(), v.precioHora(),
+                v.descripcion(), caracteristicas);
+    }
+
+    @Test
+    @DisplayName("HU-23 R1: una lista de códigos de la lista fija sin repetir es válida y llega a aDatos")
+    void caracteristicasValidas() {
+        var ficha = conCaracteristicas(List.of("VESTUARIOS", "TECHADO"));
+
+        assertThat(errores(ficha)).isEmpty();
+        assertThat(errores(conCaracteristicas(List.of()))).isEmpty();
+        assertThat(errores(conCaracteristicas(List.of("TECHADO", "ILUMINACION", "VESTUARIOS", "ESTACIONAMIENTO"))))
+                .isEmpty();
+        assertThat(ficha.aDatos().caracteristicas())
+                .containsExactlyInAnyOrder(Caracteristica.TECHADO, Caracteristica.VESTUARIOS);
+    }
+
+    @Test
+    @DisplayName("HU-23 R3: sin características (null o ficha de HU-07) es válida y deja la lista vacía")
+    void caracteristicasAusentes() {
+        assertThat(errores(conCaracteristicas(null))).isEmpty();
+        assertThat(conCaracteristicas(null).aDatos().caracteristicas()).isEmpty();
+        assertThat(valida().caracteristicas()).isNull();
+        assertThat(valida().aDatos().caracteristicas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("HU-23 R3: el JSON sin el campo caracteristicas se lee como null")
+    void caracteristicasAusentesEnJson() {
+        assertThat(leer("20").caracteristicas()).isNull();
+    }
+
+    @Test
+    @DisplayName("HU-23 R4: un código desconocido, en minúsculas, vacío o null da error en caracteristicas")
+    void caracteristicaDesconocida() {
+        for (var codigo : new String[] {"PISCINA", "techado", "", " TECHADO", "TECHADO,VESTUARIOS", null}) {
+            var lista = Arrays.asList("ILUMINACION", codigo);
+            assertThat(errores(conCaracteristicas(lista))).as(String.valueOf(codigo))
+                    .containsExactly(Map.entry("caracteristicas", FichaEspacioDTO.M_CARACTERISTICAS));
+        }
+    }
+
+    @Test
+    @DisplayName("HU-23 R5: un código repetido da error en caracteristicas")
+    void caracteristicaRepetida() {
+        assertThat(errores(conCaracteristicas(List.of("TECHADO", "VESTUARIOS", "TECHADO"))))
+                .containsExactly(Map.entry("caracteristicas", FichaEspacioDTO.M_CARACTERISTICAS));
     }
 }

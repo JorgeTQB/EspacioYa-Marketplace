@@ -44,7 +44,7 @@ class ReembolsoAutomaticoIT extends ReembolsosSoporte {
 
     @Test
     @DisplayName("HU-16 R1, R5, R10, R11, R14: cancelar una reserva pagada con >= 48 h deja el reembolso y el pago "
-            + "REEMBOLSADOS en un intento")
+            + "REEMBOLSADOS en un intento (HU-31 R7: con fallos-reembolso = 0 se aprueba el intento 1)")
     void cancelarReembolsa() throws Exception {
         var sesion = token(CORREO_USUARIO);
         var reserva = pagadaPorLaApi(sesion);
@@ -100,7 +100,8 @@ class ReembolsoAutomaticoIT extends ReembolsosSoporte {
     }
 
     @Test
-    @DisplayName("HU-16 R8, R9: pide a la pasarela la transacción del pago original, su monto y la clave del reembolso")
+    @DisplayName("HU-16 R8, R9: pide a la pasarela la transacción del pago original, su monto, la clave del "
+            + "reembolso y el número de intento 1 (HU-31 R1)")
     void reembolsaContraElPagoOriginal() throws Exception {
         var sesion = token(CORREO_USUARIO);
         var reserva = pagadaPorLaApi(sesion);
@@ -114,6 +115,7 @@ class ReembolsoAutomaticoIT extends ReembolsosSoporte {
         assertThat(pedido.getValue().idTransaccion()).isEqualTo(transaccion).startsWith("sim-" + reserva);
         assertThat(pedido.getValue().monto()).isEqualByComparingTo(MONTO_PAGADO);
         assertThat(pedido.getValue().claveIdempotencia()).isEqualTo("espacioya-reembolso-" + id);
+        assertThat(pedido.getValue().numeroIntento()).isEqualTo(1);
     }
 
     @Test

@@ -8,12 +8,20 @@ import Boton from './components/ui/Boton.jsx'
 import BuscarCuentas from './pages/administracion/BuscarCuentas.jsx'
 import ColaIdentidades from './pages/administracion/ColaIdentidades.jsx'
 import DetalleCuenta from './pages/administracion/DetalleCuenta.jsx'
+import DetalleReclamo from './pages/administracion/DetalleReclamo.jsx'
+import MisReclamos from './pages/administracion/MisReclamos.jsx'
+import ReclamosAdmin from './pages/administracion/ReclamosAdmin.jsx'
+import ReportesAdmin from './pages/administracion/ReportesAdmin.jsx'
+import ResolverReclamo from './pages/administracion/ResolverReclamo.jsx'
+import RevisarReporte from './pages/administracion/RevisarReporte.jsx'
 import RevisarIdentidad from './pages/administracion/RevisarIdentidad.jsx'
 import BuscarEspacios from './pages/busqueda/BuscarEspacios.jsx'
 import FichaEspacio from './pages/busqueda/FichaEspacio.jsx'
 import Inicio from './pages/inicio/Inicio.jsx'
+import ConfirmarCorreo from './pages/cuentas/ConfirmarCorreo.jsx'
 import IniciarSesion from './pages/cuentas/IniciarSesion.jsx'
 import Panel from './pages/cuentas/Panel.jsx'
+import Perfil from './pages/cuentas/Perfil.jsx'
 import Privacidad from './pages/cuentas/Privacidad.jsx'
 import RecuperarContrasena from './pages/cuentas/RecuperarContrasena.jsx'
 import Registro from './pages/cuentas/Registro.jsx'
@@ -28,6 +36,7 @@ import CuentaBancaria from './pages/pagos/CuentaBancaria.jsx'
 import DetalleLiquidacion from './pages/pagos/DetalleLiquidacion.jsx'
 import Liquidaciones from './pages/pagos/Liquidaciones.jsx'
 import MisLiquidaciones from './pages/pagos/MisLiquidaciones.jsx'
+import MisPagos from './pages/pagos/MisPagos.jsx'
 import PagoSimulado from './pages/pagos/PagoSimulado.jsx'
 import ReembolsosPorAtender from './pages/pagos/ReembolsosPorAtender.jsx'
 import MisReservas from './pages/reservas/MisReservas.jsx'
@@ -162,11 +171,22 @@ function App() {
           <Route path="/iniciar-sesion" element={<IniciarSesion />} />
           <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
           <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
+          {/* HU-20: pública, como /restablecer-contrasena; el token del enlace viaja en el #. */}
+          <Route path="/confirmar-correo" element={<ConfirmarCorreo />} />
           <Route
             path="/panel"
             element={
               <RutaProtegida>
                 <Panel />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-20: perfil del titular; un ADMIN vuelve a /panel y la API igual le responde 403. */}
+          <Route
+            path="/panel/perfil"
+            element={
+              <RutaProtegida>
+                <Perfil />
               </RutaProtegida>
             }
           />
@@ -298,12 +318,72 @@ function App() {
               </RutaProtegida>
             }
           />
+          {/* HU-26: reclamos de las partes; la API valida rol y que la sesión sea parte del reclamo. */}
+          <Route
+            path="/reclamos"
+            element={
+              <RutaProtegida>
+                <MisReclamos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/reclamos/:id"
+            element={
+              <RutaProtegida>
+                <DetalleReclamo />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-26: panel admin de reclamos; la API valida IP y rol, y calcula los montos. */}
+          <Route
+            path="/admin/reclamos"
+            element={
+              <RutaProtegida>
+                <ReclamosAdmin />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/reclamos/:id"
+            element={
+              <RutaProtegida>
+                <ResolverReclamo />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-27: panel admin de moderación; la API valida IP, MFA y rol, y decide qué se oculta o cancela. */}
+          <Route
+            path="/admin/reportes"
+            element={
+              <RutaProtegida>
+                <ReportesAdmin />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/reportes/:id"
+            element={
+              <RutaProtegida>
+                <RevisarReporte />
+              </RutaProtegida>
+            }
+          />
           {/* HU-19 CA2 y CA3: la API solo responde al rol ARRENDADOR y con sus propias liquidaciones. */}
           <Route
             path="/panel/liquidaciones"
             element={
               <RutaProtegida>
                 <MisLiquidaciones />
+              </RutaProtegida>
+            }
+          />
+          {/* HU-28 CA1 y CA2: la API solo responde al rol USUARIO y con sus propios pagos. */}
+          <Route
+            path="/mis-pagos"
+            element={
+              <RutaProtegida>
+                <MisPagos />
               </RutaProtegida>
             }
           />

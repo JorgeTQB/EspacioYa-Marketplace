@@ -17,9 +17,13 @@ public interface CatalogoEspaciosService {
     /** {@code true} solo si existe una zona con ese código exacto. */
     boolean existeZona(String codigo);
 
+    /** {@code true} solo si el texto es exactamente TECHADO, ILUMINACION, VESTUARIOS o ESTACIONAMIENTO (HU-23). */
+    boolean esCaracteristicaValida(String codigo);
+
     /**
-     * Espacios PUBLICADO de arrendadores ACTIVA del tipo y la zona, por precio por hora y luego id ascendentes.
-     * {@link IllegalArgumentException} si el tipo no es válido.
+     * Espacios PUBLICADO de arrendadores ACTIVA del tipo y la zona, por precio por hora y luego id ascendentes, cada
+     * uno con su capacidad y sus códigos de característica (HU-23 R29). {@link IllegalArgumentException} si el tipo
+     * no es válido.
      */
     List<EspacioPublicado> publicados(String tipo, String zona);
 

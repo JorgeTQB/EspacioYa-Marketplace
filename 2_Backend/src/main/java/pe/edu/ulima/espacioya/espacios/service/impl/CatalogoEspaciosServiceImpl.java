@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import pe.edu.ulima.espacioya.cuentas.service.CuentaService;
+import pe.edu.ulima.espacioya.espacios.domain.Caracteristica;
 import pe.edu.ulima.espacioya.espacios.domain.Espacio;
 import pe.edu.ulima.espacioya.espacios.domain.EstadoEspacio;
 import pe.edu.ulima.espacioya.espacios.domain.FotoEspacio;
@@ -54,6 +55,11 @@ public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {
     }
 
     @Override
+    public boolean esCaracteristicaValida(String codigo) {
+        return Caracteristica.esCodigo(codigo);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<EspacioPublicado> publicados(String tipo, String zona) {
         if (!esTipoValido(tipo)) {
@@ -72,7 +78,8 @@ public class CatalogoEspaciosServiceImpl implements CatalogoEspaciosService {
         var zonaNombre = zonas.findById(zona).map(Zona::getNombre).orElse(zona);
         return encontrados.stream()
                 .map(espacio -> new EspacioPublicado(espacio.getId(), espacio.getNombre(), espacio.getTipo().name(),
-                        espacio.getZona(), zonaNombre, espacio.getPrecioHora()))
+                        espacio.getZona(), zonaNombre, espacio.getPrecioHora(), espacio.getCapacidad(),
+                        espacio.getCaracteristicas().stream().map(Enum::name).collect(Collectors.toSet())))
                 .toList();
     }
 

@@ -81,8 +81,9 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
     // ── CA2 de punta a punta ─────────────────────────────────────────────
 
     @Test
-    @DisplayName("HU-16 R7, R17, R18, R30, R36, R37, R38: la pasarela falla al cancelar, el admin ve el reembolso y "
-            + "al reintentarlo queda REEMBOLSADO con su id y su IP")
+    @DisplayName("HU-16 R7, R15, R17, R18, R30, R36, R37, R38: la pasarela falla al cancelar, el admin ve el "
+            + "reembolso y al reintentarlo queda REEMBOLSADO con su id y su IP (HU-31 R5, R6, R13: con N = 1 falla "
+            + "el intento 1, auditado, y aprueba el 2; R15 queda reemplazado por HU-31 R5 y R8)")
     void fallaYElAdminLoReintenta() throws Exception {
         var sesion = token(CORREO_USUARIO);
         var reserva = pagadaPorLaApi(sesion);
@@ -140,7 +141,8 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
     }
 
     @Test
-    @DisplayName("HU-16 R24: el reintento envía a la pasarela la misma clave de idempotencia que el intento automático")
+    @DisplayName("HU-31 R4: el reintento envía la misma transacción, monto y clave de idempotencia que el intento "
+            + "automático (HU-16 R24), con números de intento 1 y 2")
     void mismaClaveEnElReintento() throws Exception {
         var reserva = canceladaConReembolsoFallido(token(CORREO_USUARIO));
         var id = numero(reembolsosDe(reserva).getFirst().get("id"));
@@ -149,9 +151,13 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
 
         var pedidos = ArgumentCaptor.forClass(SolicitudReembolsoPasarela.class);
         verify(pasarela, times(2)).reembolsar(pedidos.capture());
+        var automatico = pedidos.getAllValues().get(0);
+        var delAdmin = pedidos.getAllValues().get(1);
         assertThat(pedidos.getAllValues()).extracting(SolicitudReembolsoPasarela::claveIdempotencia)
                 .containsExactly("espacioya-reembolso-" + id, "espacioya-reembolso-" + id);
-        assertThat(pedidos.getAllValues().get(1)).isEqualTo(pedidos.getAllValues().get(0));
+        assertThat(delAdmin.idTransaccion()).isEqualTo(automatico.idTransaccion());
+        assertThat(delAdmin.monto()).isEqualByComparingTo(automatico.monto());
+        assertThat(pedidos.getAllValues()).extracting(SolicitudReembolsoPasarela::numeroIntento).containsExactly(1, 2);
     }
 
     @Test
@@ -384,7 +390,8 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
     }
 
     @Test
-    @DisplayName("HU-16 R9, R35: el reintento ignora el cuerpo y usa el monto y la transacción de la fila")
+    @DisplayName("HU-31 R2: el reintento ignora el cuerpo (también numeroIntento e intentos) y usa el monto, la "
+            + "transacción y el número de intento de la fila (HU-16 R9, R35)")
     void ignoraElCuerpo() throws Exception {
         var admin = tokenAdmin();
         var id = fallidoSembrado();
@@ -394,7 +401,8 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
         var otroPago = jdbc.queryForObject("SELECT pago_id FROM reembolso WHERE id = ?", Long.class, otro);
 
         mvc.perform(comoAdmin(admin, post(rutaReintento(id))).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"monto\":1,\"pagoId\":" + otroPago + ",\"idTransaccion\":\"x\"}"))
+                        .content("{\"monto\":1,\"pagoId\":" + otroPago + ",\"idTransaccion\":\"x\","
+                                + "\"numeroIntento\":99,\"intentos\":99}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id));
 
         var pedido = ArgumentCaptor.forClass(SolicitudReembolsoPasarela.class);
@@ -402,6 +410,54 @@ class ReembolsoAdminControllerIT extends ReembolsosSoporte {
         assertThat(pedido.getValue().idTransaccion()).isEqualTo(transaccion);
         assertThat(pedido.getValue().monto()).isEqualByComparingTo(MONTO_PAGADO);
         assertThat(pedido.getValue().claveIdempotencia()).isEqualTo("espacioya-reembolso-" + id);
+        assertThat(pedido.getValue().numeroIntento()).isEqualTo(2);
+        assertThat(reembolso(id).get("intentos")).isEqualTo(2);
         assertThat(reembolso(otro).get("intentos")).isEqualTo(1);
+    }
+
+    // ── Sin estado en memoria (HU-31) ────────────────────────────────────
+
+    @Test
+    @DisplayName("HU-31 R11: un FALLIDO con 1 intento que la simulada en ejecución nunca vio (como tras un "
+            + "reinicio) se reintenta y queda REEMBOLSADO con 2 intentos")
+    void reintentoTrasReiniciar() throws Exception {
+        var admin = tokenAdmin();
+        var id = fallidoSembrado();
+        var pagoId = jdbc.queryForObject("SELECT pago_id FROM reembolso WHERE id = ?", Long.class, id);
+        var reservaId = jdbc.queryForObject("SELECT reserva_id FROM pago WHERE id = ?", Long.class, pagoId);
+
+        reintentar(admin, id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("REEMBOLSADO"))
+                .andExpect(jsonPath("$.intentos").value(2));
+
+        var despues = reembolso(id);
+        assertThat(despues.get("estado")).isEqualTo("REEMBOLSADO");
+        assertThat(despues.get("intentos")).isEqualTo(2);
+        assertThat(despues.get("id_reembolso_pasarela")).isEqualTo("sim-reembolso-espacioya-reembolso-" + id);
+        var realizados = auditorias("REEMBOLSO_REALIZADO");
+        assertThat(realizados).hasSize(1);
+        assertThat(realizados.getFirst().get("detalle")).isEqualTo("pagoId=" + pagoId + ";reservaId=" + reservaId
+                + ";intento=2;disparo=ADMIN;monto=241.50;idReembolso=sim-reembolso-espacioya-reembolso-" + id);
+    }
+
+    @Test
+    @DisplayName("HU-31 R13: la simulada falla el intento 1 de un PENDIENTE sin respuesta y queda "
+            + "REEMBOLSO_FALLIDO con intento=1 en la auditoría")
+    void elFalloPorNumeroQuedaAuditado() throws Exception {
+        var admin = tokenAdmin();
+        var id = reembolsoSembrado("PENDIENTE", 0, haceMinutos(10), null, "PAGADO");
+
+        reintentar(admin, id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("FALLIDO"))
+                .andExpect(jsonPath("$.intentos").value(1));
+
+        assertThat(reembolso(id).get("estado")).isEqualTo("FALLIDO");
+        assertThat(reembolso(id).get("intentos")).isEqualTo(1);
+        var fallidos = auditorias("REEMBOLSO_FALLIDO");
+        assertThat(fallidos).hasSize(1);
+        assertThat(fallidos.getFirst().get("entidad")).isEqualTo("reembolso");
+        assertThat(numero(fallidos.getFirst().get("entidad_id"))).isEqualTo(id);
+        assertThat(fallidos.getFirst().get("detalle").toString()).contains(";intento=1;disparo=ADMIN;")
+                .doesNotContain("idReembolso");
     }
 }

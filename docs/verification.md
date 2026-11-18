@@ -21,6 +21,12 @@ Comando:
 cd 2_Backend && ./mvnw test
 ```
 
+`./init.sh` no corre todas: corre solo las unitarias de las clases creadas o
+modificadas en la rama respecto de `develop` (`<Clase>Test` y toda `*Test`
+que mencione la clase). Si cambia `pom.xml` o la configuración en
+`src/*/resources` (salvo las migraciones), corren todas. `./init.sh --todo`
+fuerza la suite unitaria completa.
+
 ### Nivel 2 — Tests de integración (obligatorio para historias con endpoints o restricciones de BD)
 
 Las historias que añaden o cambian endpoints, migraciones o restricciones de
@@ -79,6 +85,10 @@ Comando (necesita Docker Desktop encendido):
 ```bash
 cd 2_Backend && ./mvnw verify
 ```
+
+En el modo completo, `./init.sh` corre **siempre todas** las `*IT`: son las
+que miran el sistema entero y atrapan lo que la selección de unitarias deja
+pasar (una clase no tocada que se rompe por un cambio en otra).
 
 ### Nivel 3 — Caja negra en UAT (obligatorio, lo hace la pareja)
 

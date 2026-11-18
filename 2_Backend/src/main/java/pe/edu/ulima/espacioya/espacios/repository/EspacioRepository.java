@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -32,13 +33,16 @@ public interface EspacioRepository extends JpaRepository<Espacio, Long> {
     @Query("select e from Espacio e where e.id = :id")
     Optional<Espacio> findParaReservar(@Param("id") Long id);
 
-    // Búsqueda pública (HU-10 DT-4, DT-9): servida por ix_espacio_busqueda.
+    // Búsqueda pública (HU-10 DT-4, DT-9): servida por ix_espacio_busqueda. HU-23 DT-4: las características de
+    // todos los candidatos llegan en la misma consulta (sin N+1) para los filtros de la búsqueda.
+    @EntityGraph(attributePaths = "caracteristicas")
     @Query("select e from Espacio e where e.estado = :estado and e.tipo = :tipo and e.zona = :zona "
             + "order by e.precioHora asc, e.id asc")
     List<Espacio> buscarPublicados(@Param("estado") EstadoEspacio estado, @Param("tipo") TipoEspacio tipo,
                                    @Param("zona") String zona);
 
     // Solo se llama con un conjunto no vacío: "not in" con una colección vacía no es portable en JPQL (HU-09 D1).
+    @EntityGraph(attributePaths = "caracteristicas")
     @Query("select e from Espacio e where e.estado = :estado and e.tipo = :tipo and e.zona = :zona "
             + "and e.arrendadorId not in :excluidos order by e.precioHora asc, e.id asc")
     List<Espacio> buscarPublicadosExcluyendo(@Param("estado") EstadoEspacio estado, @Param("tipo") TipoEspacio tipo,
