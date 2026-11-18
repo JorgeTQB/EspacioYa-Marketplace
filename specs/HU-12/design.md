@@ -360,3 +360,52 @@ datos con `JdbcTemplate`; `DELETE FROM reserva` antes y después de cada test, p
    bloqueo, y convierte el caso normal en excepción de BD que aborta la transacción.
 6. **`?retorno=` en la URL** — obliga a validar contra redirección abierta; `state` no se puede forjar con un enlace.
 7. **Asociaciones JPA `Reserva` → `ReservaBloque` con cascada** — la liberación dependería del orden de `flush` (DT-4).
+
+## 14. Adenda 2026-11-16: escenarios de calidad AC001 y AC002
+
+Requisitos en `requirements.md`, "Adenda 2026-11-16". **Sin cambios de producción, migraciones, endpoints, DTO ni
+excepciones.** Solo dos métodos `@Test` nuevos en
+`2_Backend/src/test/java/pe/edu/ulima/espacioya/reservas/controller/ReservaConcurrenciaIT.java`, al lado de los existentes.
+
+### 14.1 Cómo se arman
+
+- Reutilizan lo que ya tiene la clase: `aLaVez(List<Callable<MvcResult>>)` (un hilo por solicitud con
+  `Executors.newFixedThreadPool(solicitudes.size())` y un `CountDownLatch` de salida), `estados`, `RONDAS`, `BLOQUEOS`, y de
+  `ReservasControllerSoporte`: `crearUsuario`, `token`, `reservar`, `con`, `bloquesActivos`, `fecha`, `espacioId`,
+  `HORARIO_NO_DISPONIBLE`. Si hace falta un ayudante privado nuevo (por ejemplo, contar respuestas por estado o leer el
+  `mensaje` de cada 400), va dentro de la misma clase de prueba.
+- Los usuarios extra se crean una vez por prueba, con correos únicos (p. ej. `usuario<n>@correo.pe`), y sus sesiones se
+  obtienen antes de la primera ronda, fuera de la carrera.
+- Entre rondas se limpia como las pruebas existentes: `UPDATE reserva SET estado = 'CONFIRMADA'` (AC001, como
+  `dosUsuariosElMismoBloque`) o `DELETE FROM reserva` y `DELETE FROM bloqueo_fecha` (AC002, como `reservaYBloqueoDeFecha`).
+- `@DisplayName` con el formato del proyecto, citando historia, requisito existente y escenario:
+  - `"HU-12 R19 (AC001): 20 usuarios a la vez con el mismo bloque: un 201, 19 rechazos y una fila activa"`.
+  - `"HU-12 R24 (AC002): 10 reservas y 10 bloqueos de la misma fecha a la vez: nunca coexisten bloqueo y reserva"`.
+
+### 14.2 Qué ejercitan
+
+El mismo camino que R19 y R24: `ReservaServiceImpl.crear` → `CuentaService.bloquearCuenta` (usuario) →
+`DisponibilidadService.retenerSiLibres` (bloqueo de `espacio`, HU-08 DT-10) → inserción en `reserva_bloque`
+(`uq_reserva_bloque_activo`), frente a `CalendarioEspacioService` de HU-08, que toma el mismo bloqueo de `espacio` antes
+de crear el bloqueo de fecha. Con 20 hilos, las solicitudes se serializan en el bloqueo de `espacio`; la carrera ya no es
+entre dos sino entre veinte.
+
+### 14.3 Límites a vigilar
+
+- **Pool de conexiones.** Las pruebas usan el pool por defecto (Hikari, 10 conexiones; no hay ajuste en
+  `src/test/resources/config/application.properties`). Con 20 hilos, la mitad espera conexión. Si una solicitud agota la
+  espera, el ajuste permitido es solo en la configuración de prueba (`spring.datasource.hikari.*`), documentado (ver
+  "Reglas de la adenda").
+- **Tiempo por solicitud.** `aLaVez` espera hasta `SEGUNDOS_MAXIMOS` (30 s) por respuesta; no se cambia salvo que la
+  ejecución muestre que hace falta, y se documenta.
+- **Límites por IP.** Ninguna `ReglaLimite` cubre estas rutas hoy; si eso cambiara, se usa `token(correo, origen)` con
+  otra IP de prueba, sin tocar producción.
+
+### 14.4 Alternativas descartadas
+
+8. **Subir a 20 la cantidad de `dosUsuariosElMismoBloque` y `reservaYBloqueoDeFecha`.** Cambia pruebas aprobadas y
+   pierde la evidencia de R19 y R24 con dos solicitudes; la adenda solo agrega.
+9. **Una clase nueva `EscenariosCalidadIT`.** Duplicaría `aLaVez` y la base de datos de `ReservasControllerSoporte`; las
+   pruebas nuevas son de las mismas reglas y viven junto a ellas.
+10. **AC002 con los 10 usuarios pidiendo la misma hora.** La mayoría perdería contra otra reserva y no contra el bloqueo, y
+   la prueba mezclaría R19 con R24; con horas distintas la única carrera que importa es reserva frente a bloqueo.

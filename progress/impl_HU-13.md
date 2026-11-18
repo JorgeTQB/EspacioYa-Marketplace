@@ -359,3 +359,75 @@ Adiciones pequeñas de la adenda respecto del `design.md`, sin requirement nuevo
 17. **`PAGO_SIMULADO` queda aunque `recibir` falle**, a propósito (DT-24): la auditoría va en su propia transacción, antes de `recibir`. `sinCommitNoHayCorreos` lo comprueba.
 
 Contradicciones aceptadas por el dueño, sin resolver aquí: C1 a C5 de `design.md` § 14.13. **C5 sigue por decidir con Ariel Enriquez:** CA1 y CA4 de `docs/historias/HU-13.md` no se tocaron.
+
+## Adenda AC003 (2026-11-16)
+
+Implementa T44–T45 (`requirements.md` "Adenda 2026-11-16", `design.md` § 15), aprobada por Eduardo Saldaña. Agente:
+implementer.
+
+### Alcance
+
+- **Único archivo tocado de código:** `2_Backend/src/test/java/pe/edu/ulima/espacioya/pagos/controller/PagoConcurrenciaIT.java`.
+  Solo se agregaron: un método `@Test`, la constante `NOTIFICACIONES_IGUALES` (5) y dos ayudantes privados
+  (`filasConTransaccion`, `confirmacionesDe`). Sin imports nuevos.
+- Las 6 pruebas existentes de la clase no se modificaron. `StubMercadoPago`, `PagosSoporte` y
+  `PagosConMercadoPagoSoporte` no se tocaron. `2_Backend/src/main` no se tocó. **Ningún ajuste de configuración de
+  prueba** (pool de Hikari por defecto, `SEGUNDOS_MAXIMOS` = 30 s sin cambio, sin cambios de IP).
+- Reutiliza `aLaVez(...)` (un hilo por solicitud + `CountDownLatch` de salida), `estados`, `RONDAS`, `borrarReservas` y de
+  los soportes: `vigente`, `pagoEnLaPasarela`, `notificar`, `pagosDe`, `estadoDeReserva`, `notificador`.
+
+### Método agregado
+
+**`cincoWebhooksIguales`** — `@DisplayName("HU-13 R43 (AC003): cinco notificaciones iguales a la vez dejan una fila, una confirmación y un correo de cada tipo")`
+(en el código el texto está partido en dos literales concatenados por el largo de línea; el texto resultante es este).
+- **5 `POST /api/pagos/webhook` simultáneos** por ronda, iguales: `type=payment`, el mismo `data.id` (pago `approved` en
+  `StubMercadoPago`), firma válida con `SECRETO`. Cada una lleva su propio `x-request-id` (lo arma `notificar`, igual que
+  en `dosWebhooksIguales`); la notificación de pago es la misma. **5 rondas** (`RONDAS`), cada una con
+  `notificador.reiniciar()`, una reserva vigente nueva (`vigente()`) y un id de pago nuevo; al final `borrarReservas()`.
+- Afirma por ronda (aserciones 1–4 de la adenda):
+  1. las 5 respuestas son 200 (`containsOnly(200).hasSize(5)`) (R42, R44);
+  2. exactamente **1** fila en `pago` con ese `id_transaccion_pasarela` (`filasConTransaccion`) y exactamente 1 fila de
+     esa reserva (`pagosDe`) (R43, R45);
+  3. la reserva queda `CONFIRMADA` y hay exactamente **1** fila de `auditoria` con `accion = 'RESERVA_CONFIRMADA'`,
+     `entidad = 'reserva'` y `entidad_id` = esa reserva (`confirmacionesDe`; se filtra por reserva porque la limpieza
+     entre rondas no borra la auditoría) (R53);
+  4. **1** comprobante al usuario (`notificador.comprobantes()`) y **1** aviso al arrendador (`notificador.avisos()`)
+     (R48, R49, R43).
+- Cubre R43 (AC003); R42, R44, R45, R48, R49, R53.
+
+### Corridas
+
+Comando: `./2_Backend/mvnw -f 2_Backend/pom.xml verify -Dit.test=PagoConcurrenciaIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false`
+(se agregó `-q` solo para acortar la salida de consola; no cambia lo que se ejecuta). Cifras copiadas de
+`2_Backend/target/failsafe-reports/pe.edu.ulima.espacioya.pagos.controller.PagoConcurrenciaIT.txt` y tiempo del método
+del `TEST-…PagoConcurrenciaIT.xml`. Hora de Lima (-05:00), 2026-11-16. Tres corridas seguidas, sin cambios entre ellas.
+
+| Corrida | Inicio | Resultado (literal) | `cincoWebhooksIguales` (5 rondas) |
+|---------|--------|---------------------|-----------------------------------|
+| 1 | 21:59:42 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 17.92 s` | 0.403 s |
+| 2 | 22:00:21 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 17.14 s` | 0.362 s |
+| 3 | 22:00:59 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 21.37 s` | 0.414 s |
+
+Tres corridas seguidas en verde (75 notificaciones en total: 3 corridas × 5 rondas × 5). Sin fallos intermitentes, así
+que no hicieron falta las 5 corridas extra.
+
+**`./init.sh` completo:** no se corrió en esta sesión, por instrucción del orquestador; queda para el reviewer (es la
+parte final de T45).
+
+### Límites y hallazgos
+
+- **`StubMercadoPago` no serializa:** usa `HttpServer` con `Executors.newCachedThreadPool()`, así que atiende las 5
+  consultas `GET /v1/payments/{id}` en paralelo. No se cambió el doble.
+- **Qué defensa frenó a los duplicados:** en las 3 corridas la consola no mostró ninguna violación de
+  `uq_pago_id_transaccion` (el `INSERT` va por `saveAndFlush`, y Hibernate registra cada `SQLState: 23505` como
+  `HHH000247`). Los únicos `23505` que salieron fueron 5 por corrida de `uq_checkout_pago_reserva`, de
+  `dosPagarALaVez` (R7). Por eso las 4 notificaciones sobrantes de cada ronda se frenaron siempre por R42: esperaron
+  el bloqueo de espacio y reserva y luego vieron el id ya guardado (`existsByIdTransaccionPasarela`). **La ruta de R44
+  (violación de unicidad atrapada) no se ejercitó en estas corridas**. La prueba no puede forzarla, porque el bloqueo
+  serializa a las 5 antes de leer el id. Las aserciones valen por cualquiera de las dos rutas.
+- **Pool de conexiones:** con 5 hilos y el pool de Hikari por defecto (10) no hubo timeouts. Cada ronda tarda unos
+  70–80 ms. No se cambió configuración.
+- **Límites por IP:** ninguno interfirió. Hoy ninguna `ReglaLimite` aplica al webhook.
+- **Simultaneidad:** `aLaVez` suelta los 5 hilos con un mismo `CountDownLatch`, pero no mide si llegaron a la vez al
+  bloqueo. La prueba no registra cuántos esperaron en `pg_stat_activity`.
+- **Defectos:** ninguno. No se registró `DEF-xx` (HU-13 sigue en DEF-05).

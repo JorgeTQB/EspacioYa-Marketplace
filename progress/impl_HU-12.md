@@ -194,3 +194,73 @@ antes que la hora figura libre, de modo que el rechazo solo puede venir del índ
 `.module.css`; `pages/cuentas/IniciarSesion.jsx`; `sesion/ProveedorSesion.jsx`.
 
 **Docs.** `docs/architecture.md`, `docs/modelo-datos.md`, `docs/frontend.md`, `docs/requerimientos.md` (§8 y §9-8).
+
+## Adenda AC001–AC002 (2026-11-16)
+
+Implementa T24–T26 (`requirements.md` "Adenda 2026-11-16", `design.md` § 14), aprobada por Eduardo Saldaña. Agente:
+implementer.
+
+### Alcance
+
+- **Único archivo tocado de código:** `2_Backend/src/test/java/pe/edu/ulima/espacioya/reservas/controller/ReservaConcurrenciaIT.java`.
+  Solo se agregaron: dos métodos `@Test`, las constantes `VEINTE` (20) y `DIEZ` (10) y tres ayudantes privados
+  (`sesionesDeUsuariosNuevos`, `cuantos`, `cuerpo`), más los imports `StandardCharsets` y `CalendarioEspacioService`
+  (solo para leer sus constantes `MENSAJE_YA_BLOQUEADA` y `MENSAJE_RESERVA_PENDIENTE`).
+- Las 5 pruebas existentes no se modificaron. `2_Backend/src/main` no se tocó. **Ningún ajuste de configuración de
+  prueba** (pool de Hikari por defecto, `SEGUNDOS_MAXIMOS` = 30 s sin cambio, sin cambios de IP).
+- Reutiliza `aLaVez(...)` (un hilo por solicitud + `CountDownLatch` de salida), `estados`, `RONDAS`, `BLOQUEOS` y de
+  `ReservasControllerSoporte`: `crearUsuario`, `token`, `reservar`, `con`, `fecha`, `espacioId`, `HORARIO_NO_DISPONIBLE`.
+- `cuerpo(...)` lee la respuesta con `getContentAsString(StandardCharsets.UTF_8)` para que los mensajes con tilde de
+  HU-08 (*"Esta fecha ya está bloqueada."*) se comparen sin depender del charset por defecto de `MockHttpServletResponse`.
+
+### Métodos agregados
+
+**`veinteUsuariosElMismoBloque`** — `@DisplayName("HU-12 R19 (AC001): 20 usuarios a la vez con el mismo bloque: un 201, 19 rechazos y una fila activa")`
+- 20 usuarios nuevos (`usuario1@correo.pe` … `usuario20@correo.pe`), sesiones obtenidas antes de la primera ronda.
+- **20 `POST /api/reservas` simultáneos** por ronda, mismo espacio, `fecha` y una sola hora; **5 rondas** (`RONDAS`), horas
+  8, 9, 10, 11 y 12. Entre rondas: `UPDATE reserva SET estado = 'CONFIRMADA'` (como `dosUsuariosElMismoBloque`).
+- Afirma por ronda: 20 respuestas; exactamente **1** con 201 y **19** con 400; cada 400 contiene
+  *"Horario no disponible. Elige otro bloque."* (R18, R22); exactamente **1** fila `activo` en `reserva_bloque` para ese
+  espacio, fecha y hora (R20). Cubre R19 (AC001), R18, R20, R22.
+
+**`veinteReservasYBloqueosDeFecha`** — `@DisplayName("HU-12 R24 (AC002): 10 reservas y 10 bloqueos de la misma fecha a la vez: nunca coexisten bloqueo y reserva")`
+- 10 usuarios nuevos (`cliente1@correo.pe` … `cliente10@correo.pe`) y la sesión del arrendador dueño, antes de la carrera.
+- **20 solicitudes simultáneas** por ronda: 10 `POST /api/reservas` (usuario *n* reserva la hora 8+*n*, horas 8–17, sin
+  competir entre sí) y 10 `POST /api/arrendadores/actual/espacios/{id}/bloqueos` con esa fecha, intercaladas en la lista.
+  **5 rondas** con `fecha.plusWeeks(ronda)`. Entre rondas: `DELETE FROM reserva` y `DELETE FROM bloqueo_fecha`.
+- Afirma por ronda las aserciones 1–6 de la adenda: (1) todo 201 o 400 y al menos un 201; (2) a lo sumo 1 fila en
+  `bloqueo_fecha`; (3) con bloqueo: 0 filas activas de `reserva_bloque` en la fecha, 0 reservas 201, exactamente 1
+  bloqueo 201; (4) sin bloqueo: 0 bloqueos 201, al menos una reserva 201 y filas activas = reservas 201; (5) nunca hay a
+  la vez bloqueo y reserva activa; (6) toda reserva rechazada trae *horario no disponible* y todo bloqueo rechazado trae
+  `MENSAJE_YA_BLOQUEADA` o `MENSAJE_RESERVA_PENDIENTE`. Cubre R24 (AC002); HU-08 R20, R40.
+
+### Corridas
+
+Comando: `./2_Backend/mvnw -f 2_Backend/pom.xml verify -Dit.test=ReservaConcurrenciaIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false`
+(Failsafe con configuración por defecto en `pom.xml`; `-Dit.test` filtra la clase). Cifras copiadas de
+`2_Backend/target/failsafe-reports/pe.edu.ulima.espacioya.reservas.controller.ReservaConcurrenciaIT.txt` y tiempos del
+`TEST-…ReservaConcurrenciaIT.xml`. Hora de Lima (-05:00), 2026-11-16.
+
+| Corrida | Inicio | Resultado (literal) | `veinteUsuariosElMismoBloque` | `veinteReservasYBloqueosDeFecha` |
+|---------|--------|---------------------|-------------------------------|----------------------------------|
+| 1 | 21:39:31 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 27.55 s` | 5.934 s | 3.362 s |
+| 2 | 21:40:21 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 26.27 s` | 5.86 s | 3.681 s |
+| 3 | 21:41:05 | `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 26.69 s` | 6.689 s | 4.028 s |
+
+Tres corridas seguidas en verde; sin fallos intermitentes, así que no hicieron falta las 5 corridas extra.
+
+**`./init.sh` completo (después de las 3 corridas):** sección 5 `Tests run: 1277, Failures: 0, Errors: 0, Skipped: 0`,
+ESLint y build en verde, reglas de arquitectura en verde. Terminó con **exit 1** solo por la sección 3 del arnés:
+`HU-12 está done con 3 task(s) sin marcar` (se resolvió al marcar T24–T26 después) y
+`HU-13 está done con 2 task(s) sin marcar` / `HU-16 está done con 2 task(s) sin marcar`, que son las adendas de calidad
+de otras historias, pendientes y **fuera del alcance de esta sesión**. `./init.sh` no se volvió a correr después de marcar.
+
+### Límites y hallazgos
+
+- **Pool de conexiones:** con 20 hilos y el pool de Hikari por defecto (10) no hubo timeouts ni esperas visibles; cada
+  método tarda unos 3–7 s en total (incluye crear usuarios e iniciar sesiones). No se cambió configuración.
+- **Límites por IP:** ninguno interfirió (todas las solicitudes salen de la IP de la prueba, 10.14.x.x).
+- **Defectos:** ninguno. No se registró `DEF-xx`.
+- **Limitación de la prueba AC002:** la prueba acepta las dos ramas (gana el bloqueo o ganan las reservas) pero no
+  registra cuál ganó en cada ronda; por eso no se puede afirmar con estas corridas que ambas ramas se ejercitaron.
+  Las aserciones de exclusión (2 y 5) valen en cualquiera de los dos casos.

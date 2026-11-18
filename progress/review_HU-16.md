@@ -117,3 +117,53 @@ Ninguno bloqueante.
 Observaciones para el dueño, antes del merge:
 1. Confirmar la desviación **D-A** (`Reembolso.admiteIntento`: el primer intento automático se admite aunque el reembolso recién creado cuente como *en proceso*).
 2. Al cerrar: entrada en `progress/history.md`, `progress/HU-16.md` de vuelta a la plantilla y HU-16 → `done` (lo hace el dueño, no el orquestador).
+
+---
+
+## Adenda AC005 (2026-11-16)
+
+**Veredicto:** APROBADO
+
+Alcance: `requirements.md` "Adenda 2026-11-16", `design.md` § 15, T25–T26, `progress/impl_HU-16.md` § "Adenda AC005".
+
+### Trazabilidad adenda ↔ prueba
+- AC005 / R22, R23 (R19, R21, R30, R33, R34, R36, R39): [x] `ReembolsoConcurrenciaIT.diezReintentosALaVez`, `@DisplayName("HU-16 R22, R23 (AC005): diez reintentos a la vez de un FALLIDO llaman una vez a la pasarela, responden un 200 y nueve 400, y dejan un solo reembolso")`.
+  - Hay `DIEZ` (10) `POST rutaReintento(id)` como admin y `RONDAS` (5). Cada ronda trae `clearInvocations`, `fallidoSembrado()` y el mismo `doAnswer` con `CountDownLatch(1)` de `dosReintentosALaVez`.
+  - Aserción 1: `verify(pasarela, times(1)).reembolsar(any())`.
+  - Aserción 2: un 200 y `DIEZ - 1` respuestas 400.
+  - Aserción 3: cada mensaje es `MENSAJE_EN_PROCESO` o `MENSAJE_YA_REEMBOLSADO`, y al menos uno es `MENSAJE_EN_PROCESO`.
+  - Aserción 4: `reembolsosDelPagoYOrigen(sembrado) == 1`.
+  - Aserción 5: `intentos == 2` y estado `REEMBOLSADO`.
+  - Aserción 6: `auditorias("REEMBOLSO_REALIZADO").hasSize(ronda + 1)` y `totalAuditorias() == antes + 1`. Lo segundo prueba que los 400 no registran nada (R39).
+
+### Alcance del cambio
+- `git diff`: solo hay inserciones (+70), con 3 imports, 2 constantes, 1 `@Test` y 3 ayudantes privados. `dosReintentosALaVez` y `aLaVez` quedaron intactos.
+- No se tocaron `src/main` ni `src/test/resources`.
+
+### Tasks
+- T25: [x]
+- T26: [x]. Las tres corridas están en el informe, y yo corrí `./init.sh` completo (ver abajo). La nota de T26 que dice "queda pendiente para el reviewer" ya está cumplida.
+
+### `Logger` SLF4J en la prueba (dictamen)
+Es **aceptable y no hay que quitarlo**:
+- `docs/conventions.md` § Comentarios y `CHECKPOINTS.md` C3 solo prohíben `System.out.println`, `printStackTrace()` y `console.log` **de depuración**. SLF4J es el mecanismo de logging del proyecto: `src/main` lo usa en `ExpiracionReservas`, `DespuesDelCommit` y otras clases.
+- El `LOG.info` no es depuración: produce la evidencia de AC005 (tabla "Rechazos por tipo" del informe), que muestra que se ejercitó la rama tardía *ya reembolsado*.
+- `init.sh` pasó la sección 4 ("Sin prints de depuración en el backend").
+
+Detalle menor, opcional: en `src/main` la constante se llama `log`, en minúscula, y aquí se llama `LOG`. Además es el único logger en `src/test`. Se puede renombrar por consistencia, pero no bloquea.
+
+### `./init.sh` completo (reviewer, 2026-11-16)
+`Tests run: 1279, Failures: 0, Errors: 0, Skipped: 0`, con la línea `[OK] Entorno listo. Puedes empezar a trabajar.` y exit 0. No hubo `[FAIL]`.
+En failsafe, `ReembolsoConcurrenciaIT` da `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`. `diezReintentosALaVez` tardó 0.618 s.
+
+### Checkpoints aplicables
+- C1: [x]
+- C2: [x]
+- C3: [x]. No se tocó producción, no hay prints de depuración y el logging es por SLF4J.
+- C4: [x]
+- C6: [x]
+- C5: n/a
+
+### Observaciones (no bloqueantes)
+1. **El formato `"HU-16 R22, R23 (AC005): …"` no lo cuenta el regex de `init.sh`** (línea 170). Es la misma situación que en HU-12 y HU-13: los R ya están cubiertos.
+2. **Hay que actualizar la nota de T26 en `tasks.md`** ("el `./init.sh` completo final queda pendiente para el reviewer"), porque ya se cumplió. Lo hace el dueño o el implementer.

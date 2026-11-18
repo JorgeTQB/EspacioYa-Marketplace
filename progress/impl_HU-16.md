@@ -156,3 +156,87 @@ Backend con `PAGOS_PASARELA=simulada`.
 ## Tasks no completadas
 
 Ninguna.
+
+## Adenda AC005 (2026-11-16)
+
+Implementa T25–T26 (`requirements.md` "Adenda 2026-11-16", `design.md` § 15), aprobada por Ariel Enriquez (incluido que
+los 400 tardíos pueden decir *ya reembolsado* además de *en proceso*). Agente: implementer.
+
+### Alcance
+
+- **Único archivo de código tocado:** `2_Backend/src/test/java/pe/edu/ulima/espacioya/pagos/controller/ReembolsoConcurrenciaIT.java`.
+  Solo se agregaron: un método `@Test`, las constantes `DIEZ` (10) y `LOG` (SLF4J, para la evidencia por ronda), tres
+  ayudantes privados (`mensajesDeLosRechazos`, `reembolsosDelPagoYOrigen`, `totalAuditorias`) y los imports `Map`,
+  `Logger` y `LoggerFactory`.
+- `dosReintentosALaVez` y `aLaVez(...)` no se modificaron. `ReembolsosSoporte`, `PagosSoporte` y `2_Backend/src/main` no
+  se tocaron. **Ningún ajuste de configuración de prueba**: pool de Hikari por defecto, `SEGUNDOS_MAXIMOS` = 30 s sin
+  cambio, todas las solicitudes desde `IP_ADMIN`.
+
+### Método agregado
+
+**`diezReintentosALaVez`** — `@DisplayName("HU-16 R22, R23 (AC005): diez reintentos a la vez de un FALLIDO llaman una vez a la pasarela, responden un 200 y nueve 400, y dejan un solo reembolso")`
+(el texto de `design.md` § 15.1; en el código va partido en dos literales concatenados por el largo de línea).
+
+- **10 `POST /api/admin/reembolsos/{id}/reintento` simultáneos** por ronda con una sola sesión de admin (`tokenAdmin()`),
+  sobre el mismo reembolso `FALLIDO` (`intentos = 1`) sembrado con `fallidoSembrado()`. **5 rondas** (`RONDAS`), cada una
+  con `clearInvocations(pasarela)` y un `FALLIDO` nuevo.
+- **Latch:** el mismo patrón que `dosReintentosALaVez` y que fija design § 15.1: un `CountDownLatch(1)` que se libera con
+  la **primera** respuesta, y el `doAnswer` sobre `pasarela.reembolsar` lo espera antes de `callRealMethod()`. Se descartó
+  esperar las 9 respuestas: obligaría a que los nueve 400 fueran *en proceso* (alternativa 13, descartada en § 15.4) y
+  la prueba ya no mediría el rechazo tardío *ya reembolsado*. Con el latch de 1 el resultado no depende del orden: el
+  primer 400 siempre es *en proceso* y los demás pueden ser de cualquiera de los dos tipos.
+- Afirma por ronda (aserciones 1–6 de la adenda):
+  1. `verify(pasarela, times(1)).reembolsar(any())` (R23);
+  2. exactamente **1** respuesta 200 y **9** respuestas 400 (R30, R23);
+  3. cada 400 trae `MENSAJE_EN_PROCESO` o `MENSAJE_YA_REEMBOLSADO` y ningún otro, y al menos uno es *en proceso*
+     (R22, R34; R21, R33);
+  4. `count(*)` de `reembolso` con el `pago_id` y el `origen` de la fila sembrada = **1** (R19);
+  5. `intentos` = 2 y estado `REEMBOLSADO`;
+  6. `auditorias("REEMBOLSO_REALIZADO")` tiene `ronda + 1` filas (igual que la prueba existente; la auditoría se limpia
+     por test, no por ronda) (R36), y además el total de filas de `auditoria` sube **exactamente en 1** en la ronda, así
+     que los nueve 400 no registraron nada (R39).
+- Cubre R22, R23 (AC005); R19, R21, R30, R33, R34, R36, R39.
+
+### Corridas
+
+Comando: `./2_Backend/mvnw -f 2_Backend/pom.xml verify -Dit.test=ReembolsoConcurrenciaIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false`
+(en la corrida 3 se agregó `-q` solo para acortar la consola; no cambia lo que se ejecuta). Resultado copiado de
+`2_Backend/target/failsafe-reports/pe.edu.ulima.espacioya.pagos.controller.ReembolsoConcurrenciaIT.txt` y tiempo del
+método del `TEST-…ReembolsoConcurrenciaIT.xml`. Hora de Lima (-05:00), 2026-11-16. Tres corridas seguidas, sin cambios
+entre ellas.
+
+| Corrida | Inicio | Resultado (literal) | `diezReintentosALaVez` (5 rondas) |
+|---------|--------|---------------------|-----------------------------------|
+| 1 | 22:04:03 | `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 22.73 s -- in pe.edu.ulima.espacioya.pagos.controller.ReembolsoConcurrenciaIT` | 0.891 s |
+| 2 | 22:04:50 | `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.33 s -- in pe.edu.ulima.espacioya.pagos.controller.ReembolsoConcurrenciaIT` | 0.776 s |
+| 3 | 22:05:30 | `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 16.07 s -- in pe.edu.ulima.espacioya.pagos.controller.ReembolsoConcurrenciaIT` | 0.673 s |
+
+Tres corridas seguidas en verde (150 reintentos en total: 3 corridas × 5 rondas × 10). Sin fallos intermitentes, así que
+no hicieron falta las 5 corridas extra.
+
+**Rechazos por tipo** (línea `AC005 ronda n: en proceso = x, ya reembolsado = y` que la prueba registra con `LOG.info`):
+
+| Corrida | Ronda 1 | Ronda 2 | Ronda 3 | Ronda 4 | Ronda 5 |
+|---------|---------|---------|---------|---------|---------|
+| 1 | 5 / 4 | 5 / 4 | 9 / 0 | 9 / 0 | 9 / 0 |
+| 2 | 9 / 0 | 9 / 0 | 9 / 0 | 9 / 0 | 9 / 0 |
+| 3 | 9 / 0 | 9 / 0 | 9 / 0 | 9 / 0 | 9 / 0 |
+
+(*en proceso* / *ya reembolsado*). En 13 de 15 rondas los nueve rechazos fueron *en proceso*. En las rondas 1 y 2 de la
+corrida 1, 4 solicitudes llegaron después de que el ganador terminó y recibieron *ya reembolsado*: así se ejercitó la
+rama tardía (R21, R33) que la adenda acepta.
+
+**`./init.sh` completo:** no se corrió en esta sesión, por instrucción del orquestador; queda para el reviewer (es la
+parte final de T26).
+
+### Límites y hallazgos
+
+- **Pool de conexiones:** con 10 hilos y el pool de Hikari por defecto (10) no hubo timeouts. Cada ronda tarda unos
+  55–80 ms, salvo la primera de cada corrida (unos 500 ms, arranque en frío). No se cambió configuración.
+- **Retención del ganador:** el `doAnswer` nunca agotó los 30 s; la primera respuesta llegó siempre en milisegundos.
+- **Límites por IP / filtro de IPs del admin:** ninguno interfirió (hoy ninguna `ReglaLimite` aplica a las rutas del
+  admin).
+- **Simultaneidad:** `aLaVez` suelta los 10 hilos con un mismo `CountDownLatch`, pero no mide si llegaron a la vez al
+  bloqueo de la fila; los conteos por tipo de rechazo muestran que en la mayoría de las rondas los nueve perdedores
+  compitieron mientras el ganador seguía en la pasarela.
+- **Defectos:** ninguno. No se registró `DEF-xx`.

@@ -573,3 +573,48 @@ DEF-03 y DEF-04 son de documentación (`tasks.md` T35 y T36). Ninguno viola un `
 | D9: el simulado pasa por las mismas reglas                                  | R36, R62–R72 |
 | HU-12 S5 (espacio o arrendador que cambian)                                 | R12, R35 |
 | Bloqueos `usuario → espacio → reserva`, HU-08 DT-10                         | R36, R37, R38 |
+
+## Adenda 2026-11-16 — Escenario de calidad AC003
+
+> Pedida por el orquestador con la historia en `done`, para medir un escenario del informe (capítulo 6.3) con la cantidad
+> de intentos que promete (`PROMPT-escenarios-calidad.md` § 1 y § 2). **Solo agrega una prueba de integración**: no hay
+> `R<n>` nuevos ni cambios de producción. La prueba nueva verifica R43, que ya existe, a mayor escala. Diseño en
+> `design.md` § 15 y tasks T44–T45 en `tasks.md`. **Su implementación espera la aprobación del dueño (Eduardo Saldaña).**
+> Nada se renumera. No cambia nada de la adenda 2026-10-30.
+
+### Escenario que se mide
+
+| AC | Atributo | Medida que promete el escenario | Requisito existente | Prueba hoy | Prueba nueva |
+|----|----------|---------------------------------|---------------------|------------|--------------|
+| AC003 | Confiabilidad – Consistencia | Como máximo 1 pago y 1 confirmación por `id_transaccion_pasarela` tras **5 entregas repetidas** | R43 (con R42, R44, R45, R48, R49, R53) | `PagoConcurrenciaIT.dosWebhooksIguales`: 2 notificaciones, 5 rondas | `PagoConcurrenciaIT.cincoWebhooksIguales` |
+
+### AC003 — 5 notificaciones iguales a la vez (R43)
+
+- **Solicitudes simultáneas:** 5 `POST /api/pagos/webhook` **iguales**: la misma notificación de pago aprobado (mismo id
+  de transacción, firma válida), como `dosWebhooksIguales`, contra `StubMercadoPago` y `MercadoPagoAdapter` real.
+- **Rondas:** `RONDAS` (5), cada una con una reserva vigente nueva y un id de pago nuevo, reiniciando el doble de correos.
+- **Aserciones por ronda:**
+  1. Las 5 respuestas son 200 (R42, R44).
+  2. Hay exactamente **1** fila en `pago` para ese `id_transaccion_pasarela` (y para esa reserva) (R43, R45).
+  3. La reserva queda `CONFIRMADA` y se confirmó **una sola vez**: exactamente 1 registro `RESERVA_CONFIRMADA` de esa
+     reserva en la auditoría (R53).
+  4. Se envió **un solo** correo de cada tipo: 1 comprobante al usuario (R48) y 1 aviso al arrendador (R49) (R43).
+
+### Reglas de la adenda
+
+- **Límites del entorno de prueba.** Si la cantidad choca con un límite (pool de conexiones de las pruebas, capacidad de
+  `StubMercadoPago`, un límite por IP), **no se reduce la cantidad ni se toca producción**: solo se ajusta la configuración
+  de prueba con un mecanismo que ya exista y se documenta el ajuste y su motivo en `progress/impl_HU-13.md` y en la
+  evidencia (`progress/calidad_escenarios.md`). Si no hay forma limpia, se para y se pregunta al dueño. Hoy ninguna
+  `ReglaLimite` aplica a `POST /api/pagos/webhook`.
+- **Defectos.** Si la prueba falla por un defecto real (de forma consistente o intermitente), **no se modifica
+  `2_Backend/src/main`** ni se relaja la aserción: se registra como `DEF-xx`, siguiendo la numeración que ya existe en
+  `progress/` (HU-13 llega hoy a DEF-05), con historia, esperado, obtenido, severidad y cómo reproducirlo, y se avisa al
+  dueño.
+- Las pruebas existentes no se modifican ni se borran.
+
+### Trazabilidad de la adenda
+
+| Escenario | Requisito existente | Prueba |
+|-----------|---------------------|--------|
+| AC003: como máximo 1 pago y 1 confirmación por id de transacción tras 5 entregas repetidas | R43; R42, R44, R45, R48, R49, R53 | `PagoConcurrenciaIT.cincoWebhooksIguales` |

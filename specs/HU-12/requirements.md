@@ -293,3 +293,67 @@ posterior a `creada_en`, y una fila de `reserva_bloque` con `hora_inicio` fuera 
 | RN-03 (estados de la reserva)                                               | R1, R9, R11, R45 |
 | RN-05 (3 pendientes, bloques consecutivos)                                  | R26–R28, R32 |
 | HU-09 D1 (arrendador no activo)                                             | R33 |
+
+## Adenda 2026-11-16 — Escenarios de calidad AC001 y AC002
+
+> Pedida por el orquestador con la historia en `done`, para medir dos escenarios del informe (capítulo 6.3) con la cantidad
+> de intentos que prometen (`PROMPT-escenarios-calidad.md` § 1 y § 2). **Solo agrega pruebas de integración**: no hay
+> `R<n>` nuevos ni cambios de producción. Las pruebas nuevas verifican R19 y R24, que ya existen, a mayor escala. Diseño en
+> `design.md` § 14 y tasks T24–T26 en `tasks.md`. **Su implementación espera la aprobación del dueño (Eduardo Saldaña).**
+> Nada se renumera.
+
+### Escenarios que se miden
+
+| AC | Atributo | Medida que promete el escenario | Requisito existente | Prueba hoy | Prueba nueva |
+|----|----------|---------------------------------|---------------------|------------|--------------|
+| AC001 | Confiabilidad – Consistencia | Exactamente 1 reserva activa por bloque en **20 intentos concurrentes** | R19 (con R18, R20, R22) | `ReservaConcurrenciaIT.dosUsuariosElMismoBloque`: 2 usuarios, 5 rondas | `ReservaConcurrenciaIT.veinteUsuariosElMismoBloque` |
+| AC002 | Confiabilidad – Consistencia | 0 reservas activas en fechas bloqueadas en **20 intentos concurrentes** | R24 (con HU-08 R20 y R40) | `ReservaConcurrenciaIT.reservaYBloqueoDeFecha`: 1 reserva y 1 bloqueo, 5 rondas | `ReservaConcurrenciaIT.veinteReservasYBloqueosDeFecha` |
+
+### AC001 — 20 usuarios a la vez con el mismo bloque (R19)
+
+- **Solicitudes simultáneas:** 20 `POST /api/reservas`, una por cada uno de **20 usuarios distintos** con sesión, con el
+  mismo `espacioId`, la misma `fecha` y la misma `horas` (un bloque). Usuarios distintos para que el cupo de R26 no
+  intervenga.
+- **Rondas:** `RONDAS` (5), cada una con una hora distinta, como `dosUsuariosElMismoBloque`.
+- **Aserciones por ronda:**
+  1. Exactamente **1** respuesta 201 y **19** respuestas 400.
+  2. Cada respuesta 400 trae el mensaje *horario no disponible* (R18, R22).
+  3. En `reserva_bloque` hay exactamente **1** fila con `activo = true` para ese espacio, fecha y hora (R20).
+
+### AC002 — 20 reservas y bloqueos de la misma fecha a la vez (R24)
+
+- **Solicitudes simultáneas:** 20 a la vez sobre la misma fecha del mismo espacio: **10** `POST /api/reservas` de 10
+  usuarios distintos, cada uno con una hora distinta de esa fecha (para que no compitan entre sí por el bloque y la única
+  carrera sea con el bloqueo), y **10** `POST /api/arrendadores/actual/espacios/{id}/bloqueos` del arrendador dueño con
+  esa fecha.
+- **Rondas:** 5, cada una con una fecha distinta (como `reservaYBloqueoDeFecha`, una semana más por ronda).
+- **Aserciones por ronda** (mismo criterio que `reservaYBloqueoDeFecha`, R24):
+  1. Toda respuesta es 201 o 400; al menos una operación es 201.
+  2. En `bloqueo_fecha` hay **a lo sumo 1** fila para ese espacio y fecha (HU-08 R40).
+  3. Si hay 1 fila de bloqueo: **0** filas activas de `reserva_bloque` en esa fecha, **0** reservas con 201 y exactamente
+     **1** bloqueo con 201.
+  4. Si no hay fila de bloqueo: **0** bloqueos con 201, y el número de filas activas de `reserva_bloque` en esa fecha es
+     igual al número de reservas con 201 (al menos 1).
+  5. Nunca coexisten en esa fecha una fila de `bloqueo_fecha` y una fila activa de `reserva_bloque`.
+  6. Una reserva rechazada responde 400 *horario no disponible* (R18). Un bloqueo rechazado responde 400 con *ya
+     bloqueada* (HU-08 R40) o *reserva pendiente* (HU-08 R20), según lo que ganó.
+
+### Reglas de la adenda
+
+- **Límites del entorno de prueba.** Si una cantidad choca con un límite (por ejemplo, el pool de conexiones de las pruebas
+  o un límite por IP), **no se reduce la cantidad ni se toca producción**: solo se ajusta la configuración de prueba
+  (`2_Backend/src/test/resources/config/application.properties` o la de la clase) con un mecanismo que ya exista, y se
+  documenta el ajuste y su motivo en `progress/impl_HU-12.md` y en la evidencia (`progress/calidad_escenarios.md`). Si no
+  hay forma limpia, se para y se pregunta al dueño. Hoy ninguna `ReglaLimite` aplica a `POST /api/reservas` ni a
+  `POST …/bloqueos`, y el inicio de sesión solo cuenta fallos.
+- **Defectos.** Si una prueba nueva falla por un defecto real (de forma consistente o intermitente), **no se modifica
+  `2_Backend/src/main`** ni se relaja la aserción: se registra como `DEF-xx`, siguiendo la numeración que ya existe en
+  `progress/`, con historia, esperado, obtenido, severidad y cómo reproducirlo, y se avisa al dueño.
+- Las pruebas existentes no se modifican ni se borran.
+
+### Trazabilidad de la adenda
+
+| Escenario | Requisito existente | Prueba |
+|-----------|---------------------|--------|
+| AC001: 1 reserva activa por bloque en 20 intentos concurrentes | R19, R18, R20, R22 | `ReservaConcurrenciaIT.veinteUsuariosElMismoBloque` |
+| AC002: 0 reservas activas en fechas bloqueadas en 20 intentos concurrentes | R24; HU-08 R20, R40 | `ReservaConcurrenciaIT.veinteReservasYBloqueosDeFecha` |

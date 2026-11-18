@@ -780,3 +780,43 @@ Si cambia alguna, es señal de que se creó otro camino.
 16. **HMAC real en la simulada:** parecería evidencia de S1 sin serlo.
 17. **Variable `VITE_` para ocultar la pantalla:** el frontend no impide nada, y D9 exige que lo impida el backend.
 18. **Botones Aprobar y Rechazar dentro de `/reservas/:id`:** rompen "un solo primario" y mezclan la app con lo que hace la pasarela.
+
+## 15. Adenda 2026-11-16: escenario de calidad AC003
+
+Requisitos en `requirements.md`, "Adenda 2026-11-16". **Sin cambios de producción, migraciones, endpoints, DTO ni
+excepciones.** Solo un método `@Test` nuevo en
+`2_Backend/src/test/java/pe/edu/ulima/espacioya/pagos/controller/PagoConcurrenciaIT.java`, al lado de los existentes.
+
+### 15.1 Cómo se arma
+
+- Igual que `dosWebhooksIguales`, con 5 solicitudes en lugar de 2: por ronda, `notificador.reiniciar()`, `vigente()`,
+  `pagoEnLaPasarela("approved", reserva)` y `aLaVez` con 5 veces `() -> notificar(id).andReturn()`. Reutiliza `aLaVez`,
+  `estados`, `RONDAS`, `pagosDe`, `estadoDeReserva`, `notificador.comprobantes()`, `notificador.avisos()` y
+  `borrarReservas()`.
+- La "confirmación una sola vez" se lee en `auditoria`: filas con acción `RESERVA_CONFIRMADA` y la entidad de esa reserva
+  (la limpieza entre rondas no borra la auditoría, por eso se filtra por el id de la reserva). Si hace falta un ayudante
+  privado, va dentro de la misma clase de prueba.
+- `@DisplayName`: `"HU-13 R43 (AC003): cinco notificaciones iguales a la vez dejan una fila, una confirmación y un correo
+  de cada tipo"`.
+
+### 15.2 Qué ejercita
+
+El camino de R42–R44: `WebhookPagoController` → `WebhookPagoService.recibir` → `MercadoPagoAdapter.idNotificado` y
+`consultarPago` (contra `StubMercadoPago`) → `ReservasPorCobrar.bloquear` (bloqueo de espacio y reserva) → lectura del id
+→ `INSERT` en `pago` con `uq_pago_id_transaccion` como última defensa → `confirmar` → `AvisosPago` después del commit.
+Con 5 hilos, cuatro deben terminar en R42 (ya existe) o R44 (violación de unicidad), sin confirmar ni enviar correos.
+
+### 15.3 Límites a vigilar
+
+- Cada notificación hace una llamada HTTP a `StubMercadoPago` antes de bloquear; si el doble atiende de a una, las cinco
+  llegan escalonadas y la carrera es menor. No se cambia el doble para forzarla: el resultado se mide tal cual y se
+  documenta.
+- Pool de conexiones por defecto (Hikari, 10): 5 hilos caben. Cualquier ajuste, solo en la configuración de prueba y
+  documentado.
+
+### 15.4 Alternativas descartadas
+
+19. **Subir a 5 la cantidad de `dosWebhooksIguales`.** Cambia una prueba aprobada y pierde la evidencia de R43 tal como se
+    redactó; la adenda solo agrega.
+20. **Medir AC003 con la pantalla de pago simulado (`PagoSimuladoIT`).** Esa ruta no es la entrega repetida de la pasarela
+    que describe el escenario; el webhook firmado sí lo es.

@@ -134,3 +134,4 @@ $RECYCLE.BIN/
 
 # Candado de init.sh mientras corre
 .init.lock
+Claude outputs/

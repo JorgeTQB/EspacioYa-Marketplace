@@ -28,6 +28,7 @@ class PagoConcurrenciaIT extends PagosConMercadoPagoSoporte {
 
     private static final int RONDAS = 5;
     private static final int SEGUNDOS_MAXIMOS = 30;
+    private static final int NOTIFICACIONES_IGUALES = 5;
 
     @Autowired
     private ExpiracionReservas expiracion;
@@ -103,6 +104,43 @@ class PagoConcurrenciaIT extends PagosConMercadoPagoSoporte {
             assertThat(notificador.avisos()).hasSize(1);
             borrarReservas();
         }
+    }
+
+    @Test
+    @DisplayName("HU-13 R43 (AC003): cinco notificaciones iguales a la vez dejan una fila, una confirmación y un correo "
+            + "de cada tipo")
+    void cincoWebhooksIguales() throws Exception {
+        for (var ronda = 0; ronda < RONDAS; ronda++) {
+            notificador.reiniciar();
+            var reserva = vigente();
+            var id = pagoEnLaPasarela("approved", reserva);
+            var solicitudes = new ArrayList<Callable<MvcResult>>();
+            for (var vez = 0; vez < NOTIFICACIONES_IGUALES; vez++) {
+                solicitudes.add(() -> notificar(id).andReturn());
+            }
+
+            var respuestas = aLaVez(solicitudes);
+
+            assertThat(estados(respuestas)).containsOnly(200).hasSize(NOTIFICACIONES_IGUALES);
+            assertThat(filasConTransaccion(id)).isEqualTo(1);
+            assertThat(pagosDe(reserva)).hasSize(1);
+            assertThat(estadoDeReserva(reserva)).isEqualTo("CONFIRMADA");
+            assertThat(confirmacionesDe(reserva)).isEqualTo(1);
+            assertThat(notificador.comprobantes()).hasSize(1);
+            assertThat(notificador.avisos()).hasSize(1);
+            borrarReservas();
+        }
+    }
+
+    private int filasConTransaccion(String idTransaccion) {
+        return jdbc.queryForObject("SELECT count(*) FROM pago WHERE id_transaccion_pasarela = ?", Integer.class,
+                idTransaccion);
+    }
+
+    // La limpieza entre rondas no borra la auditoría: se cuenta solo la de esta reserva.
+    private int confirmacionesDe(long reserva) {
+        return jdbc.queryForObject("SELECT count(*) FROM auditoria WHERE accion = 'RESERVA_CONFIRMADA' "
+                + "AND entidad = 'reserva' AND entidad_id = ?", Integer.class, reserva);
     }
 
     @Test

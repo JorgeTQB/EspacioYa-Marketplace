@@ -709,3 +709,47 @@ simulado"; (e) usuario o arrendador entrando a `/admin/reembolsos` → vuelve a 
 11. **Hacer fallar la simulada con un monto o un id "mágico"** para la demo de CA2. Es invisible para quien prueba y
     choca con los montos reales de las reservas; la propiedad `fallos-reembolso` es explícita y no exige reiniciar
     entre el fallo y el reintento.
+
+## 15. Adenda 2026-11-16: escenario de calidad AC005
+
+Requisitos en `requirements.md`, "Adenda 2026-11-16". **Sin cambios de producción, migraciones, endpoints, DTO ni
+excepciones.** Solo un método `@Test` nuevo en
+`2_Backend/src/test/java/pe/edu/ulima/espacioya/pagos/controller/ReembolsoConcurrenciaIT.java`, al lado de
+`dosReintentosALaVez`.
+
+### 15.1 Cómo se arma
+
+- Igual que `dosReintentosALaVez`, con 10 solicitudes en lugar de 2: una sesión de admin (`tokenAdmin()`), y por ronda
+  `clearInvocations(pasarela)`, `fallidoSembrado()`, un `CountDownLatch(1)` que se libera con la primera respuesta, el
+  mismo `doAnswer` sobre `pasarela.reembolsar` que espera ese latch antes de `callRealMethod()`, y
+  `aLaVez(lista de 10 × POST rutaReintento(id) comoAdmin, latch)`.
+- Mensajes con las constantes públicas de `ReembolsoAdminService`: `MENSAJE_EN_PROCESO` y `MENSAJE_YA_REEMBOLSADO`. El
+  servicio responde *ya reembolsado* si al leer (antes o después de perder la reclamación) el reembolso ya está
+  `REEMBOLSADO`, y *en proceso* en otro caso (`rechazarSiNoReintentable` y la rama `NO_EJECUTADO` de `reintentar`).
+- "Un reembolso por pago y origen": `count(*)` de `reembolso` con el `pago_id` y el `origen` de la fila sembrada (se leen
+  con `reembolso(id)`).
+- `@DisplayName`: `"HU-16 R22, R23 (AC005): diez reintentos a la vez de un FALLIDO llaman una vez a la pasarela, responden
+  un 200 y nueve 400, y dejan un solo reembolso"`.
+
+### 15.2 Qué ejercita
+
+`ReembolsoAdminController` → `ReembolsoAdminService.reintentar` → `SolicitudesReembolso.crear` →
+`EjecutorReembolsos.ejecutarAhora` → `SolicitudReembolso.ejecutar()` (★ Command): la reclamación del intento bajo
+bloqueo de la fila deja pasar a uno solo; los otros nueve reciben `NO_EJECUTADO` o se rechazan antes, en la lectura.
+
+### 15.3 Límites a vigilar
+
+- El `doAnswer` retiene al ganador hasta la primera respuesta (máximo `SEGUNDOS_MAXIMOS`, 30 s). Si ninguna otra
+  solicitud responde en ese tiempo, la ronda tarda 30 s y la aserción de mensajes lo delata; se documenta, no se cambia
+  producción.
+- Pool de conexiones por defecto (Hikari, 10): el ganador no retiene conexión mientras llama a la pasarela (DT-5), así que
+  10 hilos caben. Cualquier ajuste, solo en la configuración de prueba y documentado.
+- Todas las solicitudes salen de `IP_ADMIN`, que es la IP permitida por `FiltroIpsAdmin` en las pruebas.
+
+### 15.4 Alternativas descartadas
+
+12. **Subir a 10 la cantidad de `dosReintentosALaVez`.** Cambia una prueba aprobada y su aserción estricta de *en proceso*,
+    que con más de dos solicitudes ya no se cumple siempre; la adenda solo agrega.
+13. **Exigir que los nueve 400 sean *en proceso*.** Obligaría a retener al ganador hasta las nueve respuestas, y la prueba
+    dejaría de medir el caso real en que un reintento tardío ve el reembolso ya hecho (R21, R33), que también es un rechazo
+    válido.

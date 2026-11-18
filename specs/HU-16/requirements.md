@@ -289,3 +289,54 @@ sin intentos ni `ultimo_intento_en` ENTONCES la base de datos DEBE rechazarlo.
 | ★ Command: `SolicitudReembolso.ejecutar()` idempotente y reintentable                   | R21–R24, R40 (design § 2) |
 | Regla de HU-13: ninguna llamada externa retiene filas                                   | R3, R16, R18 |
 | Principio 7 (integridad en la base de datos)                                            | R19, R42 |
+
+## Adenda 2026-11-16 — Escenario de calidad AC005
+
+> Pedida por el orquestador con la historia en `done`, para medir un escenario del informe (capítulo 6.3) con la cantidad
+> de intentos que promete (`PROMPT-escenarios-calidad.md` § 1 y § 2). **Solo agrega una prueba de integración**: no hay
+> `R<n>` nuevos ni cambios de producción. La prueba nueva verifica R22 y R23, que ya existen, a mayor escala. Diseño en
+> `design.md` § 15 y tasks T25–T26 en `tasks.md`. **Su implementación espera la aprobación del dueño (Ariel Enriquez).**
+> Nada se renumera.
+
+### Escenario que se mide
+
+| AC | Atributo | Medida que promete el escenario | Requisito existente | Prueba hoy | Prueba nueva |
+|----|----------|---------------------------------|---------------------|------------|--------------|
+| AC005 | Confiabilidad – Consistencia | Como máximo 1 reembolso por pago y origen después de **10 reintentos** | R22, R23 (con R19, R21, R30, R33, R34, R36, R39) | `ReembolsoConcurrenciaIT.dosReintentosALaVez`: 2 reintentos, 5 rondas | `ReembolsoConcurrenciaIT.diezReintentosALaVez` |
+
+### AC005 — 10 reintentos a la vez del mismo reembolso FALLIDO (R22, R23)
+
+- **Solicitudes simultáneas:** 10 `POST /api/admin/reembolsos/{id}/reintento` del admin con sesión, a la vez, sobre el
+  **mismo** reembolso en estado `FALLIDO` (`intentos = 1`), como `dosReintentosALaVez`.
+- **Rondas:** `RONDAS` (5), cada una con un reembolso `FALLIDO` sembrado de nuevo.
+- **Orden forzado, como en la prueba existente:** quien llega a la pasarela espera a que al menos otra solicitud haya
+  respondido. Por eso la primera respuesta es siempre un rechazo *en proceso*; las que llegan después de que el ganador
+  termina pueden ver el reembolso ya `REEMBOLSADO`.
+- **Aserciones por ronda:**
+  1. La pasarela recibe **una sola** solicitud de reembolso en la ronda (`verify(pasarela, times(1)).reembolsar(any())`)
+     (R23).
+  2. Exactamente **1** respuesta 200 (R30) y **9** respuestas 400 (R23).
+  3. Cada 400 trae uno de los dos rechazos válidos y ningún otro: *en proceso*
+     (`ReembolsoAdminService.MENSAJE_EN_PROCESO`, R22, R34) o *ya reembolsado*
+     (`ReembolsoAdminService.MENSAJE_YA_REEMBOLSADO`, R21, R33), según el orden. Al menos uno es *en proceso*.
+  4. Queda exactamente **1** fila en `reembolso` para ese `pago_id` y ese `origen` (R19).
+  5. `intentos` del reembolso sube **en 1** (de 1 a 2) y su estado final es `REEMBOLSADO`.
+  6. Se registra **un solo** `REEMBOLSO_REALIZADO` por ronda (R36); los 400 no registran nada (R39).
+
+### Reglas de la adenda
+
+- **Límites del entorno de prueba.** Si la cantidad choca con un límite (pool de conexiones de las pruebas, el filtro de
+  IPs del admin, un límite por IP), **no se reduce la cantidad ni se toca producción**: solo se ajusta la configuración de
+  prueba con un mecanismo que ya exista y se documenta el ajuste y su motivo en `progress/impl_HU-16.md` y en la evidencia
+  (`progress/calidad_escenarios.md`). Si no hay forma limpia, se para y se pregunta al dueño. Hoy ninguna `ReglaLimite`
+  aplica a las rutas del admin.
+- **Defectos.** Si la prueba falla por un defecto real (de forma consistente o intermitente), **no se modifica
+  `2_Backend/src/main`** ni se relaja la aserción: se registra como `DEF-xx`, siguiendo la numeración que ya existe en
+  `progress/`, con historia, esperado, obtenido, severidad y cómo reproducirlo, y se avisa al dueño.
+- Las pruebas existentes no se modifican ni se borran.
+
+### Trazabilidad de la adenda
+
+| Escenario | Requisito existente | Prueba |
+|-----------|---------------------|--------|
+| AC005: como máximo 1 reembolso por pago y origen después de 10 reintentos | R22, R23; R19, R21, R30, R33, R34, R36, R39 | `ReembolsoConcurrenciaIT.diezReintentosALaVez` |

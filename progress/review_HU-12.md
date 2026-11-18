@@ -231,3 +231,47 @@ base del paso 3 coinciden con `1_Database/compose.yaml` y que el `UPDATE` respet
 a un tiempo mayor, la historia vuelve a `in_progress`.
 
 La carrera entre el job y la creación sigue razonada, no probada con hilos (observación 4 de la vuelta 0).
+
+---
+
+## Adenda AC001–AC002 (2026-11-16)
+
+**Veredicto:** APROBADO
+
+Alcance: `requirements.md` "Adenda 2026-11-16", `design.md` § 14, T24–T26, `progress/impl_HU-12.md` § "Adenda AC001–AC002".
+
+### Trazabilidad adenda ↔ prueba
+- AC001 / R19 (R18, R20, R22): [x] `ReservaConcurrenciaIT.veinteUsuariosElMismoBloque`, `@DisplayName("HU-12 R19 (AC001): 20 usuarios a la vez con el mismo bloque: un 201, 19 rechazos y una fila activa")`.
+  - Hay 20 usuarios distintos (`sesionesDeUsuariosNuevos("usuario", VEINTE)`), 20 solicitudes por `aLaVez` y `RONDAS` (5) con horas 8–12.
+  - Aserción 1: `cuantos(…, 201) == 1` y `cuantos(…, 400) == VEINTE - 1`.
+  - Aserción 2: cada 400 `contains(HORARIO_NO_DISPONIBLE)`.
+  - Aserción 3: `count(*) reserva_bloque … AND activo == 1` por espacio, fecha y hora.
+- AC002 / R24 (HU-08 R20, R40): [x] `ReservaConcurrenciaIT.veinteReservasYBloqueosDeFecha`.
+  - Hay 10 reservas con horas distintas (8+n) y 10 `POST …/bloqueos`, intercaladas: 20 solicitudes simultáneas. Son 5 rondas con `fecha.plusWeeks(ronda)`.
+  - Las aserciones 1 a 6 de la adenda están todas en el código y comentadas con su número.
+  - El `@DisplayName` cita HU-12, R24 y AC002.
+
+### Alcance del cambio
+- `git status --porcelain 2_Backend`: solo cambia `ReservaConcurrenciaIT.java` (más las clases de HU-13 y HU-16). No se tocaron `src/main` ni `src/test/resources`.
+- `git diff`: solo hay inserciones (+134), con 2 imports, 2 constantes, 3 ayudantes privados y 2 `@Test`. Ninguna prueba existente se modificó.
+
+### Tasks
+- T24: [x]
+- T25: [x]
+- T26: [x]. Las tres corridas están en el informe, y yo corrí `./init.sh` completo (ver abajo).
+
+### `./init.sh` completo (reviewer, 2026-11-16)
+`Tests run: 1279, Failures: 0, Errors: 0, Skipped: 0`, con la línea `[OK] Entorno listo. Puedes empezar a trabajar.` y exit 0. No hubo `[FAIL]`.
+En failsafe, `ReservaConcurrenciaIT` da `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0`. Tiempos: `veinteUsuariosElMismoBloque` 6.736 s y `veinteReservasYBloqueosDeFecha` 4.514 s.
+
+### Checkpoints aplicables
+- C1: [x]
+- C2: [x]. Los tests asociados pasan. HU-12 sigue `done`.
+- C3: [x]. No se tocó producción.
+- C4: [x]. La prueba es `*IT` con Testcontainers, usa hilos reales y comprueba códigos HTTP y filas.
+- C6: [x]. Las tasks están `[x]` y la adenda tiene su tabla de trazabilidad.
+- C5: n/a. La rama y el cierre los hace el dueño.
+
+### Observaciones (no bloqueantes)
+1. **El formato `"HU-12 R19 (AC001): …"` no lo cuenta el regex de `init.sh`.** El regex (línea 170) exige `:` justo después de la lista de R. No afecta el resultado: R19 y R24 ya los cubren otras pruebas. Además, el formato lo fija `PROMPT-escenarios-calidad.md` § 2 y ya se usó en HU-25 (`"HU-25 R11 (D2): …"`).
+2. **AC002 no registra qué rama ganó en cada ronda**, como ya señala el implementer. Las aserciones de exclusión (2 y 5) valen igual, pero la evidencia no muestra que se ejercitaron las dos ramas.

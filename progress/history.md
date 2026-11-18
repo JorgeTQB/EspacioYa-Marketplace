@@ -1994,3 +1994,16 @@
   y no envía). No se tocó código de producción; HU-25 sigue `done`.
 - **Verificación:** `RecordatoriosReservaTest` → 14 tests, 0 fallos (surefire). Detalle en `progress/impl_HU-25.md`.
 - **Pendiente (fuera del repo):** en el informe, tabla 10.4 de "5/6" a "6/6" y quitar la observación de 10.5.
+
+## 2026-11-16 — Escenarios de calidad AC001, AC002, AC003 y AC005 (adendas HU-12, HU-13, HU-16)
+
+- **Sebastian** pidió medir los escenarios con la cantidad de intentos que prometen. spec-author escribió adendas
+  (sin requisitos de producción nuevos); aprobaron **Eduardo** (HU-12, HU-13, incluido el criterio de AC002) y
+  **Ariel** (HU-16). El implementer agregó `veinteUsuariosElMismoBloque`, `veinteReservasYBloqueosDeFecha`
+  (`ReservaConcurrenciaIT`), `cincoWebhooksIguales` (`PagoConcurrenciaIT`) y `diezReintentosALaVez`
+  (`ReembolsoConcurrenciaIT`). No se tocó producción ni configuración; las tres historias siguen `done`.
+- **Verificación:** cada clase 3 corridas seguidas en verde; reviewer APROBADO en las tres; `./init.sh` completo
+  exit 0 (`Tests run: 1279, Failures: 0, Errors: 0, Skipped: 0`). Sin DEF.
+- **Evidencia y texto para la tabla 10.3.7:** `progress/calidad_escenarios.md`.
+- **Pendiente:** AC008 (rendimiento); nota de T26 en `specs/HU-16/tasks.md` que aún dice "init.sh pendiente para el
+  reviewer" (ya se corrió).

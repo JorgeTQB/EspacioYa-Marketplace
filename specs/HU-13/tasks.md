@@ -96,3 +96,12 @@ Regla: `WebhookPagoService`, `CheckoutFacade`, `PagoController`, `WebhookPagoCon
 - [x] T41 — Avisos en `progress/HU-13.md`: a Ariel Enriquez (PO y caja negra: D7 revisada, D8, D9; decidir C5; casos sin terminal; `MONTO_DISTINTO` no es caso de pantalla, S20; HU-16 y `reembolsar`), a todo el equipo (S11 ajustado; filas `sim-`, RS-5) y a Eduardo Saldaña (HU-19 y HU-28, RS-5). Cubre: S11, S14, D7.
 - [x] T42 — `progress/impl_HU-13.md`: mapa R59–R87 → test, archivos y tests que cambiaron. `progress/doc_HU-13.md`: verificar contra el código lo marcado como pendiente de la adenda en §2, §3, §5, §8 y §11, llenar §9 con resultados reales y la evidencia de DEF-01 a DEF-04 en §10. Cubre: R59–R87, material del informe.
 - [x] T43 — Verificación automática: `./init.sh` en verde (unitarias, IT con Docker, `npm run lint && npm run build`, revisión de colores y secretos), sin avisos de `R<n>` sin prueba para HU-13. Cubre: R1–R87.
+
+## Adenda 2026-11-16 — Escenario de calidad AC003
+
+> Empiezan cuando **Eduardo Saldaña** apruebe la adenda (`requirements.md`, "Adenda 2026-11-16"; `design.md` § 15). Solo
+> se agrega un método de prueba en `PagoConcurrenciaIT`; no se toca `2_Backend/src/main` ni las pruebas existentes. Si la
+> prueba nueva falla por un defecto real, se registra como `DEF-xx` y se avisa al dueño, sin corregir producción.
+
+- [x] T44 — `PagoConcurrenciaIT.cincoWebhooksIguales` (N): 5 notificaciones de pago aprobado iguales (mismo id, firma válida) a la vez vía `aLaVez`, como `dosWebhooksIguales`; `RONDAS` (5) rondas. Por ronda: cinco 200; 1 fila en `pago` para ese id de transacción; reserva `CONFIRMADA` con un solo `RESERVA_CONFIRMADA` de esa reserva en la auditoría; 1 comprobante y 1 aviso al arrendador. Cubre: R43 (AC003); R42, R44, R45, R48, R49, R53. Test: `PagoConcurrenciaIT`.
+- [x] T45 — Verificación: `./2_Backend/mvnw -f 2_Backend/pom.xml verify -Dit.test=PagoConcurrenciaIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false` en verde **tres veces seguidas** (y `./init.sh` completo en verde al final). En una sección nueva de `progress/impl_HU-13.md` (sin sobrescribir lo anterior): método y `@DisplayName`, solicitudes y rondas reales, todo ajuste de configuración de prueba con su motivo, y los `DEF-xx` si los hubo. Cubre: R43 (AC003).

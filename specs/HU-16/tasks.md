@@ -137,3 +137,22 @@
   revisión de colores y secretos) y `progress/impl_HU-16.md` con el mapa R → test (`@DisplayName`), la lista de los
   únicos tests existentes que cambiaron (reglas de arriba) y la guía de la caja negra de UAT de design § 13 (con
   `PAGOS_SIMULADA_FALLOS_REEMBOLSO=1` y `0`). Cubre: R1–R43.
+
+## Adenda 2026-11-16 — Escenario de calidad AC005
+
+> Empiezan cuando **Ariel Enriquez** apruebe la adenda (`requirements.md`, "Adenda 2026-11-16"; `design.md` § 15). Solo
+> se agrega un método de prueba en `ReembolsoConcurrenciaIT`; no se toca `2_Backend/src/main` ni las pruebas existentes.
+> Si la prueba nueva falla por un defecto real, se registra como `DEF-xx` y se avisa al dueño, sin corregir producción.
+
+- [x] T25 — `ReembolsoConcurrenciaIT.diezReintentosALaVez` (N): 10 `POST /api/admin/reembolsos/{id}/reintento` a la vez
+  sobre el mismo `FALLIDO`, con el mismo `doAnswer` y latch que `dosReintentosALaVez`; `RONDAS` (5) rondas. Por ronda:
+  `verify(pasarela, times(1)).reembolsar(any())`; un 200 y nueve 400; cada 400 con `MENSAJE_EN_PROCESO` o
+  `MENSAJE_YA_REEMBOLSADO` (al menos uno *en proceso*); 1 fila de `reembolso` para ese pago y origen; `intentos` = 2;
+  estado `REEMBOLSADO`; un `REEMBOLSO_REALIZADO` más por ronda. Cubre: R22, R23 (AC005); R19, R21, R30, R33, R34, R36,
+  R39. Test: `ReembolsoConcurrenciaIT`.
+- [x] T26 — Verificación: `./2_Backend/mvnw -f 2_Backend/pom.xml verify -Dit.test=ReembolsoConcurrenciaIT -Dtest=none
+  -Dsurefire.failIfNoSpecifiedTests=false` en verde **tres veces seguidas** (y `./init.sh` completo en verde al final). En
+  una sección nueva de `progress/impl_HU-16.md` (sin sobrescribir lo anterior): método y `@DisplayName`, solicitudes y
+  rondas reales, todo ajuste de configuración de prueba con su motivo, y los `DEF-xx` si los hubo. Cubre: R22, R23
+  (AC005). *Las tres corridas y el informe están hechos; el `./init.sh` completo final queda pendiente para el
+  reviewer (ver `progress/impl_HU-16.md`, "Adenda AC005").*

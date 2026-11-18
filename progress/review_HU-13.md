@@ -271,3 +271,43 @@ Observaciones, sin defecto:
 - `PAGO_EN_REVISION` promete el comprobante también si la reserva expiró en la espera, y en ese caso el pago sería `PAGADO_TARDIO`, sin comprobante (`ResumenReserva.jsx:47`, `textosReservas.js:14`). El texto viene del design.
 - `ReglasPago.idDeReserva` es la tercera copia de esa validación (`FichaService`, `ReservaServiceImpl`). Candidata a `comun` cuando haya una cuarta.
 - `SesionesCheckout.cerrar` retiene la conexión durante el `PUT`, hasta 10 s, solo en el tercer rechazo. Está señalado por el implementer; el riesgo es bajo.
+
+---
+
+## Adenda AC003 (2026-11-16)
+
+**Veredicto:** APROBADO
+
+Alcance: `requirements.md` "Adenda 2026-11-16", `design.md` § 15, T44–T45, `progress/impl_HU-13.md` § "Adenda AC003".
+
+### Trazabilidad adenda ↔ prueba
+- AC003 / R43 (R42, R44, R45, R48, R49, R53): [x] `PagoConcurrenciaIT.cincoWebhooksIguales`, `@DisplayName("HU-13 R43 (AC003): cinco notificaciones iguales a la vez dejan una fila, una confirmación y un correo de cada tipo")`.
+  - Hay `NOTIFICACIONES_IGUALES` (5) solicitudes `notificar(id)` por `aLaVez` y `RONDAS` (5). Cada ronda trae `notificador.reiniciar()`, `vigente()`, un id nuevo y `borrarReservas()`.
+  - Aserción 1: `estados(...).containsOnly(200).hasSize(5)`.
+  - Aserción 2: `filasConTransaccion(id) == 1` y `pagosDe(reserva).hasSize(1)`.
+  - Aserción 3: `estadoDeReserva == "CONFIRMADA"` y `confirmacionesDe(reserva) == 1`. La auditoría se filtra por `entidad_id`.
+  - Aserción 4: `comprobantes().hasSize(1)` y `avisos().hasSize(1)`.
+
+### Alcance del cambio
+- `git diff`: solo hay inserciones (+38), con 1 constante, 1 `@Test` y 2 ayudantes privados. Ninguna prueba existente se modificó.
+- No se tocaron `src/main`, `StubMercadoPago`, los soportes ni `src/test/resources`.
+
+### Tasks
+- T44: [x]
+- T45: [x]. Las tres corridas están en el informe, y yo corrí `./init.sh` completo (ver abajo).
+
+### `./init.sh` completo (reviewer, 2026-11-16)
+`Tests run: 1279, Failures: 0, Errors: 0, Skipped: 0`, con la línea `[OK] Entorno listo. Puedes empezar a trabajar.` y exit 0. No hubo `[FAIL]`.
+En failsafe, `PagoConcurrenciaIT` da `Tests run: 7, Failures: 0, Errors: 0, Skipped: 0`. `cincoWebhooksIguales` tardó 0.371 s.
+
+### Checkpoints aplicables
+- C1: [x]
+- C2: [x]
+- C3: [x]. No se tocó producción.
+- C4: [x]
+- C6: [x]
+- C5: n/a
+
+### Observaciones (no bloqueantes)
+1. **El formato `"HU-13 R43 (AC003): …"` no lo cuenta el regex de `init.sh`** (línea 170). Es la misma situación que en HU-12: R43 ya está cubierto y el formato viene del prompt.
+2. **La ruta de R44 (violación de unicidad atrapada) no se ejercitó.** El bloqueo serializa a las 5 notificaciones antes de leer el id, como documenta el implementer. La aserción vale por R42 o por R44, así que la evidencia de AC003 debe decir que el freno fue R42.
