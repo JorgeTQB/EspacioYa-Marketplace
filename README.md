@@ -20,16 +20,19 @@ estadios, auditorios) con pago en línea.
 | `2_Backend/`         | API REST en Spring Boot (Java) |
 | `3_frontend/`        | SPA en React + Vite |
 | `4_Infraestructure/` | Arquitectura de despliegue en AWS (`arquitectura-aws.html`) |
-| `5_Test/`            | Pruebas (vacía por ahora; las pruebas del backend viven en `2_Backend/src/test/`) |
 | `docs/`              | Historias, requerimientos, arquitectura y convenciones |
 
 Si trabajas con un agente de IA, el punto de entrada es [`AGENTS.md`](AGENTS.md).
 
 ## Cómo levantar el proyecto para probarlo
 
-Necesitas JDK 25, Node 20.19 o superior y Docker Desktop encendido. En
-Windows, corre los comandos desde Git Bash. Cada pieza va en su propia
-terminal, desde la raíz del repo.
+Necesitas JDK 25, Node 20.19 o superior y Docker Desktop encendido. Cada
+pieza va en su propia terminal, desde la raíz del repo.
+
+> **Todos los comandos de este README asumen Git Bash** (viene con
+> [Git for Windows](https://git-scm.com/download/win)). No funcionan en
+> PowerShell ni en CMD: usan `export`, `read -s`, `~/.bashrc` y `./mvnw`. En
+> Linux o macOS sirven tal cual en cualquier terminal bash.
 
 ### 1. Base de datos (PostgreSQL 17 en Docker)
 
@@ -60,8 +63,15 @@ necesitas las llaves de nadie más. Desde Git Bash:
 echo "export CIFRADO_LLAVE=$(openssl rand -base64 32)" >> ~/.bashrc
 echo "export CIFRADO_LLAVE_HUELLA=$(openssl rand -base64 32)" >> ~/.bashrc
 echo "export ALMACENAMIENTO_LLAVE_FIRMA=$(openssl rand -base64 32)" >> ~/.bashrc
+echo 'export MSYS2_ENV_CONV_EXCL="CIFRADO_LLAVE;CIFRADO_LLAVE_HUELLA;ALMACENAMIENTO_LLAVE_FIRMA"' >> ~/.bashrc
 source ~/.bashrc
 ```
+
+La cuarta línea es obligatoria en Git Bash: sin ella, una llave que empieza
+con `/` (pasa 1 de cada 64 veces) le llega a Java convertida en ruta
+(`C:/Program Files/Git/...`) y el backend no arranca con el error
+`Falta <VARIABLE> o no es una llave...`, aunque la llave esté bien. Si tus llaves ya estaban en `~/.bashrc`, agrega solo
+esa línea.
 
 Así quedan guardadas en `~/.bashrc` y cada terminal nueva de Git Bash ya las
 trae. Corre cada línea **una sola vez**: si una variable aparece dos veces en

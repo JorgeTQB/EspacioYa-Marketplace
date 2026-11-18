@@ -1994,3 +1994,26 @@
   y no envía). No se tocó código de producción; HU-25 sigue `done`.
 - **Verificación:** `RecordatoriosReservaTest` → 14 tests, 0 fallos (surefire). Detalle en `progress/impl_HU-25.md`.
 - **Pendiente (fuera del repo):** en el informe, tabla 10.4 de "5/6" a "6/6" y quitar la observación de 10.5.
+
+## 2026-11-16 — Informe, cap. 6: arquitectura AWS actualizada (sdd: false, fuera del repo)
+
+- **Jorge** pidió alinear el punto 6 del informe con el despliegue real (sin CloudFront ni SES).
+- **Cambios en el .docx** (`Downloads/Documentacion del Proyecto Final_2026_2 (3).docx`): ST06 (6.1); R02, R08, R14 y
+  nueva **R15 – AWS Academy Learner Lab** (6.4); fila de integraciones de la tabla 6.4 (6.5); subsistema cliente y
+  `AlmacenamientoS3` (6.7); listas iniciales de 6.9 (restricciones, atributos y decisiones); referencias a R15 en la
+  tabla 6.20.
+- **Figuras:** 6.6 y 6.12 regeneradas desde `Proyecto Software Contexto/6.7_Vista_logica_v2.drawio` y
+  `6.8_Vista_implementacion_v2.drawio` (AlmacenamientoS3, correo SMTP/simulado, sin Amazon SES).
+- **Tabla 6.5** rehecha con los estilos reales (monolito modular, capas, cliente-servidor, MVC, puertos, Repository/DAO, Adapter, Strategy en reembolsos); se quitaron el texto guía y el "Ejemplo de justificación" de la plantilla.
+
+## 2026-11-17 — README validado para la entrega del código fuente (sdd: false)
+
+- **Jorge** pidió validar que `master` (`f922e68`, mismo árbol que `develop` `ccc74c7`) se levante solo con el README.
+- **Validación:** copia limpia con `git archive origin/master`, base PostgreSQL vacía: 25 migraciones de Flyway,
+  `Started EspacioYaApplication`, `curl` de HU-01 (200 y 202, CORS a `localhost:5173`), comando de admin
+  (`Cuenta admin creada`), frontend `npm install` + `build` + `dev` sin errores.
+- **Bug encontrado:** Git Bash (MSYS) convierte en ruta cualquier variable de entorno que empiece con `/` al lanzar
+  Java; una llave base64 así (1 de cada 64) hacía fallar el arranque con `Falta <VARIABLE>…`.
+- **Cambios en `README.md`:** línea `MSYS2_ENV_CONV_EXCL` en el bloque de llaves (verificada con una llave que
+  empieza con `/`), aviso de que todos los comandos asumen Git Bash, y se quitó `5_Test/` de la tabla de estructura.
+  Se borró la carpeta vacía `5_Test/` (no estaba versionada).
